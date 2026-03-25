@@ -4,6 +4,7 @@ import { Shell } from '@/components/layout/shell';
 import { Dashboard } from '@/routes/index';
 import { CaseListPage } from '@/routes/cases/index';
 import { CaseDetailPage } from '@/routes/cases/[caseId]/index';
+import { AssetsPage } from '@/routes/cases/[caseId]/assets';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +42,10 @@ export function App(): React.ReactElement {
             <Route
               path="cases/:caseId"
               element={<CaseDetailPage />}
+            />
+            <Route
+              path="cases/:caseId/assets"
+              element={<AssetsPage />}
             />
             <Route path="*" element={<NotFound />} />
           </Route>
