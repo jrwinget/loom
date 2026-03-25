@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import (
 
 from loom.api.router import api_router
 from loom.config import get_settings
+from loom.security.audit import AuditMiddleware
 
 
 def _configure_logging(log_level: str) -> None:
@@ -110,6 +111,9 @@ def create_app() -> FastAPI:
 
     # routes
     application.include_router(api_router, prefix="/api/v1")
+
+    # audit middleware
+    application.add_middleware(AuditMiddleware)
 
     return application
 
