@@ -1,0 +1,102 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-loom}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-loom_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-loom}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loom"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-loom_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-loom_minio_dev}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio-setup:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set loom http://minio:9000
+        $${MINIO_ROOT_USER:-loom_minio}
+        $${MINIO_ROOT_PASSWORD:-loom_minio_dev};
+      mc mb --ignore-existing loom/loom-originals;
+      mc mb --ignore-existing loom/loom-derivatives;
+      mc anonymous set none loom/loom-originals;
+      mc anonymous set none loom/loom-derivatives;
+      exit 0;
+      "
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    environment:
+      DB: postgresql
+      DB_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-loom}
+      POSTGRES_PWD: ${POSTGRES_PASSWORD:-loom_dev}
+      POSTGRES_SEEDS: postgres
+      DYNAMIC_CONFIG_FILE_PATH: /etc/temporal/dynamicconfig/development.yaml
+      TEMPORAL_ADDRESS: temporal:7233
+      DEFAULT_NAMESPACE: loom
+    ports:
+      - "${TEMPORAL_PORT:-7233}:7233"
+    volumes:
+      - ./temporal/dynamicconfig:/etc/temporal/dynamicconfig
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+    ports:
+      - "${TEMPORAL_UI_PORT:-8080}:8080"
+    depends_on:
+      temporal:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "${NGINX_PORT:-8888}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - postgres
+      - minio
+    profiles:
+      - production
+
+volumes:
+  postgres-data:
+  minio-data:

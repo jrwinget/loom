@@ -1,0 +1,4 @@
+# temporal dynamic config for local development
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+    constraints: {}
