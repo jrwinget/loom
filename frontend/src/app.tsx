@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Shell } from '@/components/layout/shell';
 import { Dashboard } from '@/routes/index';
+import { CaseListPage } from '@/routes/cases/index';
+import { CaseDetailPage } from '@/routes/cases/[caseId]/index';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,6 +34,14 @@ export function App(): React.ReactElement {
         <Routes>
           <Route element={<Shell />}>
             <Route index element={<Dashboard />} />
+            <Route
+              path="cases"
+              element={<CaseListPage />}
+            />
+            <Route
+              path="cases/:caseId"
+              element={<CaseDetailPage />}
+            />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>

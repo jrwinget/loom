@@ -2,6 +2,8 @@ export const queryKeys = {
   cases: {
     all: ['cases'] as const,
     detail: (id: string) => ['cases', id] as const,
+    members: (caseId: string) =>
+      ['cases', caseId, 'members'] as const,
   },
   assets: {
     byCase: (caseId: string) => ['assets', caseId] as const,

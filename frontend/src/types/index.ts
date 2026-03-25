@@ -10,7 +10,28 @@ export interface Case {
   name: string;
   description: string;
   status: string;
+  assetCount: number;
+  eventCount: number;
   createdAt: string;
+}
+
+export interface CaseMember {
+  id: string;
+  userId: string;
+  displayName: string;
+  email: string;
+  role: string;
+}
+
+export interface CreateCasePayload {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateCasePayload {
+  name?: string;
+  description?: string;
+  status?: string;
 }
 
 export interface ApiError {
