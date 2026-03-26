@@ -65,7 +65,12 @@ def diarize_audio(audio_path: str) -> list[dict[str, Any]]:
         logger.warning("pyannote.audio not installed; skipping diarization")
         return []
 
-    pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1")
+    pipeline = Pipeline.from_pretrained(
+        "pyannote/speaker-diarization-3.1",
+    )
+    if pipeline is None:
+        logger.warning("failed to load pyannote pipeline")
+        return []
     diarization = pipeline(audio_path)
 
     results: list[dict[str, Any]] = []
