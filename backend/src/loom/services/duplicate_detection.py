@@ -222,31 +222,28 @@ async def find_duplicates(
 def _connected_components(
     pairs: list[tuple[str, str]],
 ) -> list[set[str]]:
-    """build connected components from edge pairs."""
-    parent: dict[str, str] = {}
+    """build connected components from string edge pairs.
 
-    def find(x: str) -> str:
-        while parent.get(x, x) != x:
-            parent[x] = parent.get(parent[x], parent[x])
-            x = parent[x]
-        return x
+    wraps graph_utils.connected_components which operates on
+    integer indices.
+    """
+    from loom.services.graph_utils import (
+        connected_components as _cc,
+    )
 
-    def union(a: str, b: str) -> None:
-        ra, rb = find(a), find(b)
-        if ra != rb:
-            parent[ra] = rb
-
+    # map strings to integer indices
+    nodes: list[str] = []
+    node_idx: dict[str, int] = {}
     for a, b in pairs:
-        parent.setdefault(a, a)
-        parent.setdefault(b, b)
-        union(a, b)
+        for x in (a, b):
+            if x not in node_idx:
+                node_idx[x] = len(nodes)
+                nodes.append(x)
 
-    groups: dict[str, set[str]] = {}
-    for node in parent:
-        root = find(node)
-        groups.setdefault(root, set()).add(node)
+    int_pairs = [(node_idx[a], node_idx[b]) for a, b in pairs]
+    components = _cc(int_pairs, len(nodes))
 
-    return list(groups.values())
+    return [{nodes[i] for i in comp} for comp in components]
 
 
 async def create_cluster(
