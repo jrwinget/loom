@@ -29,6 +29,7 @@ node_modules/
 frontend/dist/
 frontend/build/
 *.tsbuildinfo
+frontend/*.config.d.ts
 
 # vite
 frontend/stats.html
