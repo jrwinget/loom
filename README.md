@@ -136,8 +136,8 @@ make lint           # all linters
   transcript-linked review
 - **Phase 3** (complete): Cross-source event clustering, contradiction surfacing,
   map/time alignment, multi-video sync, report drafting with PDF export
-- **Phase 4**: C2PA provenance packaging, multi-chapter collaboration, plugin
-  architecture
+- **Phase 4** (complete): C2PA provenance packaging, multi-chapter collaboration,
+  plugin architecture with webhooks
 
 ## Project Structure
 
