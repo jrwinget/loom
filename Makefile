@@ -1,4 +1,4 @@
-.PHONY: dev test lint up down clean help
+.PHONY: dev test lint up down build deploy clean help
 
 help: ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -43,6 +43,14 @@ format: ## auto-format all code
 
 migrate: ## run database migrations
 	cd backend && uv run alembic upgrade head
+
+build: ## build docker images
+	docker build -t loom-backend:latest backend/
+	docker build -t loom-worker:latest -f backend/Dockerfile.worker backend/
+	docker build -t loom-frontend:latest frontend/
+
+deploy: build ## build and start full stack with docker compose
+	docker compose -f docker/docker-compose.yml --profile app up -d
 
 clean: ## remove build artifacts and caches
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

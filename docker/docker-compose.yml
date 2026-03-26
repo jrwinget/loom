@@ -85,6 +85,63 @@ services:
       temporal:
         condition: service_healthy
 
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment:
+      LOOM_DATABASE_URL: >-
+        postgresql+asyncpg://${POSTGRES_USER:-loom}:${POSTGRES_PASSWORD:-loom_dev}@postgres:5432/${POSTGRES_DB:-loom}
+      LOOM_MINIO_ENDPOINT: minio:9000
+      LOOM_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-loom_minio}
+      LOOM_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-loom_minio_dev}
+      LOOM_MINIO_SECURE: "false"
+      LOOM_TEMPORAL_HOST: temporal:7233
+      LOOM_SECRET_KEY: ${LOOM_SECRET_KEY:?Set LOOM_SECRET_KEY in .env}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
+    profiles:
+      - app
+
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.worker
+    environment:
+      LOOM_DATABASE_URL: >-
+        postgresql+asyncpg://${POSTGRES_USER:-loom}:${POSTGRES_PASSWORD:-loom_dev}@postgres:5432/${POSTGRES_DB:-loom}
+      LOOM_MINIO_ENDPOINT: minio:9000
+      LOOM_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-loom_minio}
+      LOOM_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-loom_minio_dev}
+      LOOM_MINIO_SECURE: "false"
+      LOOM_TEMPORAL_HOST: temporal:7233
+      LOOM_SECRET_KEY: ${LOOM_SECRET_KEY:?Set LOOM_SECRET_KEY in .env}
+    depends_on:
+      temporal:
+        condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
+    profiles:
+      - app
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    profiles:
+      - app
+
   nginx:
     image: nginx:alpine
     ports:
@@ -92,8 +149,8 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - postgres
-      - minio
+      - backend
+      - frontend
     profiles:
       - production
 
