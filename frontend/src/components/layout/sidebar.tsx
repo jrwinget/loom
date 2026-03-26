@@ -4,6 +4,7 @@ import { useUiStore } from '@/stores/ui-store';
 const navItems = [
   { label: 'Dashboard', path: '/' },
   { label: 'Cases', path: '/cases' },
+  { label: 'Organizations', path: '/organizations' },
 ] as const;
 
 export function Sidebar(): React.ReactElement {
@@ -60,6 +61,13 @@ export function Sidebar(): React.ReactElement {
             {sidebarOpen ? 'Map' : 'M'}
           </Link>
         )}
+        {/* settings */}
+        <Link
+          to="/settings/plugins"
+          className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          {sidebarOpen ? 'Settings' : 'S'}
+        </Link>
       </nav>
 
       {/* collapse / expand */}

@@ -11,6 +11,8 @@ import { ExportPage } from '@/routes/cases/[caseId]/export';
 import { ClustersPage } from '@/routes/cases/[caseId]/clusters';
 import { MapPage } from '@/routes/cases/[caseId]/map';
 import { ReviewPage } from '@/routes/cases/[caseId]/review';
+import { OrganizationsPage } from '@/routes/organizations/index';
+import { PluginsSettingsPage } from '@/routes/settings/plugins';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,6 +41,7 @@ export function App(): React.ReactElement {
         <Routes>
           <Route element={<Shell />}>
             <Route index element={<Dashboard />} />
+            <Route path="organizations" element={<OrganizationsPage />} />
             <Route path="cases" element={<CaseListPage />} />
             <Route path="cases/:caseId" element={<CaseDetailPage />} />
             <Route path="cases/:caseId/assets" element={<AssetsPage />} />
@@ -51,6 +54,7 @@ export function App(): React.ReactElement {
               path="cases/:caseId/review/:assetId"
               element={<ReviewPage />}
             />
+            <Route path="settings/plugins" element={<PluginsSettingsPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
