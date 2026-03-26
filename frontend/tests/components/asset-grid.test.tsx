@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AssetGrid } from
   '@/components/asset/asset-grid';
@@ -35,10 +36,12 @@ describe('AssetGrid', () => {
       makeAsset({ id: 'a3' }),
     ];
     render(
-      <AssetGrid
-        assets={assets}
-        onSelect={onSelect}
-      />,
+      <MemoryRouter>
+        <AssetGrid
+          assets={assets}
+          onSelect={onSelect}
+        />
+      </MemoryRouter>,
     );
     expect(
       screen.getByTestId('asset-card-a1'),
@@ -93,10 +96,12 @@ describe('AssetGrid', () => {
       }),
     ];
     render(
-      <AssetGrid
-        assets={assets}
-        onSelect={onSelect}
-      />,
+      <MemoryRouter>
+        <AssetGrid
+          assets={assets}
+          onSelect={onSelect}
+        />
+      </MemoryRouter>,
     );
     const badges = screen.getAllByTestId(
       'media-type-badge',

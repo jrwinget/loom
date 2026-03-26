@@ -27,6 +27,31 @@ export const queryKeys = {
     detail: (id: string) =>
       ['exports', 'detail', id] as const,
   },
+  transcripts: {
+    byAsset: (caseId: string, assetId: string) =>
+      ['transcripts', caseId, assetId] as const,
+  },
+  scenes: {
+    byAsset: (caseId: string, assetId: string) =>
+      ['scenes', caseId, assetId] as const,
+  },
+  search: {
+    results: (
+      caseId: string,
+      query: string,
+      types?: string[],
+    ) =>
+      [
+        'search',
+        caseId,
+        query,
+        types,
+      ] as const,
+  },
+  duplicates: {
+    byCase: (caseId: string) =>
+      ['duplicates', caseId] as const,
+  },
   users: {
     me: ['users', 'me'] as const,
   },

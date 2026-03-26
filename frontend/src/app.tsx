@@ -7,6 +7,7 @@ import { CaseDetailPage } from '@/routes/cases/[caseId]/index';
 import { AssetsPage } from '@/routes/cases/[caseId]/assets';
 import { TimelinePage } from '@/routes/cases/[caseId]/timeline';
 import { ExportPage } from '@/routes/cases/[caseId]/export';
+import { ReviewPage } from '@/routes/cases/[caseId]/review';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,6 +57,10 @@ export function App(): React.ReactElement {
             <Route
               path="cases/:caseId/export"
               element={<ExportPage />}
+            />
+            <Route
+              path="cases/:caseId/review/:assetId"
+              element={<ReviewPage />}
             />
             <Route path="*" element={<NotFound />} />
           </Route>

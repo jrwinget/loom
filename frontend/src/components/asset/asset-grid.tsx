@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { Asset, MediaType } from '@/types/asset';
 
 interface AssetGridProps {
@@ -259,6 +260,22 @@ export function AssetGrid(
                   }`}
               />
             </div>
+
+            {/* review link */}
+            <Link
+              to={
+                `/cases/${asset.caseId}` +
+                `/review/${asset.id}`
+              }
+              data-testid={`review-link-${asset.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="mt-2 inline-flex items-center
+                rounded bg-primary/10 px-2 py-0.5
+                text-xs font-medium text-primary
+                hover:bg-primary/20"
+            >
+              Review
+            </Link>
           </button>
         ))}
       </div>
