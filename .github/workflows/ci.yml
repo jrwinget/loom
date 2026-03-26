@@ -92,18 +92,19 @@ jobs:
           --health-timeout 5s
           --health-retries 5
       minio:
-        image: bitnami/minio:latest
+        image: quay.io/minio/minio:latest
         env:
           MINIO_ROOT_USER: loom_minio
           MINIO_ROOT_PASSWORD: loom_minio_test
-          MINIO_DEFAULT_BUCKETS: "loom-originals,loom-derivatives"
         ports:
           - 9000:9000
         options: >-
           --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
+          --health-start-period 10s
+          --entrypoint "minio server /data"
     env:
       LOOM_DATABASE_URL: >-
         postgresql+asyncpg://loom:loom_test@localhost:5432/loom_test
