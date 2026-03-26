@@ -43,6 +43,19 @@ export const queryKeys = {
   duplicates: {
     byCase: (caseId: string) => ['duplicates', caseId] as const,
   },
+  clusters: {
+    byCase: (caseId: string, status?: string) =>
+      ['clusters', caseId, status] as const,
+    detail: (caseId: string, clusterId: string) =>
+      ['clusters', caseId, clusterId] as const,
+  },
+  geo: {
+    assets: (caseId: string, timeStart?: string, timeEnd?: string) =>
+      ['geo', caseId, 'assets', timeStart, timeEnd] as const,
+    events: (caseId: string, timeStart?: string, timeEnd?: string) =>
+      ['geo', caseId, 'events', timeStart, timeEnd] as const,
+    bounds: (caseId: string) => ['geo', caseId, 'bounds'] as const,
+  },
   users: {
     me: ['users', 'me'] as const,
   },

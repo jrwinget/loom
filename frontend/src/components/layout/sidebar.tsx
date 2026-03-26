@@ -44,6 +44,22 @@ export function Sidebar(): React.ReactElement {
             {sidebarOpen ? 'Conflicts' : 'C'}
           </Link>
         )}
+        {caseId && (
+          <Link
+            to={`/cases/${caseId}/clusters`}
+            className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            {sidebarOpen ? 'Clusters' : 'K'}
+          </Link>
+        )}
+        {caseId && (
+          <Link
+            to={`/cases/${caseId}/map`}
+            className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            {sidebarOpen ? 'Map' : 'M'}
+          </Link>
+        )}
       </nav>
 
       {/* collapse / expand */}
