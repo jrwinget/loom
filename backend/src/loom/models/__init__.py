@@ -5,6 +5,7 @@ from loom.models.base import Base
 from loom.models.case import Case, CaseMembership
 from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.models.derivative import Derivative
+from loom.models.duplicate import DuplicateCluster, DuplicateClusterMember
 from loom.models.export_bundle import ExportBundle
 from loom.models.ocr import OcrRegion
 from loom.models.scene import Scene
@@ -21,6 +22,8 @@ __all__ = [
     "CaseMembership",
     "ChainOfCustodyEntry",
     "Derivative",
+    "DuplicateCluster",
+    "DuplicateClusterMember",
     "ExportBundle",
     "OcrRegion",
     "Scene",
