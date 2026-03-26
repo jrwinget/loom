@@ -131,11 +131,11 @@ make lint           # all linters
 
 - **Phase 1** (complete): Immutable ingest, chain of custody, metadata extraction,
   proxy generation, case workspace, manual timeline/annotation, export bundles
-- **Phase 2** (current): Transcription (faster-whisper), OCR (Tesseract), scene
+- **Phase 2** (complete): Transcription (faster-whisper), OCR (Tesseract), scene
   detection (PySceneDetect), full-text search, duplicate clustering,
   transcript-linked review
-- **Phase 3**: Cross-source event clustering, contradiction surfacing, map/time
-  alignment, report drafting with evidence citations
+- **Phase 3** (complete): Cross-source event clustering, contradiction surfacing,
+  map/time alignment, multi-video sync, report drafting with PDF export
 - **Phase 4**: C2PA provenance packaging, multi-chapter collaboration, plugin
   architecture
 
