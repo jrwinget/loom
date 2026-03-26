@@ -1,8 +1,4 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
 import type { DuplicateCluster } from '@/types/transcript';
@@ -18,10 +14,9 @@ export function useDuplicates(
   return useQuery({
     queryKey: queryKeys.duplicates.byCase(caseId),
     queryFn: async () => {
-      const res =
-        await apiClient.get<DuplicateListResponse>(
-          `/cases/${caseId}/duplicates`,
-        );
+      const res = await apiClient.get<DuplicateListResponse>(
+        `/cases/${caseId}/duplicates`,
+      );
       return res.clusters;
     },
     enabled: !!caseId,
@@ -34,16 +29,12 @@ interface ScanResponse {
 
 export function useScanDuplicates(
   caseId: string,
-): ReturnType<
-  typeof useMutation<ScanResponse, Error, void>
-> {
+): ReturnType<typeof useMutation<ScanResponse, Error, void>> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: () =>
-      apiClient.post<ScanResponse>(
-        `/cases/${caseId}/duplicates/scan`,
-      ),
+      apiClient.post<ScanResponse>(`/cases/${caseId}/duplicates/scan`),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.duplicates.byCase(caseId),
@@ -60,11 +51,7 @@ interface UpdateClusterVars {
 }
 
 export function useUpdateCluster(): ReturnType<
-  typeof useMutation<
-    DuplicateCluster,
-    Error,
-    UpdateClusterVars
-  >
+  typeof useMutation<DuplicateCluster, Error, UpdateClusterVars>
 > {
   const queryClient = useQueryClient();
 
@@ -81,9 +68,7 @@ export function useUpdateCluster(): ReturnType<
       ),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.duplicates.byCase(
-          variables.caseId,
-        ),
+        queryKey: queryKeys.duplicates.byCase(variables.caseId),
       });
     },
   });

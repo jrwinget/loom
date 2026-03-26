@@ -1,12 +1,9 @@
-import type { EventStatus, ZoomLevel } from
-  '@/types/timeline';
+import type { EventStatus, ZoomLevel } from '@/types/timeline';
 
 interface TimelineControlsProps {
   onAddEvent: () => void;
   statusFilter: EventStatus | 'all';
-  onStatusFilterChange: (
-    status: EventStatus | 'all',
-  ) => void;
+  onStatusFilterChange: (status: EventStatus | 'all') => void;
   zoomLevel: ZoomLevel;
   onZoomChange: (zoom: ZoomLevel) => void;
 }
@@ -45,16 +42,13 @@ export function TimelineControls(
   return (
     <div
       data-testid="timeline-controls"
-      className="flex flex-wrap items-center gap-3
-        rounded-lg border border-border bg-card p-3"
+      className="bg-card flex flex-wrap items-center gap-3 rounded-lg border border-border p-3"
     >
       {/* add event button */}
       <button
         type="button"
         data-testid="add-event-btn"
-        className="rounded-md bg-primary px-3 py-1.5
-          text-sm font-medium text-primary-foreground
-          hover:bg-primary/90"
+        className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         onClick={onAddEvent}
       >
         Add Event
@@ -71,13 +65,10 @@ export function TimelineControls(
         <select
           id="status-filter"
           data-testid="status-filter"
-          className="rounded-md border border-input
-            bg-background px-2 py-1 text-xs"
+          className="rounded-md border border-input bg-background px-2 py-1 text-xs"
           value={statusFilter}
           onChange={(e) =>
-            onStatusFilterChange(
-              e.target.value as EventStatus | 'all',
-            )
+            onStatusFilterChange(e.target.value as EventStatus | 'all')
           }
         >
           {statusOptions.map((opt) => (
@@ -89,25 +80,16 @@ export function TimelineControls(
       </div>
 
       {/* zoom control */}
-      <div className="flex items-center gap-1.5
-        ml-auto">
-        <label
-          htmlFor="zoom-level"
-          className="text-xs text-muted-foreground"
-        >
+      <div className="ml-auto flex items-center gap-1.5">
+        <label htmlFor="zoom-level" className="text-xs text-muted-foreground">
           Zoom:
         </label>
         <select
           id="zoom-level"
           data-testid="zoom-level"
-          className="rounded-md border border-input
-            bg-background px-2 py-1 text-xs"
+          className="rounded-md border border-input bg-background px-2 py-1 text-xs"
           value={zoomLevel}
-          onChange={(e) =>
-            onZoomChange(
-              e.target.value as ZoomLevel,
-            )
-          }
+          onChange={(e) => onZoomChange(e.target.value as ZoomLevel)}
         >
           {zoomOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>

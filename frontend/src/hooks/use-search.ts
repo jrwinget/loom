@@ -9,10 +9,7 @@ function useDebounce(value: string, delay: number): string {
   const [debounced, setDebounced] = useState(value);
 
   useEffect(() => {
-    const timer = setTimeout(
-      () => setDebounced(value),
-      delay,
-    );
+    const timer = setTimeout(() => setDebounced(value), delay);
     return () => clearTimeout(timer);
   }, [value, delay]);
 
@@ -27,11 +24,7 @@ export function useSearch(
   const debouncedQuery = useDebounce(query, 300);
 
   return useQuery({
-    queryKey: queryKeys.search.results(
-      caseId,
-      debouncedQuery,
-      types,
-    ),
+    queryKey: queryKeys.search.results(caseId, debouncedQuery, types),
     queryFn: () => {
       const params = new URLSearchParams({
         q: debouncedQuery,
@@ -43,7 +36,6 @@ export function useSearch(
         `/cases/${caseId}/search?${params.toString()}`,
       );
     },
-    enabled:
-      !!caseId && debouncedQuery.trim().length >= 2,
+    enabled: !!caseId && debouncedQuery.trim().length >= 2,
   });
 }

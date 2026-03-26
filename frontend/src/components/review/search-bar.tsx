@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearch } from '@/hooks/use-search';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
 import type { SearchResult } from '@/types/transcript';
@@ -21,24 +16,14 @@ const typeLabels: Record<string, string> = {
   asset: 'Assets',
 };
 
-const typeOrder = [
-  'transcript',
-  'ocr',
-  'annotation',
-  'event',
-  'asset',
-];
+const typeOrder = ['transcript', 'ocr', 'annotation', 'event', 'asset'];
 
-export function SearchBar(
-  props: SearchBarProps,
-): React.ReactElement {
+export function SearchBar(props: SearchBarProps): React.ReactElement {
   const { caseId, onResultClick } = props;
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<
-    string | null
-  >(null);
+  const [activeTab, setActiveTab] = useState<string | null>(null);
 
   const { data } = useSearch(caseId, query);
 
@@ -52,18 +37,13 @@ export function SearchBar(
     }
   }
 
-  const availableTypes = typeOrder.filter(
-    (t) => grouped.has(t),
-  );
+  const availableTypes = typeOrder.filter((t) => grouped.has(t));
 
   // reset active tab when results change
   useEffect(() => {
     if (availableTypes.length > 0 && !activeTab) {
       setActiveTab(availableTypes[0]);
-    } else if (
-      activeTab &&
-      !availableTypes.includes(activeTab)
-    ) {
+    } else if (activeTab && !availableTypes.includes(activeTab)) {
       setActiveTab(availableTypes[0] ?? null);
     }
   }, [availableTypes, activeTab]);
@@ -79,15 +59,12 @@ export function SearchBar(
   );
 
   // escape to close
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setOpen(false);
-        inputRef.current?.blur();
-      }
-    },
-    [],
-  );
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setOpen(false);
+      inputRef.current?.blur();
+    }
+  }, []);
 
   const handleResultClick = useCallback(
     (result: SearchResult) => {
@@ -99,26 +76,18 @@ export function SearchBar(
   );
 
   // highlight matching text in snippet
-  function highlightMatch(
-    text: string,
-    q: string,
-  ): React.ReactElement {
+  function highlightMatch(text: string, q: string): React.ReactElement {
     if (!q.trim()) {
       return <span>{text}</span>;
     }
-    const idx = text
-      .toLowerCase()
-      .indexOf(q.toLowerCase());
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
     if (idx === -1) {
       return <span>{text}</span>;
     }
     return (
       <span>
         {text.slice(0, idx)}
-        <mark
-          className="bg-yellow-200
-            dark:bg-yellow-800"
-        >
+        <mark className="bg-yellow-200 dark:bg-yellow-800">
           {text.slice(idx, idx + q.length)}
         </mark>
         {text.slice(idx + q.length)}
@@ -127,15 +96,10 @@ export function SearchBar(
   }
 
   return (
-    <div
-      data-testid="search-bar"
-      className="relative w-full max-w-xl"
-    >
+    <div data-testid="search-bar" className="relative w-full max-w-xl">
       <div className="relative">
         <span
-          className="pointer-events-none absolute
-            left-2 top-1/2 -translate-y-1/2
-            text-muted-foreground"
+          className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
           aria-hidden="true"
         >
           &#x1F50D;
@@ -152,11 +116,7 @@ export function SearchBar(
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search (Ctrl+K)"
-          className="w-full rounded border border-border
-            bg-card py-1.5 pl-8 pr-3 text-sm
-            text-foreground placeholder:text-muted-foreground
-            focus:outline-none focus:ring-2
-            focus:ring-primary/50"
+          className="bg-card w-full rounded border border-border py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
         />
       </div>
 
@@ -164,36 +124,25 @@ export function SearchBar(
       {open && query.trim().length >= 2 && (
         <div
           data-testid="search-results"
-          className="absolute left-0 right-0 top-full
-            z-50 mt-1 max-h-80 overflow-y-auto
-            rounded border border-border bg-card
-            shadow-lg"
+          className="bg-card absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded border border-border shadow-lg"
         >
           {/* type tabs */}
           {availableTypes.length > 0 && (
-            <div
-              className="flex border-b border-border"
-            >
+            <div className="flex border-b border-border">
               {availableTypes.map((t) => (
                 <button
                   key={t}
                   type="button"
                   data-testid={`search-tab-${t}`}
                   onClick={() => setActiveTab(t)}
-                  className={`px-3 py-1.5 text-xs
-                    font-medium transition-colors ${
-                      activeTab === t
-                        ? 'border-b-2 border-primary' +
-                          ' text-foreground'
-                        : 'text-muted-foreground' +
-                          ' hover:text-foreground'
-                    }`}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    activeTab === t
+                      ? 'border-b-2 border-primary' + ' text-foreground'
+                      : 'text-muted-foreground' + ' hover:text-foreground'
+                  }`}
                 >
                   {typeLabels[t] ?? t}
-                  <span
-                    className="ml-1
-                      text-muted-foreground"
-                  >
+                  <span className="ml-1 text-muted-foreground">
                     {grouped.get(t)?.length ?? 0}
                   </span>
                 </button>
@@ -209,14 +158,9 @@ export function SearchBar(
                 type="button"
                 data-testid={`search-result-${r.id}`}
                 onClick={() => handleResultClick(r)}
-                className="flex w-full items-start
-                  gap-2 px-3 py-2 text-left
-                  transition-colors hover:bg-accent/30"
+                className="flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/30"
               >
-                <span
-                  className="mt-0.5 text-xs font-medium
-                    text-muted-foreground"
-                >
+                <span className="mt-0.5 text-xs font-medium text-muted-foreground">
                   {r.type}
                 </span>
                 <span className="text-sm text-foreground">
@@ -226,10 +170,7 @@ export function SearchBar(
             ))}
 
           {availableTypes.length === 0 && (
-            <p
-              className="p-3 text-sm
-                text-muted-foreground"
-            >
+            <p className="p-3 text-sm text-muted-foreground">
               No results found
             </p>
           )}

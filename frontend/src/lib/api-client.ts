@@ -15,10 +15,7 @@ class ApiClientError extends Error {
   }
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = useAuthStore.getState().token;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -58,8 +55,7 @@ async function request<T>(
 }
 
 export const apiClient = {
-  get: <T>(path: string): Promise<T> =>
-    request<T>(path, { method: 'GET' }),
+  get: <T>(path: string): Promise<T> => request<T>(path, { method: 'GET' }),
 
   post: <T>(path: string, body?: unknown): Promise<T> =>
     request<T>(path, {

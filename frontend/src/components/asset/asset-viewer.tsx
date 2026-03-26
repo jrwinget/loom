@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
 import type { Asset } from '@/types/asset';
 
@@ -32,20 +27,14 @@ function formatTime(seconds: number): string {
   );
 }
 
-function VideoViewer(
-  props: { src: string },
-): React.ReactElement {
+function VideoViewer(props: { src: string }): React.ReactElement {
   const { src } = props;
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [inPoint, setInPoint] = useState<number | null>(
-    null,
-  );
-  const [outPoint, setOutPoint] = useState<number | null>(
-    null,
-  );
+  const [inPoint, setInPoint] = useState<number | null>(null);
+  const [outPoint, setOutPoint] = useState<number | null>(null);
 
   // ~30fps frame estimate
   const frameNumber = Math.floor(currentTime * 30);
@@ -65,10 +54,7 @@ function VideoViewer(
   const skip = useCallback((delta: number) => {
     const v = videoRef.current;
     if (!v) return;
-    v.currentTime = Math.max(
-      0,
-      Math.min(v.duration, v.currentTime + delta),
-    );
+    v.currentTime = Math.max(0, Math.min(v.duration, v.currentTime + delta));
   }, []);
 
   const markIn = useCallback(() => {
@@ -80,31 +66,11 @@ function VideoViewer(
   }, [currentTime]);
 
   // keyboard shortcuts
-  useKeyboardShortcut(
-    'space',
-    togglePlay,
-    [togglePlay],
-  );
-  useKeyboardShortcut(
-    'left',
-    () => skip(-5),
-    [skip],
-  );
-  useKeyboardShortcut(
-    'right',
-    () => skip(5),
-    [skip],
-  );
-  useKeyboardShortcut(
-    'shift+left',
-    () => skip(-1),
-    [skip],
-  );
-  useKeyboardShortcut(
-    'shift+right',
-    () => skip(1),
-    [skip],
-  );
+  useKeyboardShortcut('space', togglePlay, [togglePlay]);
+  useKeyboardShortcut('left', () => skip(-5), [skip]);
+  useKeyboardShortcut('right', () => skip(5), [skip]);
+  useKeyboardShortcut('shift+left', () => skip(-1), [skip]);
+  useKeyboardShortcut('shift+right', () => skip(1), [skip]);
   useKeyboardShortcut('i', markIn, [markIn]);
   useKeyboardShortcut('o', markOut, [markOut]);
 
@@ -112,10 +78,8 @@ function VideoViewer(
     const v = videoRef.current;
     if (!v) return;
 
-    const onTime = (): void =>
-      setCurrentTime(v.currentTime);
-    const onMeta = (): void =>
-      setDuration(v.duration);
+    const onTime = (): void => setCurrentTime(v.currentTime);
+    const onMeta = (): void => setDuration(v.duration);
     const onEnded = (): void => setPlaying(false);
 
     v.addEventListener('timeupdate', onTime);
@@ -140,8 +104,7 @@ function VideoViewer(
 
       {/* timestamp display */}
       <div
-        className="mt-2 flex items-center gap-4
-          text-sm font-mono text-foreground"
+        className="mt-2 flex items-center gap-4 font-mono text-sm text-foreground"
         data-testid="timestamp-display"
       >
         <span>{formatTime(currentTime)}</span>
@@ -158,8 +121,7 @@ function VideoViewer(
           type="button"
           onClick={togglePlay}
           data-testid="play-pause"
-          className="rounded bg-primary px-3 py-1
-            text-xs font-medium text-primary-foreground"
+          className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground"
         >
           {playing ? 'Pause' : 'Play'}
         </button>
@@ -179,9 +141,7 @@ function VideoViewer(
   );
 }
 
-function AudioViewer(
-  props: { src: string },
-): React.ReactElement {
+function AudioViewer(props: { src: string }): React.ReactElement {
   const { src } = props;
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -200,20 +160,14 @@ function AudioViewer(
     }
   }, []);
 
-  useKeyboardShortcut(
-    'space',
-    togglePlay,
-    [togglePlay],
-  );
+  useKeyboardShortcut('space', togglePlay, [togglePlay]);
 
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
 
-    const onTime = (): void =>
-      setCurrentTime(a.currentTime);
-    const onMeta = (): void =>
-      setDuration(a.duration);
+    const onTime = (): void => setCurrentTime(a.currentTime);
+    const onMeta = (): void => setDuration(a.duration);
     const onEnded = (): void => setPlaying(false);
 
     a.addEventListener('timeupdate', onTime);
@@ -232,18 +186,13 @@ function AudioViewer(
       <audio ref={audioRef} src={src} />
 
       {/* waveform placeholder */}
-      <div
-        className="flex h-24 items-center
-          justify-center rounded bg-muted
-          text-sm text-muted-foreground"
-      >
+      <div className="flex h-24 items-center justify-center rounded bg-muted text-sm text-muted-foreground">
         Audio waveform placeholder
       </div>
 
       {/* timestamp */}
       <div
-        className="mt-2 font-mono text-sm
-          text-foreground"
+        className="mt-2 font-mono text-sm text-foreground"
         data-testid="timestamp-display"
       >
         {formatTime(currentTime)} / {formatTime(duration)}
@@ -253,8 +202,7 @@ function AudioViewer(
         type="button"
         onClick={togglePlay}
         data-testid="play-pause"
-        className="mt-2 rounded bg-primary px-3 py-1
-          text-xs font-medium text-primary-foreground"
+        className="mt-2 rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground"
       >
         {playing ? 'Pause' : 'Play'}
       </button>
@@ -262,24 +210,16 @@ function AudioViewer(
   );
 }
 
-function ImageViewer(
-  props: { src: string; alt: string },
-): React.ReactElement {
+function ImageViewer(props: { src: string; alt: string }): React.ReactElement {
   const { src, alt } = props;
   const [zoom, setZoom] = useState(1);
 
-  const zoomIn = useCallback(
-    () => setZoom((z) => Math.min(z + 0.25, 5)),
-    [],
-  );
+  const zoomIn = useCallback(() => setZoom((z) => Math.min(z + 0.25, 5)), []);
   const zoomOut = useCallback(
     () => setZoom((z) => Math.max(z - 0.25, 0.25)),
     [],
   );
-  const resetZoom = useCallback(
-    () => setZoom(1),
-    [],
-  );
+  const resetZoom = useCallback(() => setZoom(1), []);
 
   return (
     <div data-testid="image-viewer">
@@ -298,8 +238,7 @@ function ImageViewer(
         <button
           type="button"
           onClick={zoomOut}
-          className="rounded bg-muted px-2 py-1
-            text-xs text-foreground"
+          className="rounded bg-muted px-2 py-1 text-xs text-foreground"
         >
           -
         </button>
@@ -309,16 +248,14 @@ function ImageViewer(
         <button
           type="button"
           onClick={zoomIn}
-          className="rounded bg-muted px-2 py-1
-            text-xs text-foreground"
+          className="rounded bg-muted px-2 py-1 text-xs text-foreground"
         >
           +
         </button>
         <button
           type="button"
           onClick={resetZoom}
-          className="rounded bg-muted px-2 py-1
-            text-xs text-foreground"
+          className="rounded bg-muted px-2 py-1 text-xs text-foreground"
         >
           Reset
         </button>
@@ -327,24 +264,20 @@ function ImageViewer(
   );
 }
 
-function DocumentViewer(
-  props: { src: string; filename: string },
-): React.ReactElement {
+function DocumentViewer(props: {
+  src: string;
+  filename: string;
+}): React.ReactElement {
   return (
     <div
       data-testid="document-viewer"
-      className="flex h-48 flex-col items-center
-        justify-center rounded border border-border
-        bg-muted"
+      className="flex h-48 flex-col items-center justify-center rounded border border-border bg-muted"
     >
-      <p className="text-sm text-muted-foreground">
-        Preview not available
-      </p>
+      <p className="text-sm text-muted-foreground">Preview not available</p>
       <a
         href={props.src}
         download={props.filename}
-        className="mt-2 text-sm font-medium
-          text-primary hover:underline"
+        className="mt-2 text-sm font-medium text-primary hover:underline"
       >
         Download file
       </a>
@@ -352,9 +285,7 @@ function DocumentViewer(
   );
 }
 
-export function AssetViewer(
-  props: AssetViewerProps,
-): React.ReactElement {
+export function AssetViewer(props: AssetViewerProps): React.ReactElement {
   const { asset, src } = props;
 
   switch (asset.mediaType) {
@@ -363,19 +294,9 @@ export function AssetViewer(
     case 'audio':
       return <AudioViewer src={src} />;
     case 'image':
-      return (
-        <ImageViewer
-          src={src}
-          alt={asset.originalFilename}
-        />
-      );
+      return <ImageViewer src={src} alt={asset.originalFilename} />;
     case 'document':
     case 'other':
-      return (
-        <DocumentViewer
-          src={src}
-          filename={asset.originalFilename}
-        />
-      );
+      return <DocumentViewer src={src} filename={asset.originalFilename} />;
   }
 }

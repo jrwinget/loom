@@ -10,8 +10,7 @@ function Skeleton(): React.ReactElement {
   return (
     <div
       data-testid="case-skeleton"
-      className="animate-pulse rounded-lg border border-border
-        bg-muted/40 p-4"
+      className="animate-pulse rounded-lg border border-border bg-muted/40 p-4"
     >
       <div className="h-4 w-2/3 rounded bg-muted" />
       <div className="mt-2 h-3 w-full rounded bg-muted" />
@@ -20,17 +19,12 @@ function Skeleton(): React.ReactElement {
   );
 }
 
-export function CaseList(
-  props: CaseListProps,
-): React.ReactElement {
+export function CaseList(props: CaseListProps): React.ReactElement {
   const { cases, isLoading } = props;
 
   if (isLoading) {
     return (
-      <div
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2
-          lg:grid-cols-3"
-      >
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} />
         ))}
@@ -42,12 +36,9 @@ export function CaseList(
     return (
       <div
         data-testid="empty-state"
-        className="flex flex-col items-center justify-center
-          py-16 text-center"
+        className="flex flex-col items-center justify-center py-16 text-center"
       >
-        <p className="text-lg font-medium text-foreground">
-          No cases yet
-        </p>
+        <p className="text-lg font-medium text-foreground">No cases yet</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Create your first case to get started.
         </p>
@@ -56,10 +47,7 @@ export function CaseList(
   }
 
   return (
-    <div
-      className="grid grid-cols-1 gap-4 sm:grid-cols-2
-        lg:grid-cols-3"
-    >
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {cases.map((c) => (
         <CaseCard
           key={c.id}

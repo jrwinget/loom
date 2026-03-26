@@ -68,10 +68,6 @@ export interface LinkEvidencePayload {
   notes?: string;
 }
 
-export type EventStatus =
-  | 'draft'
-  | 'proposed'
-  | 'accepted'
-  | 'rejected';
+export type EventStatus = 'draft' | 'proposed' | 'accepted' | 'rejected';
 
 export type ZoomLevel = 'hours' | 'days' | 'weeks';

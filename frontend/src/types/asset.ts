@@ -1,9 +1,6 @@
-export type MediaType =
-  | 'video' | 'image' | 'audio' | 'document' | 'other';
-export type UploadStatus =
-  | 'pending' | 'uploading' | 'complete' | 'failed';
-export type ProcessingStatus =
-  | 'pending' | 'processing' | 'complete' | 'failed';
+export type MediaType = 'video' | 'image' | 'audio' | 'document' | 'other';
+export type UploadStatus = 'pending' | 'uploading' | 'complete' | 'failed';
+export type ProcessingStatus = 'pending' | 'processing' | 'complete' | 'failed';
 
 export interface Asset {
   id: string;

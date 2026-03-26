@@ -1,38 +1,23 @@
 import { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { TimelineCanvas } from
-  '@/components/timeline/timeline-canvas';
-import { TimelineControls } from
-  '@/components/timeline/timeline-controls';
-import { useTimelineEvents } from
-  '@/hooks/use-timeline';
-import type {
-  EventStatus,
-  TimelineEvent,
-  ZoomLevel,
-} from '@/types/timeline';
+import { TimelineCanvas } from '@/components/timeline/timeline-canvas';
+import { TimelineControls } from '@/components/timeline/timeline-controls';
+import { useTimelineEvents } from '@/hooks/use-timeline';
+import type { EventStatus, TimelineEvent, ZoomLevel } from '@/types/timeline';
 
 export function TimelinePage(): React.ReactElement {
   const { caseId } = useParams<{ caseId: string }>();
   const safeId = caseId ?? '';
 
-  const [statusFilter, setStatusFilter] = useState<
-    EventStatus | 'all'
-  >('all');
-  const [zoomLevel, setZoomLevel] =
-    useState<ZoomLevel>('days');
-  const [selectedEvent, setSelectedEvent] =
-    useState<TimelineEvent | null>(null);
-
-  const filterParam =
-    statusFilter === 'all'
-      ? undefined
-      : statusFilter;
-
-  const { data, isLoading } = useTimelineEvents(
-    safeId,
-    filterParam,
+  const [statusFilter, setStatusFilter] = useState<EventStatus | 'all'>('all');
+  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('days');
+  const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(
+    null,
   );
+
+  const filterParam = statusFilter === 'all' ? undefined : statusFilter;
+
+  const { data, isLoading } = useTimelineEvents(safeId, filterParam);
 
   const handleAddEvent = useCallback(() => {
     // placeholder for add event modal
@@ -40,11 +25,7 @@ export function TimelinePage(): React.ReactElement {
 
   const handleSelectEvent = useCallback(
     (event: TimelineEvent) => {
-      setSelectedEvent(
-        selectedEvent?.id === event.id
-          ? null
-          : event,
-      );
+      setSelectedEvent(selectedEvent?.id === event.id ? null : event);
     },
     [selectedEvent],
   );
@@ -55,10 +36,7 @@ export function TimelinePage(): React.ReactElement {
 
   return (
     <div className="flex flex-col gap-4 p-6">
-      <h1 className="text-2xl font-bold
-        text-foreground">
-        Timeline
-      </h1>
+      <h1 className="text-2xl font-bold text-foreground">Timeline</h1>
 
       {/* controls */}
       <TimelineControls
@@ -82,35 +60,26 @@ export function TimelinePage(): React.ReactElement {
         <>
           <button
             type="button"
-            className="fixed inset-0 z-30
-              bg-black/30"
+            className="fixed inset-0 z-30 bg-black/30"
             onClick={handleClosePanel}
             aria-label="Close panel"
           />
           <div
             data-testid="event-detail-panel"
-            className="fixed inset-y-0 right-0 z-40
-              flex w-full max-w-md flex-col
-              overflow-y-auto border-l border-border
-              bg-background p-6 shadow-lg"
+            className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col overflow-y-auto border-l border-border bg-background p-6 shadow-lg"
           >
-            <h2 className="text-lg font-semibold
-              text-foreground">
+            <h2 className="text-lg font-semibold text-foreground">
               {selectedEvent.title}
             </h2>
             {selectedEvent.description && (
-              <p className="mt-2 text-sm
-                text-muted-foreground">
+              <p className="mt-2 text-sm text-muted-foreground">
                 {selectedEvent.description}
               </p>
             )}
-            <div className="mt-4 space-y-2 text-sm
-              text-muted-foreground">
+            <div className="mt-4 space-y-2 text-sm text-muted-foreground">
               <p>
                 Status:{' '}
-                <span className="font-medium">
-                  {selectedEvent.status}
-                </span>
+                <span className="font-medium">{selectedEvent.status}</span>
               </p>
               <p>
                 Precision:{' '}
@@ -122,14 +91,11 @@ export function TimelinePage(): React.ReactElement {
                 Evidence:{' '}
                 <span className="font-medium">
                   {selectedEvent.evidenceCount} link
-                  {selectedEvent.evidenceCount !== 1
-                    ? 's'
-                    : ''}
+                  {selectedEvent.evidenceCount !== 1 ? 's' : ''}
                 </span>
               </p>
               {selectedEvent.hasContradictions && (
-                <p className="text-amber-600
-                  font-medium">
+                <p className="font-medium text-amber-600">
                   Has contradicting evidence
                 </p>
               )}

@@ -1,12 +1,8 @@
 import { useParams } from 'react-router-dom';
-import { useAsset, useAssetDownloadUrl } from
-  '@/hooks/use-assets';
-import { useTranscript, useStartTranscription } from
-  '@/hooks/use-transcript';
-import { useScenes, useStartSceneDetection } from
-  '@/hooks/use-scenes';
-import { ReviewWorkspace } from
-  '@/components/review/review-workspace';
+import { useAsset, useAssetDownloadUrl } from '@/hooks/use-assets';
+import { useTranscript, useStartTranscription } from '@/hooks/use-transcript';
+import { useScenes, useStartSceneDetection } from '@/hooks/use-scenes';
+import { ReviewWorkspace } from '@/components/review/review-workspace';
 
 export function ReviewPage(): React.ReactElement {
   const { caseId, assetId } = useParams<{
@@ -17,12 +13,8 @@ export function ReviewPage(): React.ReactElement {
   const safeCase = caseId ?? '';
   const safeAsset = assetId ?? '';
 
-  const { data: asset, isLoading: assetLoading } =
-    useAsset(safeAsset);
-  const { data: assetSrc } = useAssetDownloadUrl(
-    safeCase,
-    safeAsset,
-  );
+  const { data: asset, isLoading: assetLoading } = useAsset(safeAsset);
+  const { data: assetSrc } = useAssetDownloadUrl(safeCase, safeAsset);
   const {
     data: transcript,
     isLoading: transcriptLoading,
@@ -34,25 +26,14 @@ export function ReviewPage(): React.ReactElement {
     isError: scenesError,
   } = useScenes(safeCase, safeAsset);
 
-  const startTranscription = useStartTranscription(
-    safeCase,
-    safeAsset,
-  );
-  const startSceneDetection = useStartSceneDetection(
-    safeCase,
-    safeAsset,
-  );
+  const startTranscription = useStartTranscription(safeCase, safeAsset);
+  const startSceneDetection = useStartSceneDetection(safeCase, safeAsset);
 
   // loading state
   if (assetLoading || !asset) {
     return (
-      <div
-        className="flex h-full items-center
-          justify-center"
-      >
-        <p className="text-sm text-muted-foreground">
-          Loading asset...
-        </p>
+      <div className="flex h-full items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading asset...</p>
       </div>
     );
   }
@@ -61,33 +42,24 @@ export function ReviewPage(): React.ReactElement {
   const actions = (
     <div className="flex gap-2 px-4 py-2">
       {(transcriptError ||
-        (!transcriptLoading &&
-          !transcript?.segments.length)) && (
+        (!transcriptLoading && !transcript?.segments.length)) && (
         <button
           type="button"
           data-testid="start-transcription"
           onClick={() => startTranscription.mutate()}
           disabled={startTranscription.isPending}
-          className="rounded bg-primary px-3 py-1
-            text-xs font-medium text-primary-foreground
-            disabled:opacity-50"
+          className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
         >
-          {startTranscription.isPending
-            ? 'Starting...'
-            : 'Start Transcription'}
+          {startTranscription.isPending ? 'Starting...' : 'Start Transcription'}
         </button>
       )}
-      {(scenesError ||
-        (!scenesLoading &&
-          !scenes?.length)) && (
+      {(scenesError || (!scenesLoading && !scenes?.length)) && (
         <button
           type="button"
           data-testid="start-scene-detection"
           onClick={() => startSceneDetection.mutate()}
           disabled={startSceneDetection.isPending}
-          className="rounded bg-primary px-3 py-1
-            text-xs font-medium text-primary-foreground
-            disabled:opacity-50"
+          className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
         >
           {startSceneDetection.isPending
             ? 'Starting...'

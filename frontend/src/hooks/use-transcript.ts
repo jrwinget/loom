@@ -1,8 +1,4 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
 import type { TranscriptResponse } from '@/types/transcript';
@@ -12,10 +8,7 @@ export function useTranscript(
   assetId: string,
 ): ReturnType<typeof useQuery<TranscriptResponse>> {
   return useQuery({
-    queryKey: queryKeys.transcripts.byAsset(
-      caseId,
-      assetId,
-    ),
+    queryKey: queryKeys.transcripts.byAsset(caseId, assetId),
     queryFn: () =>
       apiClient.get<TranscriptResponse>(
         `/cases/${caseId}/assets/${assetId}/transcript`,
@@ -31,9 +24,7 @@ interface StartTranscriptionResponse {
 export function useStartTranscription(
   caseId: string,
   assetId: string,
-): ReturnType<
-  typeof useMutation<StartTranscriptionResponse, Error, void>
-> {
+): ReturnType<typeof useMutation<StartTranscriptionResponse, Error, void>> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -43,10 +34,7 @@ export function useStartTranscription(
       ),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.transcripts.byAsset(
-          caseId,
-          assetId,
-        ),
+        queryKey: queryKeys.transcripts.byAsset(caseId, assetId),
       });
     },
   });

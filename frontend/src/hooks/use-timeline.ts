@@ -1,8 +1,4 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
 import type {
@@ -71,21 +67,13 @@ export function useCreateEvent(): ReturnType<
     }: {
       caseId: string;
       payload: CreateEventPayload;
-    }) =>
-      apiClient.post<TimelineEvent>(
-        `/cases/${caseId}/events`,
-        payload,
-      ),
+    }) => apiClient.post<TimelineEvent>(`/cases/${caseId}/events`, payload),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.timeline.events(
-          variables.caseId,
-        ),
+        queryKey: queryKeys.timeline.events(variables.caseId),
       });
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.timeline.full(
-          variables.caseId,
-        ),
+        queryKey: queryKeys.timeline.full(variables.caseId),
       });
     },
   });
@@ -120,14 +108,10 @@ export function useUpdateEvent(): ReturnType<
       ),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.timeline.events(
-          variables.caseId,
-        ),
+        queryKey: queryKeys.timeline.events(variables.caseId),
       });
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.timeline.full(
-          variables.caseId,
-        ),
+        queryKey: queryKeys.timeline.full(variables.caseId),
       });
     },
   });
@@ -162,14 +146,10 @@ export function useLinkEvidence(): ReturnType<
       ),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.timeline.events(
-          variables.caseId,
-        ),
+        queryKey: queryKeys.timeline.events(variables.caseId),
       });
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.timeline.full(
-          variables.caseId,
-        ),
+        queryKey: queryKeys.timeline.full(variables.caseId),
       });
     },
   });

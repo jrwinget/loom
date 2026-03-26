@@ -15,9 +15,7 @@ export function CaseCreateDialog(
   const [description, setDescription] = useState('');
   const createCase = useCreateCase();
 
-  function handleSubmit(
-    e: React.FormEvent<HTMLFormElement>,
-  ): void {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>): void {
     e.preventDefault();
     if (!name.trim()) return;
 
@@ -39,14 +37,8 @@ export function CaseCreateDialog(
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay
-          className="fixed inset-0 bg-black/40"
-        />
-        <Dialog.Content
-          className="fixed left-1/2 top-1/2 w-full max-w-md
-            -translate-x-1/2 -translate-y-1/2 rounded-lg
-            border border-border bg-card p-6 shadow-lg"
-        >
+        <Dialog.Overlay className="fixed inset-0 bg-black/40" />
+        <Dialog.Content className="bg-card fixed left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border p-6 shadow-lg">
           <Dialog.Title className="text-lg font-semibold text-foreground">
             Create Case
           </Dialog.Title>
@@ -56,20 +48,13 @@ export function CaseCreateDialog(
 
           <form onSubmit={handleSubmit} className="mt-4">
             <label className="block">
-              <span className="text-sm font-medium text-foreground">
-                Name
-              </span>
+              <span className="text-sm font-medium text-foreground">Name</span>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1 block w-full rounded-md
-                  border border-border bg-background px-3
-                  py-2 text-sm text-foreground
-                  placeholder:text-muted-foreground
-                  focus:outline-none focus:ring-2
-                  focus:ring-ring"
+                className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="Case name"
               />
             </label>
@@ -80,16 +65,9 @@ export function CaseCreateDialog(
               </span>
               <textarea
                 value={description}
-                onChange={(e) =>
-                  setDescription(e.target.value)
-                }
+                onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="mt-1 block w-full rounded-md
-                  border border-border bg-background px-3
-                  py-2 text-sm text-foreground
-                  placeholder:text-muted-foreground
-                  focus:outline-none focus:ring-2
-                  focus:ring-ring"
+                className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="Optional description"
               />
             </label>
@@ -98,8 +76,7 @@ export function CaseCreateDialog(
               <Dialog.Close asChild>
                 <button
                   type="button"
-                  className="rounded-md px-3 py-2 text-sm
-                    text-muted-foreground hover:bg-accent"
+                  className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent"
                 >
                   Cancel
                 </button>
@@ -107,14 +84,9 @@ export function CaseCreateDialog(
               <button
                 type="submit"
                 disabled={createCase.isPending}
-                className="rounded-md bg-primary px-3 py-2
-                  text-sm text-primary-foreground
-                  hover:bg-primary/90
-                  disabled:opacity-50"
+                className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
-                {createCase.isPending
-                  ? 'Creating...'
-                  : 'Create'}
+                {createCase.isPending ? 'Creating...' : 'Create'}
               </button>
             </div>
           </form>

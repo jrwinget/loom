@@ -12,14 +12,11 @@ interface CaseCardProps {
 
 const statusColors: Record<string, string> = {
   active:
-    'bg-green-100 text-green-800 dark:bg-green-900 ' +
-    'dark:text-green-200',
+    'bg-green-100 text-green-800 dark:bg-green-900 ' + 'dark:text-green-200',
   archived:
-    'bg-gray-100 text-gray-800 dark:bg-gray-900 ' +
-    'dark:text-gray-200',
+    'bg-gray-100 text-gray-800 dark:bg-gray-900 ' + 'dark:text-gray-200',
   exported:
-    'bg-blue-100 text-blue-800 dark:bg-blue-900 ' +
-    'dark:text-blue-200',
+    'bg-blue-100 text-blue-800 dark:bg-blue-900 ' + 'dark:text-blue-200',
 };
 
 function formatDate(iso: string): string {
@@ -30,66 +27,42 @@ function formatDate(iso: string): string {
   });
 }
 
-export function CaseCard(
-  props: CaseCardProps,
-): React.ReactElement {
+export function CaseCard(props: CaseCardProps): React.ReactElement {
   const navigate = useNavigate();
-  const {
-    id,
-    name,
-    description,
-    status,
-    assetCount,
-    eventCount,
-    createdAt,
-  } = props;
+  const { id, name, description, status, assetCount, eventCount, createdAt } =
+    props;
 
-  const colorClass =
-    statusColors[status] ?? statusColors['archived'];
+  const colorClass = statusColors[status] ?? statusColors['archived'];
   // truncate description to ~100 chars
   const truncated =
-    description.length > 100
-      ? description.slice(0, 100) + '...'
-      : description;
+    description.length > 100 ? description.slice(0, 100) + '...' : description;
 
   return (
     <button
       type="button"
       data-testid={`case-card-${id}`}
-      className="flex w-full flex-col rounded-lg border
-        border-border bg-card p-4 text-left shadow-sm
-        transition-colors hover:bg-accent/50"
+      className="bg-card flex w-full flex-col rounded-lg border border-border p-4 text-left shadow-sm transition-colors hover:bg-accent/50"
       onClick={() => navigate(`/cases/${id}`)}
     >
       {/* header row */}
       <div className="flex items-start justify-between">
-        <h3 className="text-sm font-semibold text-foreground">
-          {name}
-        </h3>
+        <h3 className="text-sm font-semibold text-foreground">{name}</h3>
         <span
           data-testid="status-badge"
-          className={`inline-flex items-center rounded-full
-            px-2 py-0.5 text-xs font-medium ${colorClass}`}
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}
         >
           {status}
         </span>
       </div>
 
       {/* description */}
-      <p className="mt-1 text-xs text-muted-foreground">
-        {truncated}
-      </p>
+      <p className="mt-1 text-xs text-muted-foreground">{truncated}</p>
 
       {/* stats row */}
-      <div
-        className="mt-3 flex items-center gap-4 text-xs
-          text-muted-foreground"
-      >
+      <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
         <span>{assetCount} assets</span>
         <span>{eventCount} events</span>
-        <span className="ml-auto">
-          {formatDate(createdAt)}
-        </span>
+        <span className="ml-auto">{formatDate(createdAt)}</span>
       </div>
     </button>
   );

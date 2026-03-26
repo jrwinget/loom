@@ -1,8 +1,4 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
 import type { SceneInfo } from '@/types/transcript';
@@ -34,13 +30,7 @@ interface StartSceneDetectionResponse {
 export function useStartSceneDetection(
   caseId: string,
   assetId: string,
-): ReturnType<
-  typeof useMutation<
-    StartSceneDetectionResponse,
-    Error,
-    void
-  >
-> {
+): ReturnType<typeof useMutation<StartSceneDetectionResponse, Error, void>> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -50,10 +40,7 @@ export function useStartSceneDetection(
       ),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.scenes.byAsset(
-          caseId,
-          assetId,
-        ),
+        queryKey: queryKeys.scenes.byAsset(caseId, assetId),
       });
     },
   });

@@ -13,17 +13,14 @@ export function Sidebar(): React.ReactElement {
   return (
     <aside
       data-testid="sidebar"
-      className={`flex flex-col border-r border-border
-        bg-muted/40 transition-all ${
-          sidebarOpen ? 'w-60' : 'w-14'
-        }`}
+      className={`flex flex-col border-r border-border bg-muted/40 transition-all ${
+        sidebarOpen ? 'w-60' : 'w-14'
+      }`}
     >
       {/* logo / title */}
       <div className="flex h-14 items-center border-b border-border px-4">
         {sidebarOpen && (
-          <span className="text-lg font-semibold text-foreground">
-            Loom
-          </span>
+          <span className="text-lg font-semibold text-foreground">Loom</span>
         )}
       </div>
 
@@ -33,9 +30,7 @@ export function Sidebar(): React.ReactElement {
           <Link
             key={item.path}
             to={item.path}
-            className="block rounded-md px-3 py-2 text-sm
-              text-muted-foreground hover:bg-accent
-              hover:text-accent-foreground"
+            className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
             {sidebarOpen ? item.label : item.label[0]}
           </Link>
@@ -46,12 +41,8 @@ export function Sidebar(): React.ReactElement {
       <div className="border-t border-border p-2">
         <button
           onClick={toggleSidebar}
-          className="w-full rounded-md px-3 py-2 text-sm
-            text-muted-foreground hover:bg-accent
-            hover:text-accent-foreground"
-          aria-label={
-            sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'
-          }
+          className="w-full rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           {sidebarOpen ? '\u2190' : '\u2192'}
         </button>

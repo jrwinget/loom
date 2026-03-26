@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { ExportWizard } from
-  '@/components/export/export-wizard';
+import { ExportWizard } from '@/components/export/export-wizard';
 import { useExports } from '@/hooks/use-exports';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -14,26 +13,18 @@ const STATUS_COLORS: Record<string, string> = {
 export function ExportPage(): React.ReactElement {
   const { caseId } = useParams<{ caseId: string }>();
   const [wizardOpen, setWizardOpen] = useState(false);
-  const { data, isLoading } = useExports(
-    caseId ?? '',
-  );
+  const { data, isLoading } = useExports(caseId ?? '');
 
   const exports = data?.items ?? [];
 
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1
-          className="text-2xl font-bold text-foreground"
-        >
-          Exports
-        </h1>
+        <h1 className="text-2xl font-bold text-foreground">Exports</h1>
         <button
           type="button"
           onClick={() => setWizardOpen(true)}
-          className="rounded-md bg-primary px-4 py-2
-            text-sm text-primary-foreground
-            hover:bg-primary/90"
+          className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
           data-testid="new-export-btn"
         >
           New Export
@@ -41,9 +32,7 @@ export function ExportPage(): React.ReactElement {
       </div>
 
       {isLoading && (
-        <p className="text-sm text-muted-foreground">
-          Loading exports...
-        </p>
+        <p className="text-sm text-muted-foreground">Loading exports...</p>
       )}
 
       {!isLoading && exports.length === 0 && (
@@ -57,46 +46,34 @@ export function ExportPage(): React.ReactElement {
           {exports.map((exp) => (
             <div
               key={exp.id}
-              className="flex items-center justify-between
-                rounded-md border border-border p-4"
+              className="flex items-center justify-between rounded-md border border-border p-4"
               data-testid={`export-row-${exp.id}`}
             >
               <div>
-                <p
-                  className="font-medium text-foreground"
-                >
-                  {exp.name}
-                </p>
-                <p
-                  className="text-xs text-muted-foreground"
-                >
+                <p className="font-medium text-foreground">{exp.name}</p>
+                <p className="text-xs text-muted-foreground">
                   {exp.format} — created{' '}
-                  {new Date(
-                    exp.createdAt,
-                  ).toLocaleDateString()}
+                  {new Date(exp.createdAt).toLocaleDateString()}
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 <span
-                  className={`rounded-full px-2 py-0.5
-                    text-xs font-medium ${
-                      STATUS_COLORS[exp.status] ?? ''
-                    }`}
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    STATUS_COLORS[exp.status] ?? ''
+                  }`}
                 >
                   {exp.status}
                 </span>
-                {exp.status === 'complete' &&
-                  exp.storageKey && (
-                    <a
-                      href={exp.storageKey}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary
-                        hover:underline"
-                    >
-                      Download
-                    </a>
-                  )}
+                {exp.status === 'complete' && exp.storageKey && (
+                  <a
+                    href={exp.storageKey}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Download
+                  </a>
+                )}
               </div>
             </div>
           ))}

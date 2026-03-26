@@ -1,8 +1,4 @@
-import {
-  useCallback,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
 import { AssetViewer } from '@/components/asset/asset-viewer';
 import { TranscriptPanel } from './transcript-panel';
@@ -28,11 +24,7 @@ interface ReviewWorkspaceProps {
 
 type FocusedPanel = 'video' | 'transcript' | 'right';
 
-const panelOrder: FocusedPanel[] = [
-  'video',
-  'transcript',
-  'right',
-];
+const panelOrder: FocusedPanel[] = ['video', 'transcript', 'right'];
 
 export function ReviewWorkspace(
   props: ReviewWorkspaceProps,
@@ -49,8 +41,7 @@ export function ReviewWorkspace(
   } = props;
 
   const [currentTime, setCurrentTime] = useState(0);
-  const [focusedPanel, setFocusedPanel] =
-    useState<FocusedPanel>('video');
+  const [focusedPanel, setFocusedPanel] = useState<FocusedPanel>('video');
   const videoRef = useRef<HTMLDivElement>(null);
 
   // seek video to a specific time
@@ -86,8 +77,7 @@ export function ReviewWorkspace(
     'tab',
     () => {
       const idx = panelOrder.indexOf(focusedPanel);
-      const next =
-        panelOrder[(idx + 1) % panelOrder.length];
+      const next = panelOrder[(idx + 1) % panelOrder.length];
       setFocusedPanel(next);
     },
     [focusedPanel],
@@ -97,9 +87,7 @@ export function ReviewWorkspace(
   useKeyboardShortcut(
     'n',
     () => {
-      const next = segments.find(
-        (s) => s.startTime > currentTime,
-      );
+      const next = segments.find((s) => s.startTime > currentTime);
       if (next) handleSeek(next.startTime);
     },
     [segments, currentTime, handleSeek],
@@ -120,16 +108,10 @@ export function ReviewWorkspace(
   );
 
   return (
-    <div
-      data-testid="review-workspace"
-      className="flex h-full flex-col"
-    >
+    <div data-testid="review-workspace" className="flex h-full flex-col">
       {/* top search bar */}
       <div className="border-b border-border px-4 py-2">
-        <SearchBar
-          caseId={caseId}
-          onResultClick={onSearchResultClick}
-        />
+        <SearchBar caseId={caseId} onResultClick={onSearchResultClick} />
       </div>
 
       {/* main content grid */}
@@ -143,33 +125,23 @@ export function ReviewWorkspace(
         {/* left: video + scene browser */}
         <div
           data-testid="panel-video"
-          className={`flex flex-col overflow-hidden
-            border-r border-border ${
-              focusedPanel === 'video'
-                ? 'ring-2 ring-inset ring-primary/30'
-                : ''
-            }`}
+          className={`flex flex-col overflow-hidden border-r border-border ${
+            focusedPanel === 'video' ? 'ring-2 ring-inset ring-primary/30' : ''
+          }`}
         >
-          <div
-            className="flex-1 overflow-y-auto p-3"
-            ref={videoRef}
-          >
-            <AssetViewer
-              asset={asset}
-              src={assetSrc}
-            />
+          <div className="flex-1 overflow-y-auto p-3" ref={videoRef}>
+            <AssetViewer asset={asset} src={assetSrc} />
           </div>
         </div>
 
         {/* center: transcript */}
         <div
           data-testid="panel-transcript"
-          className={`flex flex-col overflow-hidden
-            border-r border-border ${
-              focusedPanel === 'transcript'
-                ? 'ring-2 ring-inset ring-primary/30'
-                : ''
-            }`}
+          className={`flex flex-col overflow-hidden border-r border-border ${
+            focusedPanel === 'transcript'
+              ? 'ring-2 ring-inset ring-primary/30'
+              : ''
+          }`}
         >
           <TranscriptPanel
             segments={segments}
@@ -183,17 +155,11 @@ export function ReviewWorkspace(
         <div
           data-testid="panel-right"
           className={`flex flex-col overflow-hidden ${
-            focusedPanel === 'right'
-              ? 'ring-2 ring-inset ring-primary/30'
-              : ''
+            focusedPanel === 'right' ? 'ring-2 ring-inset ring-primary/30' : ''
           }`}
         >
           {rightPanel ?? (
-            <div
-              className="flex h-full items-center
-                justify-center text-sm
-                text-muted-foreground"
-            >
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               Annotations panel
             </div>
           )}

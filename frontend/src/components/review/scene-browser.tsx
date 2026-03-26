@@ -11,21 +11,11 @@ interface SceneBrowserProps {
 function formatTimestamp(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
-  return (
-    `${String(m).padStart(2, '0')}:` +
-    `${String(s).padStart(2, '0')}`
-  );
+  return `${String(m).padStart(2, '0')}:` + `${String(s).padStart(2, '0')}`;
 }
 
-export function SceneBrowser(
-  props: SceneBrowserProps,
-): React.ReactElement {
-  const {
-    scenes,
-    currentTime,
-    onSeek,
-    compact = false,
-  } = props;
+export function SceneBrowser(props: SceneBrowserProps): React.ReactElement {
+  const { scenes, currentTime, onSeek, compact = false } = props;
 
   const activeRef = useRef<HTMLButtonElement>(null);
 
@@ -46,8 +36,7 @@ export function SceneBrowser(
   useEffect(() => {
     if (
       activeRef.current &&
-      typeof activeRef.current.scrollIntoView ===
-        'function'
+      typeof activeRef.current.scrollIntoView === 'function'
     ) {
       activeRef.current.scrollIntoView({
         behavior: 'smooth',
@@ -61,8 +50,7 @@ export function SceneBrowser(
     return (
       <div
         data-testid="scene-browser"
-        className="flex h-16 items-center justify-center
-          text-xs text-muted-foreground"
+        className="flex h-16 items-center justify-center text-xs text-muted-foreground"
       >
         No scenes detected
       </div>
@@ -89,35 +77,26 @@ export function SceneBrowser(
               `${formatTimestamp(scene.startTime)} - ` +
               `${formatTimestamp(scene.endTime)}`
             }
-            className={`flex-shrink-0 rounded border
-              transition-colors ${
-                isActive
-                  ? 'border-primary ring-2 ring-primary/50'
-                  : 'border-border hover:border-primary/50'
-              }`}
+            className={`flex-shrink-0 rounded border transition-colors ${
+              isActive
+                ? 'border-primary ring-2 ring-primary/50'
+                : 'border-border hover:border-primary/50'
+            }`}
           >
             {/* thumbnail or placeholder */}
-            <div
-              className="flex h-12 w-20 items-center
-                justify-center rounded-t bg-muted
-                text-xs text-muted-foreground"
-            >
+            <div className="flex h-12 w-20 items-center justify-center rounded-t bg-muted text-xs text-muted-foreground">
               {scene.thumbnailUrl ? (
                 <img
                   src={scene.thumbnailUrl}
                   alt={`Scene ${scene.sceneNumber}`}
-                  className="h-full w-full
-                    rounded-t object-cover"
+                  className="h-full w-full rounded-t object-cover"
                 />
               ) : (
                 <span>S{scene.sceneNumber}</span>
               )}
             </div>
             {!compact && (
-              <div
-                className="px-1 py-0.5 text-center
-                  text-[10px] text-muted-foreground"
-              >
+              <div className="px-1 py-0.5 text-center text-[10px] text-muted-foreground">
                 {formatTimestamp(scene.startTime)}
                 <span className="mx-0.5">-</span>
                 {formatTimestamp(scene.endTime)}

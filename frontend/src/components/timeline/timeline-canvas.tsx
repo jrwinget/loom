@@ -1,7 +1,5 @@
-import type { TimelineEvent } from
-  '@/types/timeline';
-import { TimelineEventCard } from
-  './timeline-event';
+import type { TimelineEvent } from '@/types/timeline';
+import { TimelineEventCard } from './timeline-event';
 
 interface TimelineCanvasProps {
   events: TimelineEvent[];
@@ -14,21 +12,13 @@ function SkeletonBlock(): React.ReactElement {
   return (
     <div
       data-testid="skeleton-event"
-      className="h-28 animate-pulse rounded-lg
-        bg-muted"
+      className="h-28 animate-pulse rounded-lg bg-muted"
     />
   );
 }
 
-export function TimelineCanvas(
-  props: TimelineCanvasProps,
-): React.ReactElement {
-  const {
-    events,
-    selectedEventId,
-    onSelectEvent,
-    loading = false,
-  } = props;
+export function TimelineCanvas(props: TimelineCanvasProps): React.ReactElement {
+  const { events, selectedEventId, onSelectEvent, loading = false } = props;
 
   if (loading) {
     return (
@@ -49,9 +39,7 @@ export function TimelineCanvas(
     return (
       <div
         data-testid="timeline-canvas"
-        className="flex h-64 items-center
-          justify-center rounded-lg border
-          border-dashed border-border"
+        className="flex h-64 items-center justify-center rounded-lg border border-dashed border-border"
       >
         <p className="text-sm text-muted-foreground">
           No events on this timeline yet
@@ -61,28 +49,20 @@ export function TimelineCanvas(
   }
 
   return (
-    <div
-      data-testid="timeline-canvas"
-      className="relative"
-    >
+    <div data-testid="timeline-canvas" className="relative">
       {/* horizontal axis line */}
-      <div className="absolute left-0 right-0 top-1/2
-        h-0.5 bg-border" />
+      <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-border" />
 
       {/* events laid out horizontally */}
-      <div className="flex gap-4 overflow-x-auto
-        px-4 py-8">
+      <div className="flex gap-4 overflow-x-auto px-4 py-8">
         {events.map((event) => (
           <div
             key={event.id}
-            className="min-w-[220px] max-w-[280px]
-              flex-shrink-0"
+            className="min-w-[220px] max-w-[280px] flex-shrink-0"
           >
             <TimelineEventCard
               event={event}
-              selected={
-                selectedEventId === event.id
-              }
+              selected={selectedEventId === event.id}
               onClick={onSelectEvent}
             />
           </div>
