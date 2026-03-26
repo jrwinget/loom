@@ -4,6 +4,8 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 
 from loom.config import get_settings
+from loom.workflows.export_activities import build_export
+from loom.workflows.export_workflow import ExportWorkflow
 from loom.workflows.ingest_activities import (
     extract_asset_metadata,
     generate_asset_proxies,
@@ -21,13 +23,14 @@ async def main() -> None:
     worker = Worker(
         client,
         task_queue="loom-ingest",
-        workflows=[IngestWorkflow],
+        workflows=[IngestWorkflow, ExportWorkflow],
         activities=[
             verify_asset_hash,
             extract_asset_metadata,
             generate_asset_proxies,
             record_derivatives_custody,
             mark_asset_complete,
+            build_export,
         ],
     )
     await worker.run()

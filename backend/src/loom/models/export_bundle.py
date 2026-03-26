@@ -25,13 +25,20 @@ class ExportBundle(UUIDMixin, Base):
         String,
         nullable=False,
     )
-    storage_key: Mapped[str] = mapped_column(
+    status: Mapped[str] = mapped_column(
         String,
         nullable=False,
+        default="pending",
+    )
+    storage_key: Mapped[str] = mapped_column(
+        String,
+        nullable=True,
+        default="",
     )
     sha256_hash: Mapped[str] = mapped_column(
         String(64),
-        nullable=False,
+        nullable=True,
+        default="",
     )
     manifest: Mapped[Any | None] = mapped_column(
         JSON,
