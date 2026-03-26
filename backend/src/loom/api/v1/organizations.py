@@ -16,6 +16,7 @@ from loom.security.rbac import get_current_user_id, require_authenticated
 from loom.services.organization import (
     add_member,
     check_org_admin,
+    check_org_member,
     create_org,
     get_org,
     list_members,
@@ -100,12 +101,20 @@ async def get_org_endpoint(
 ) -> OrgResponse:
     """get organization detail."""
     db: AsyncSession = session  # type: ignore[assignment]
+    user_id = get_current_user_id(token_payload)
 
     org = await get_org(db, org_id)
     if not org:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="organization not found",
+        )
+
+    is_member = await check_org_member(db, org_id, user_id)
+    if not is_member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="org membership required",
         )
 
     return OrgResponse(
@@ -245,6 +254,14 @@ async def list_members_endpoint(
 ) -> list[OrgMemberResponse]:
     """list organization members."""
     db: AsyncSession = session  # type: ignore[assignment]
+    user_id = get_current_user_id(token_payload)
+
+    is_member = await check_org_member(db, org_id, user_id)
+    if not is_member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="org membership required",
+        )
 
     members = await list_members(db, org_id)
     return [

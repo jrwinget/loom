@@ -178,6 +178,30 @@ async def list_members(
     return members
 
 
+async def check_org_member(
+    session: AsyncSession,
+    org_id: str,
+    user_id: str,
+) -> bool:
+    """verify user is a member of the org (any role) or system admin."""
+    # check system admin
+    user_result = await session.execute(
+        select(User).where(User.id == UUID(user_id))
+    )
+    user = user_result.scalar_one_or_none()
+    if user and user.role == "admin":
+        return True
+
+    result = await session.execute(
+        select(OrganizationMembership).where(
+            OrganizationMembership.org_id == UUID(org_id),
+            OrganizationMembership.user_id == UUID(user_id),
+        )
+    )
+    membership = result.scalar_one_or_none()
+    return membership is not None
+
+
 async def check_org_admin(
     session: AsyncSession,
     org_id: str,

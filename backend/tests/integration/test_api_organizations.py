@@ -215,6 +215,11 @@ async def test_get_org(
             new_callable=AsyncMock,
             return_value=org,
         ),
+        patch(
+            f"{_SVC}.check_org_member",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
     ):
         token = create_access_token(str(_ADMIN_ID), "admin")
         async with httpx.AsyncClient(
@@ -229,6 +234,42 @@ async def test_get_org(
     assert resp.status_code == 200
     data = resp.json()
     assert data["name"] == "NLG Portland"
+
+
+async def test_get_org_forbidden_non_member(
+    mock_settings: Settings,
+) -> None:
+    """get org returns 403 for non-members."""
+    app = _create_app(mock_settings)
+    org = _make_org()
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.get_org",
+            new_callable=AsyncMock,
+            return_value=org,
+        ),
+        patch(
+            f"{_SVC}.check_org_member",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/organizations/{_ORG_ID}",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 403
 
 
 async def test_get_org_not_found(
@@ -470,6 +511,11 @@ async def test_list_members(
             return_value=mock_settings,
         ),
         patch(
+            f"{_SVC}.check_org_member",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
             f"{_SVC}.list_members",
             new_callable=AsyncMock,
             return_value=[membership],
@@ -490,3 +536,33 @@ async def test_list_members(
     assert len(data) == 1
     assert data[0]["role"] == "admin"
     assert data[0]["user_email"] == _ADMIN_EMAIL
+
+
+async def test_list_members_forbidden_non_member(
+    mock_settings: Settings,
+) -> None:
+    """list members returns 403 for non-members."""
+    app = _create_app(mock_settings)
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_org_member",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/organizations/{_ORG_ID}/members",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 403

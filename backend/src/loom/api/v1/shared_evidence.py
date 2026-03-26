@@ -56,7 +56,7 @@ async def share_evidence_endpoint(
     except PermissionError as err:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="insufficient access on source case",
+            detail=str(err),
         ) from err
     except ValueError as err:
         raise HTTPException(

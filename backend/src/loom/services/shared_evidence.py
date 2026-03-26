@@ -20,8 +20,8 @@ async def share_evidence(
 ) -> SharedEvidenceLink:
     """share an asset from one case to another.
 
-    requires editor+ on source case. validates asset
-    belongs to source case.
+    requires editor+ on both source and target cases.
+    validates asset belongs to source case.
     """
     # verify editor+ on source case
     has_access = await check_case_access(
@@ -32,6 +32,17 @@ async def share_evidence(
     )
     if not has_access:
         msg = "insufficient access on source case"
+        raise PermissionError(msg)
+
+    # verify editor+ on target case
+    has_target_access = await check_case_access(
+        session,
+        target_case_id,
+        user_id,
+        required_role="editor",
+    )
+    if not has_target_access:
+        msg = "insufficient access on target case"
         raise PermissionError(msg)
 
     # verify asset belongs to source case

@@ -215,6 +215,119 @@ async def test_share_evidence_asset_not_found(
     assert resp.status_code == 404
 
 
+async def test_share_evidence_forbidden_no_target_access(
+    mock_settings: Settings,
+) -> None:
+    """share evidence returns 403 when user has no access to target."""
+    app = _create_app(mock_settings)
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.share_evidence",
+            new_callable=AsyncMock,
+            side_effect=PermissionError(
+                "insufficient access on target case"
+            ),
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/shared-evidence",
+                json={
+                    "target_case_id": str(_TARGET_CASE_ID),
+                    "asset_id": str(_ASSET_ID),
+                },
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 403
+    assert "target case" in resp.json()["detail"]
+
+
+async def test_share_evidence_forbidden_viewer_on_target(
+    mock_settings: Settings,
+) -> None:
+    """share evidence returns 403 when user is only viewer on target."""
+    app = _create_app(mock_settings)
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.share_evidence",
+            new_callable=AsyncMock,
+            side_effect=PermissionError(
+                "insufficient access on target case"
+            ),
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/shared-evidence",
+                json={
+                    "target_case_id": str(_TARGET_CASE_ID),
+                    "asset_id": str(_ASSET_ID),
+                },
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 403
+    assert "target case" in resp.json()["detail"]
+
+
+async def test_share_evidence_editor_on_both_cases(
+    mock_settings: Settings,
+) -> None:
+    """share succeeds when user is editor on both source and target."""
+    app = _create_app(mock_settings)
+    link = _make_link()
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.share_evidence",
+            new_callable=AsyncMock,
+            return_value=link,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/shared-evidence",
+                json={
+                    "target_case_id": str(_TARGET_CASE_ID),
+                    "asset_id": str(_ASSET_ID),
+                    "access_level": "view",
+                },
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["source_case_id"] == str(_CASE_ID)
+    assert data["target_case_id"] == str(_TARGET_CASE_ID)
+
+
 async def test_list_incoming(
     mock_settings: Settings,
 ) -> None:
