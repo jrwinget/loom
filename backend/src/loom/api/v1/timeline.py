@@ -172,7 +172,7 @@ async def get_event_endpoint(
         )
 
     event = await get_event(db, event_id)
-    if not event:
+    if not event or str(event.case_id) != case_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="event not found",
@@ -228,7 +228,7 @@ async def update_event_endpoint(
         )
 
     existing = await get_event(db, event_id)
-    if not existing:
+    if not existing or str(existing.case_id) != case_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="event not found",
@@ -287,7 +287,7 @@ async def link_evidence_endpoint(
         )
 
     existing = await get_event(db, event_id)
-    if not existing:
+    if not existing or str(existing.case_id) != case_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="event not found",
@@ -336,6 +336,14 @@ async def unlink_evidence_endpoint(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="insufficient case access",
+        )
+
+    # verify event belongs to this case before unlinking
+    existing = await get_event(db, event_id)
+    if not existing or str(existing.case_id) != case_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="event not found",
         )
 
     deleted = await unlink_evidence(db, link_id)

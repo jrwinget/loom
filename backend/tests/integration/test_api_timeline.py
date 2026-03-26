@@ -130,7 +130,7 @@ def _create_app(settings: Settings) -> object:
 def mock_settings():
     """override settings for tests."""
     return Settings(
-        secret_key="test-secret-key",
+        secret_key="test-secret-key-that-is-long-enough-for-validation",
         access_token_expire_minutes=15,
         refresh_token_expire_days=7,
         database_url="sqlite+aiosqlite:///",
@@ -332,6 +332,11 @@ async def test_unlink_evidence(
             return_value=True,
         ),
         patch(
+            f"{_SVC_TL}.get_event",
+            new_callable=AsyncMock,
+            return_value=_make_event(),
+        ),
+        patch(
             f"{_SVC_TL}.unlink_evidence",
             new_callable=AsyncMock,
             return_value=True,
@@ -466,3 +471,130 @@ async def test_viewer_cannot_create_event(
             )
 
     assert resp.status_code == 403
+
+
+# second case for idor tests
+_CASE_B_ID = UUID("01912345-6789-7abc-8def-aaaaaaaaaaaa")
+
+
+async def test_cannot_get_event_from_another_case(
+    mock_settings: Settings,
+) -> None:
+    """event in case a must not be accessible via case b url."""
+    app = _create_app(mock_settings)
+    # event belongs to _CASE_ID (case a)
+    event = _make_event(case_id=_CASE_ID)
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            _SVC_CASE,
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC_TL}.get_event",
+            new_callable=AsyncMock,
+            return_value=event,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/cases/{_CASE_B_ID}/events/{_EVENT_ID}",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 404
+
+
+async def test_cannot_update_event_from_another_case(
+    mock_settings: Settings,
+) -> None:
+    """event in case a must not be updatable via case b."""
+    app = _create_app(mock_settings)
+    event = _make_event(case_id=_CASE_ID)
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            _SVC_CASE,
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC_TL}.get_event",
+            new_callable=AsyncMock,
+            return_value=event,
+        ),
+        patch(
+            f"{_SVC_TL}.update_event",
+            new_callable=AsyncMock,
+            return_value=event,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.patch(
+                f"/api/v1/cases/{_CASE_B_ID}/events/{_EVENT_ID}",
+                json={"title": "Hacked title"},
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 404
+
+
+async def test_cannot_unlink_evidence_from_another_case(
+    mock_settings: Settings,
+) -> None:
+    """evidence link via case a must not be deletable via case b."""
+    app = _create_app(mock_settings)
+    # event belongs to case a
+    event = _make_event(case_id=_CASE_ID)
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            _SVC_CASE,
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC_TL}.get_event",
+            new_callable=AsyncMock,
+            return_value=event,
+        ),
+        patch(
+            f"{_SVC_TL}.unlink_evidence",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.delete(
+                f"/api/v1/cases/{_CASE_B_ID}"
+                f"/events/{_EVENT_ID}"
+                f"/evidence/{_LINK_ID}",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 404

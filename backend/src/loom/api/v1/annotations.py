@@ -160,7 +160,7 @@ async def get_annotation_endpoint(
         )
 
     annotation = await get_annotation(db, annotation_id)
-    if not annotation:
+    if not annotation or str(annotation.case_id) != case_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="annotation not found",
@@ -212,7 +212,7 @@ async def update_annotation_endpoint(
         )
 
     existing = await get_annotation(db, annotation_id)
-    if not existing:
+    if not existing or str(existing.case_id) != case_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="annotation not found",
@@ -262,6 +262,14 @@ async def delete_annotation_endpoint(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="insufficient case access",
+        )
+
+    # verify annotation belongs to this case before deleting
+    existing = await get_annotation(db, annotation_id)
+    if not existing or str(existing.case_id) != case_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="annotation not found",
         )
 
     deleted = await delete_annotation(db, annotation_id)
