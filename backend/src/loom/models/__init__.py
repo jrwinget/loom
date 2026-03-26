@@ -6,7 +6,10 @@ from loom.models.case import Case, CaseMembership
 from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.models.derivative import Derivative
 from loom.models.export_bundle import ExportBundle
+from loom.models.ocr import OcrRegion
+from loom.models.scene import Scene
 from loom.models.timeline import TimelineEvent, TimelineEventEvidence
+from loom.models.transcript import TranscriptSegment
 from loom.models.user import User
 
 __all__ = [
@@ -19,7 +22,10 @@ __all__ = [
     "ChainOfCustodyEntry",
     "Derivative",
     "ExportBundle",
+    "OcrRegion",
+    "Scene",
     "TimelineEvent",
     "TimelineEventEvidence",
+    "TranscriptSegment",
     "User",
 ]

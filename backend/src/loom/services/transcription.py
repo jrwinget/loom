@@ -1,0 +1,160 @@
+import logging
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from loom.models.transcript import TranscriptSegment
+
+logger = logging.getLogger(__name__)
+
+
+def transcribe_audio(
+    audio_path: str,
+    model_size: str = "base",
+) -> list[dict]:
+    """transcribe audio using faster-whisper.
+
+    returns list of segment dicts with keys:
+    start, end, text, language, confidence.
+    if faster-whisper is not installed, returns a stub result.
+    """
+    try:
+        from faster_whisper import WhisperModel
+    except ImportError:
+        logger.warning(
+            "faster-whisper not installed; returning stub transcript"
+        )
+        return [
+            {
+                "start": 0.0,
+                "end": 0.0,
+                "text": "[transcription unavailable]",
+                "language": None,
+                "confidence": None,
+            }
+        ]
+
+    model = WhisperModel(model_size, compute_type="int8")
+    segments_iter, info = model.transcribe(audio_path)
+
+    results: list[dict] = []
+    for segment in segments_iter:
+        results.append(
+            {
+                "start": segment.start,
+                "end": segment.end,
+                "text": segment.text.strip(),
+                "language": info.language,
+                "confidence": segment.avg_log_prob,
+            }
+        )
+    return results
+
+
+def diarize_audio(audio_path: str) -> list[dict]:
+    """run speaker diarization using pyannote.audio.
+
+    returns list of dicts with keys: speaker, start, end.
+    if pyannote is not installed, returns empty list.
+    """
+    try:
+        from pyannote.audio import Pipeline
+    except ImportError:
+        logger.warning("pyannote.audio not installed; skipping diarization")
+        return []
+
+    pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1")
+    diarization = pipeline(audio_path)
+
+    results: list[dict] = []
+    for turn, _, speaker in diarization.itertracks(
+        yield_label=True,
+    ):
+        results.append(
+            {
+                "speaker": speaker,
+                "start": turn.start,
+                "end": turn.end,
+            }
+        )
+    return results
+
+
+def align_transcript_with_speakers(
+    segments: list[dict],
+    diarization: list[dict],
+) -> list[dict]:
+    """merge transcript segments with speaker labels.
+
+    for each transcript segment, assigns the speaker label
+    with the greatest time overlap.
+    """
+    if not diarization:
+        return segments
+
+    aligned: list[dict] = []
+    for seg in segments:
+        seg_start = seg["start"]
+        seg_end = seg["end"]
+        best_speaker: str | None = None
+        best_overlap = 0.0
+
+        for d in diarization:
+            overlap_start = max(seg_start, d["start"])
+            overlap_end = min(seg_end, d["end"])
+            overlap = max(0.0, overlap_end - overlap_start)
+
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_speaker = d["speaker"]
+
+        aligned.append({**seg, "speaker_label": best_speaker})
+    return aligned
+
+
+async def store_transcript_segments(
+    session: AsyncSession,
+    asset_id: str,
+    segments: list[dict],
+) -> list[TranscriptSegment]:
+    """bulk insert transcript segments into the database."""
+    records: list[TranscriptSegment] = []
+    for seg in segments:
+        record = TranscriptSegment(
+            asset_id=UUID(asset_id),
+            speaker_label=seg.get("speaker_label"),
+            start_time=seg["start"],
+            end_time=seg["end"],
+            text=seg["text"],
+            confidence=seg.get("confidence"),
+            language=seg.get("language"),
+        )
+        session.add(record)
+        records.append(record)
+    await session.flush()
+    return records
+
+
+async def get_transcript_segments(
+    session: AsyncSession,
+    asset_id: str,
+    *,
+    speaker: str | None = None,
+    start_time: float | None = None,
+    end_time: float | None = None,
+) -> list[TranscriptSegment]:
+    """fetch transcript segments with optional filters."""
+    stmt = (
+        select(TranscriptSegment)
+        .where(TranscriptSegment.asset_id == UUID(asset_id))
+        .order_by(TranscriptSegment.start_time)
+    )
+    if speaker is not None:
+        stmt = stmt.where(TranscriptSegment.speaker_label == speaker)
+    if start_time is not None:
+        stmt = stmt.where(TranscriptSegment.end_time >= start_time)
+    if end_time is not None:
+        stmt = stmt.where(TranscriptSegment.start_time <= end_time)
+    result = await session.execute(stmt)
+    return list(result.scalars().all())

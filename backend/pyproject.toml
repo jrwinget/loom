@@ -29,6 +29,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ai = [
+    "faster-whisper>=1.0.0",
+    "pyannote.audio>=3.1.0",
+    "pytesseract>=0.3.10",
+    "Pillow>=10.0.0",
+    "scenedetect[opencv]>=0.6.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
@@ -94,7 +101,7 @@ warn_unused_configs = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["minio.*", "temporalio.*", "av.*"]
+module = ["minio.*", "temporalio.*", "av.*", "pytesseract.*", "PIL.*", "scenedetect.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]

@@ -14,6 +14,27 @@ from loom.workflows.ingest_activities import (
     verify_asset_hash,
 )
 from loom.workflows.ingest_workflow import IngestWorkflow
+from loom.workflows.ocr_activities import (
+    prepare_ocr_input,
+    run_ocr,
+    store_ocr_results,
+)
+from loom.workflows.ocr_workflow import OcrWorkflow
+from loom.workflows.scene_activities import (
+    detect_asset_scenes,
+    generate_scene_thumbs,
+    store_scene_results,
+)
+from loom.workflows.scene_workflow import SceneDetectionWorkflow
+from loom.workflows.transcription_activities import (
+    diarize_asset,
+    extract_audio,
+    store_transcript,
+    transcribe_asset,
+)
+from loom.workflows.transcription_workflow import (
+    TranscriptionWorkflow,
+)
 
 
 async def main() -> None:
@@ -23,7 +44,13 @@ async def main() -> None:
     worker = Worker(
         client,
         task_queue="loom-ingest",
-        workflows=[IngestWorkflow, ExportWorkflow],
+        workflows=[
+            IngestWorkflow,
+            ExportWorkflow,
+            TranscriptionWorkflow,
+            OcrWorkflow,
+            SceneDetectionWorkflow,
+        ],
         activities=[
             verify_asset_hash,
             extract_asset_metadata,
@@ -31,6 +58,16 @@ async def main() -> None:
             record_derivatives_custody,
             mark_asset_complete,
             build_export,
+            extract_audio,
+            transcribe_asset,
+            diarize_asset,
+            store_transcript,
+            prepare_ocr_input,
+            run_ocr,
+            store_ocr_results,
+            detect_asset_scenes,
+            generate_scene_thumbs,
+            store_scene_results,
         ],
     )
     await worker.run()
