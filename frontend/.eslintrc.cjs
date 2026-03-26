@@ -18,7 +18,16 @@ module.exports = {
       { argsIgnorePattern: '^_' },
     ],
     '@typescript-eslint/no-explicit-any': 'error',
-    'max-len': ['warn', { code: 80, ignoreUrls: true }],
+    'max-len': [
+      'warn',
+      {
+        code: 80,
+        ignoreUrls: true,
+        ignoreStrings: true,
+        ignoreTemplateLiterals: true,
+        ignoreRegExpLiterals: true,
+      },
+    ],
     'no-trailing-spaces': 'error',
     'eol-last': ['error', 'always'],
   },
