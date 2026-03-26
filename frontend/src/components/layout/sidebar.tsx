@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useUiStore } from '@/stores/ui-store';
 
 const navItems = [
@@ -7,6 +7,7 @@ const navItems = [
 ] as const;
 
 export function Sidebar(): React.ReactElement {
+  const { caseId } = useParams<{ caseId: string }>();
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
 
@@ -35,6 +36,14 @@ export function Sidebar(): React.ReactElement {
             {sidebarOpen ? item.label : item.label[0]}
           </Link>
         ))}
+        {caseId && (
+          <Link
+            to={`/cases/${caseId}/conflicts`}
+            className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            {sidebarOpen ? 'Conflicts' : 'C'}
+          </Link>
+        )}
       </nav>
 
       {/* collapse / expand */}

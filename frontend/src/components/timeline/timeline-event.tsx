@@ -4,6 +4,7 @@ interface TimelineEventProps {
   event: TEvent;
   selected: boolean;
   onClick: (event: TEvent) => void;
+  onConflictClick?: (event: TEvent) => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -28,7 +29,7 @@ function formatTime(iso: string): string {
 export function TimelineEventCard(
   props: TimelineEventProps,
 ): React.ReactElement {
-  const { event, selected, onClick } = props;
+  const { event, selected, onClick, onConflictClick } = props;
   const colorClass = statusColors[event.status] ?? statusColors['draft'];
 
   const timeRange = event.eventTimeEnd
@@ -53,9 +54,21 @@ export function TimelineEventCard(
         <div className="flex items-center gap-1.5">
           {event.hasContradictions && (
             <span
+              role="button"
+              tabIndex={0}
               data-testid="contradiction-indicator"
-              className="text-amber-500"
+              className="cursor-pointer text-amber-500 hover:text-amber-600"
               title="Has contradicting evidence"
+              onClick={(e) => {
+                e.stopPropagation();
+                onConflictClick?.(event);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation();
+                  onConflictClick?.(event);
+                }
+              }}
             >
               &#9888;
             </span>

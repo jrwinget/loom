@@ -34,6 +34,12 @@ export const queryKeys = {
     results: (caseId: string, query: string, types?: string[]) =>
       ['search', caseId, query, types] as const,
   },
+  conflicts: {
+    byCase: (caseId: string, resolved?: boolean) =>
+      ['conflicts', caseId, resolved] as const,
+    detail: (caseId: string, eventId: string) =>
+      ['conflicts', caseId, eventId] as const,
+  },
   duplicates: {
     byCase: (caseId: string) => ['duplicates', caseId] as const,
   },

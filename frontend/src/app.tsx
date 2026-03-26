@@ -6,6 +6,7 @@ import { CaseListPage } from '@/routes/cases/index';
 import { CaseDetailPage } from '@/routes/cases/[caseId]/index';
 import { AssetsPage } from '@/routes/cases/[caseId]/assets';
 import { TimelinePage } from '@/routes/cases/[caseId]/timeline';
+import { ConflictsPage } from '@/routes/cases/[caseId]/conflicts';
 import { ExportPage } from '@/routes/cases/[caseId]/export';
 import { ReviewPage } from '@/routes/cases/[caseId]/review';
 
@@ -40,6 +41,7 @@ export function App(): React.ReactElement {
             <Route path="cases/:caseId" element={<CaseDetailPage />} />
             <Route path="cases/:caseId/assets" element={<AssetsPage />} />
             <Route path="cases/:caseId/timeline" element={<TimelinePage />} />
+            <Route path="cases/:caseId/conflicts" element={<ConflictsPage />} />
             <Route path="cases/:caseId/export" element={<ExportPage />} />
             <Route
               path="cases/:caseId/review/:assetId"
