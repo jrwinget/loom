@@ -2,11 +2,10 @@
 
 [![CI](https://github.com/jrwinget/loom/actions/workflows/ci.yml/badge.svg)](https://github.com/jrwinget/loom/actions/workflows/ci.yml)
 
-An evidence operating system for the
-[National Lawyers Guild](https://www.nlg.org/). Loom helps
-combine multiple source documents — video, photos, statements
-— into defensible event timelines where every claim traces
-back to source material.
+An evidence operating system for the [National Lawyers
+Guild](https://www.nlg.org/). Loom helps combine multiple source documents —
+video, photos, statements — into defensible event timelines where every claim
+traces back to source material.
 
 ## Architecture
 
@@ -38,8 +37,8 @@ graph TB
 
 ### Evidence Spine
 
-The core data model is an evidence spine that traces every
-claim back to source material:
+The core data model is an evidence spine that traces every claim back to source
+material:
 
 ```
 Case
@@ -54,16 +53,16 @@ Case
 
 ### Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| API | FastAPI + Uvicorn |
-| Database | PostgreSQL 16 + SQLAlchemy 2.0 |
-| Object Storage | MinIO (S3-compatible, WORM) |
-| Workflows | Temporal |
-| Frontend | Vite + React 18 + TypeScript |
-| UI Components | shadcn/ui (Radix + Tailwind) |
-| State | Zustand + TanStack Query |
-| Testing | pytest, Vitest, Playwright |
+| Layer          | Technology                     |
+| -------------- | ------------------------------ |
+| API            | FastAPI + Uvicorn              |
+| Database       | PostgreSQL 16 + SQLAlchemy 2.0 |
+| Object Storage | MinIO (S3-compatible, WORM)    |
+| Workflows      | Temporal                       |
+| Frontend       | Vite + React 18 + TypeScript   |
+| UI Components  | shadcn/ui (Radix + Tailwind)   |
+| State          | Zustand + TanStack Query       |
+| Testing        | pytest, Vitest, Playwright     |
 
 ## Quick Start
 
@@ -101,8 +100,8 @@ make migrate
 make dev
 ```
 
-The API will be available at `http://localhost:8000/docs`
-and the frontend at `http://localhost:3000`.
+The API will be available at `http://localhost:8000/docs` and the frontend at
+`http://localhost:3000`.
 
 ### Running Tests
 
@@ -115,22 +114,30 @@ make lint           # all linters
 
 ## Core Principles
 
-1. **Originals are sacred** — the system preserves original
-   files, filenames, order, and hashes with WORM-style
-   immutability. Every access is logged.
+1. **Originals are sacred** — the system preserves original files, filenames,
+   order, and hashes with WORM-style immutability. Every access is logged.
 
-2. **AI assists, humans decide** — AI can suggest transcripts,
-   scene boundaries, and candidate events, but it never
-   silently collapses ambiguity into false certainty.
-   Contradictions are surfaced, not hidden.
+2. **AI assists, humans decide** — AI can suggest transcripts, scene boundaries,
+   and candidate events, but it never silently collapses ambiguity into false
+   certainty. Contradictions are surfaced, not hidden.
 
-3. **Scale on ugly reality** — designed for terabytes of mixed
-   footage with resumable upload, batch ingest, async
-   processing, and proxy-based review.
+3. **Scale on ugly reality** — designed for terabytes of mixed footage with
+   resumable upload, batch ingest, async processing, and proxy-based review.
 
-4. **No surveillance features** — face recognition, suspicion
-   scoring, and automated identity resolution are explicitly
-   out of scope.
+4. **No surveillance features** — face recognition, suspicion scoring, and
+   automated identity resolution are explicitly out of scope.
+
+## Phased Roadmap
+
+- **Phase 1** (complete): Immutable ingest, chain of custody, metadata extraction,
+  proxy generation, case workspace, manual timeline/annotation, export bundles
+- **Phase 2** (current): Transcription (faster-whisper), OCR (Tesseract), scene
+  detection (PySceneDetect), full-text search, duplicate clustering,
+  transcript-linked review
+- **Phase 3**: Cross-source event clustering, contradiction surfacing, map/time
+  alignment, report drafting with evidence citations
+- **Phase 4**: C2PA provenance packaging, multi-chapter collaboration, plugin
+  architecture
 
 ## Project Structure
 
@@ -148,28 +155,15 @@ loom/
 └── Makefile          # unified dev commands
 ```
 
-## Phased Roadmap
-
-- **Phase 1** (current): Immutable ingest, chain of custody,
-  metadata extraction, proxy generation, case workspace,
-  manual timeline/annotation, export bundles
-- **Phase 2**: Transcription (faster-whisper), OCR (Tesseract),
-  scene detection (PySceneDetect), full-text search, duplicate
-  clustering
-- **Phase 3**: Cross-source event clustering, contradiction
-  surfacing, map/time alignment, report drafting
-- **Phase 4**: C2PA provenance packaging, multi-chapter
-  collaboration, plugin architecture
-
 ## Contributing
 
-See [docs/contributing.md](docs/contributing.md) for
-development setup, coding standards, and PR process.
+See [docs/contributing.md](docs/contributing.md) for development setup, coding
+standards, and PR process.
 
 ## Security
 
-See [docs/security.md](docs/security.md) for the security
-model, threat assumptions, and responsible disclosure process.
+See [docs/security.md](docs/security.md) for the security model, threat
+assumptions, and responsible disclosure process.
 
 ## License
 

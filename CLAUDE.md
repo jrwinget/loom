@@ -72,18 +72,21 @@ pnpm build                           # production build
 - `models/` — SQLAlchemy 2.0 models (evidence spine)
 - `schemas/` — Pydantic request/response schemas
 - `api/v1/` — REST endpoints (health, auth, cases, assets,
-  annotations, timeline, exports)
+  annotations, timeline, exports, transcripts, ocr, scenes,
+  search, duplicates)
 - `services/` — business logic (case, ingest, hashing,
-  storage, metadata, proxy, annotation, timeline, export)
+  storage, metadata, proxy, annotation, timeline, export,
+  transcription, ocr, scene_detection, search,
+  duplicate_detection)
 - `workflows/` — Temporal workflow definitions
 - `workers/` — Temporal worker entrypoint
 
 ### Frontend (`frontend/src/`)
 
 - `routes/` — page components (dashboard, cases, assets,
-  timeline, export)
+  timeline, export, review)
 - `components/` — layout, case, asset, timeline, annotation,
-  export
+  export, review (transcript, scenes, search, duplicates)
 - `hooks/` — TanStack Query hooks + keyboard shortcuts
 - `stores/` — Zustand stores (auth, UI)
 - `lib/` — API client, query keys, utilities
@@ -99,6 +102,10 @@ cases → annotations (typed: observation/claim/dispute/
 cases → timeline_events → timeline_event_evidence
   (relationship: supports/contradicts/context)
 cases → export_bundles
+assets → transcript_segments (speaker, timestamps, text)
+assets → ocr_regions (bounding box, frame, text)
+assets → scenes (shot boundaries with thumbnails)
+cases → duplicate_clusters → duplicate_cluster_members
 audit_log (append-only, all mutations)
 
 ### Key Design Decisions
@@ -113,6 +120,13 @@ audit_log (append-only, all mutations)
 - Temporal workflows orchestrate the ingest pipeline:
   verify_hash → extract_metadata → generate_proxy →
   record_custody → mark_complete.
+- AI dependencies (faster-whisper, pyannote, pytesseract,
+  scenedetect) are optional — services degrade gracefully
+  when not installed.
+- Full-text search uses ILIKE across transcripts, OCR,
+  annotations, events, and asset filenames.
+- Duplicate detection uses perceptual hashing (average hash)
+  with hamming distance clustering.
 
 ## Code Style
 
