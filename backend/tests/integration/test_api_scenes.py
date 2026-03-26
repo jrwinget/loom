@@ -243,3 +243,109 @@ async def test_list_scenes_ordered(
     scenes = data["scenes"]
     assert scenes[0]["scene_number"] == 1
     assert scenes[1]["scene_number"] == 2
+
+
+async def test_scene_thumbnail_not_found(
+    mock_settings: Settings,
+) -> None:
+    """thumbnail endpoint returns 404 for non-existent scene."""
+    app = _create_app(mock_settings)
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+
+    stub_session = _StubSession()
+    stub_session.execute = AsyncMock(  # type: ignore[method-assign]
+        return_value=mock_result
+    )
+
+    async def override_db():
+        yield stub_session
+
+    app.dependency_overrides[get_db_session] = override_db  # type: ignore[union-attr]
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        fake_id = "01912345-6789-7abc-8def-999999999999"
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}"
+                f"/scenes/{fake_id}/thumbnail",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 404
+
+
+async def test_scene_detail_fields(
+    mock_settings: Settings,
+) -> None:
+    """scene list includes all expected fields."""
+    app = _create_app(mock_settings)
+
+    scene = _make_scene()
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = [scene]
+
+    stub_session = _StubSession()
+    stub_session.execute = AsyncMock(  # type: ignore[method-assign]
+        return_value=mock_result
+    )
+
+    async def override_db():
+        yield stub_session
+
+    app.dependency_overrides[get_db_session] = override_db  # type: ignore[union-attr]
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/scenes",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    scene_data = data["scenes"][0]
+    # verify all expected fields are present
+    expected_fields = [
+        "id",
+        "asset_id",
+        "scene_number",
+        "start_time",
+        "end_time",
+        "start_frame",
+        "end_frame",
+        "thumbnail_url",
+        "duration",
+    ]
+    for field in expected_fields:
+        assert field in scene_data, f"missing field: {field}"

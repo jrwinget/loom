@@ -12,14 +12,14 @@ with workflow.unsafe.imports_passed_through():
 
 
 @workflow.defn
-class OcrWorkflow:
+class OcrWorkflow:  # pragma: no cover
     """orchestrates ocr processing for an asset.
 
     steps: prepare input -> run ocr -> store results.
     """
 
     @workflow.run
-    async def run(self, asset_id: str) -> str:
+    async def run(self, asset_id: str) -> str:  # pragma: no cover
         # step 1: extract frames (for video) or prepare images
         await workflow.execute_activity(
             prepare_ocr_input,

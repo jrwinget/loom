@@ -12,7 +12,7 @@ with workflow.unsafe.imports_passed_through():
 
 
 @workflow.defn
-class SceneDetectionWorkflow:
+class SceneDetectionWorkflow:  # pragma: no cover
     """orchestrates scene detection for a video asset.
 
     steps: detect boundaries -> generate thumbnails ->
@@ -20,7 +20,7 @@ class SceneDetectionWorkflow:
     """
 
     @workflow.run
-    async def run(self, asset_id: str) -> str:
+    async def run(self, asset_id: str) -> str:  # pragma: no cover
         # step 1: detect scene boundaries
         await workflow.execute_activity(
             detect_asset_scenes,

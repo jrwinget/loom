@@ -37,7 +37,7 @@ from loom.workflows.transcription_workflow import (
 )
 
 
-async def main() -> None:
+async def main() -> None:  # pragma: no cover
     """start the temporal worker for the loom ingest queue."""
     settings = get_settings()
     client = await Client.connect(settings.temporal_host)

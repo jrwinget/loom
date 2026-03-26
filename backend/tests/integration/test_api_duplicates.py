@@ -315,3 +315,141 @@ async def test_dismiss_cluster(
             )
 
     assert resp.status_code == 204
+
+
+async def test_scan_with_no_assets_returns_empty(
+    mock_settings: Settings,
+) -> None:
+    """scan on case with no assets returns empty clusters."""
+    app = _create_app(mock_settings)
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC}.find_duplicates",
+            new_callable=AsyncMock,
+            return_value=[],
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/duplicates/scan",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 0
+    assert data["clusters"] == []
+
+
+async def test_list_with_status_filter(
+    mock_settings: Settings,
+) -> None:
+    """list duplicates filters by status parameter."""
+    app = _create_app(mock_settings)
+
+    # mock count returning 0 and empty cluster list for filtered query
+    mock_count_result = MagicMock()
+    mock_count_result.scalar_one.return_value = 0
+
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = []
+    mock_select_result = MagicMock()
+    mock_select_result.scalars.return_value = mock_scalars
+
+    async def _override_db():
+        stub = _StubSession()
+        results = [mock_count_result, mock_select_result]
+        idx = {"val": 0}
+
+        async def _execute(stmt):
+            r = results[idx["val"]]
+            idx["val"] += 1
+            return r
+
+        stub.execute = _execute  # type: ignore[assignment]
+        yield stub
+
+    app.dependency_overrides[get_db_session] = _override_db
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/cases/{_CASE_ID}/duplicates",
+                params={"status": "reviewed"},
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 0
+
+
+async def test_idor_wrong_case_duplicates(
+    mock_settings: Settings,
+) -> None:
+    """cannot access duplicates from wrong case."""
+    app = _create_app(mock_settings)
+    wrong_case = UUID("01912345-6789-7abc-8def-aaaaaaaaaaaa")
+
+    # cluster belongs to _CASE_ID, not wrong_case
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+
+    async def _override_db():
+        stub = _StubSession()
+        stub.execute = AsyncMock(return_value=mock_result)
+        yield stub
+
+    app.dependency_overrides[get_db_session] = _override_db
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.patch(
+                f"/api/v1/cases/{wrong_case}/duplicates/{_CLUSTER_ID}",
+                json={"status": "reviewed"},
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 404

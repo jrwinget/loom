@@ -468,3 +468,212 @@ async def test_non_admin_cannot_delete_plugin(
             )
 
     assert resp.status_code == 403
+
+
+async def test_update_plugin_changes_fields(
+    mock_settings: Settings,
+) -> None:
+    """admin can update plugin fields."""
+    app = _create_app(mock_settings)
+    plugin = _make_plugin()
+    updated_plugin = _make_plugin(name="updated-plugin")
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.get_plugin",
+            new_callable=AsyncMock,
+            return_value=plugin,
+        ),
+        patch(
+            f"{_SVC}.update_plugin",
+            new_callable=AsyncMock,
+            return_value=updated_plugin,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.patch(
+                f"/api/v1/plugins/{_PLUGIN_ID}",
+                json={"name": "updated-plugin"},
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "updated-plugin"
+
+
+async def test_delete_plugin_removes_it(
+    mock_settings: Settings,
+) -> None:
+    """delete plugin returns 204 when successful."""
+    app = _create_app(mock_settings)
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.delete_plugin",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.delete(
+                f"/api/v1/plugins/{_PLUGIN_ID}",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 204
+
+
+async def test_update_webhook(
+    mock_settings: Settings,
+) -> None:
+    """admin can update a webhook."""
+    app = _create_app(mock_settings)
+    webhook = _make_webhook()
+    updated = _make_webhook()
+    updated.url = "https://updated.example.com/hook"
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.get_webhook",
+            new_callable=AsyncMock,
+            return_value=webhook,
+        ),
+        patch(
+            f"{_SVC}.update_webhook",
+            new_callable=AsyncMock,
+            return_value=updated,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.patch(
+                f"/api/v1/plugins/{_PLUGIN_ID}/webhooks/{_WEBHOOK_ID}",
+                json={"url": "https://updated.example.com/hook"},
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 200
+    assert resp.json()["url"] == "https://updated.example.com/hook"
+
+
+async def test_delete_webhook(
+    mock_settings: Settings,
+) -> None:
+    """admin can delete a webhook."""
+    app = _create_app(mock_settings)
+    webhook = _make_webhook()
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.get_webhook",
+            new_callable=AsyncMock,
+            return_value=webhook,
+        ),
+        patch(
+            f"{_SVC}.delete_webhook",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.delete(
+                f"/api/v1/plugins/{_PLUGIN_ID}/webhooks/{_WEBHOOK_ID}",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 204
+
+
+async def test_delivery_log_empty(
+    mock_settings: Settings,
+) -> None:
+    """delivery log returns empty list initially."""
+    app = _create_app(mock_settings)
+    webhook = _make_webhook()
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.get_webhook",
+            new_callable=AsyncMock,
+            return_value=webhook,
+        ),
+        patch(
+            f"{_SVC}.get_deliveries",
+            new_callable=AsyncMock,
+            return_value=([], 0),
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/plugins/{_PLUGIN_ID}"
+                f"/webhooks/{_WEBHOOK_ID}/deliveries",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 0
+    assert data["items"] == []
+
+
+async def test_non_admin_cannot_update_plugin(
+    mock_settings: Settings,
+) -> None:
+    """non-admin gets 403 on plugin update."""
+    app = _create_app(mock_settings)
+
+    with patch(
+        "loom.security.auth.get_settings",
+        return_value=mock_settings,
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.patch(
+                f"/api/v1/plugins/{_PLUGIN_ID}",
+                json={"name": "nope"},
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 403

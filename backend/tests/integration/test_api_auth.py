@@ -296,3 +296,103 @@ async def test_register_user_with_admin_token(
     # the mock session returns user for all queries,
     # so this will hit the "email already exists" path
     assert resp.status_code in (201, 409)
+
+
+async def test_register_invalid_email(
+    first_user_client: httpx.AsyncClient,
+) -> None:
+    """register with invalid email returns 422."""
+    resp = await first_user_client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "not-an-email",
+            "display_name": "Test",
+            "password": "securepassword123",
+        },
+    )
+    assert resp.status_code == 422
+
+
+async def test_register_short_password(
+    first_user_client: httpx.AsyncClient,
+) -> None:
+    """register with password shorter than 8 chars returns 422."""
+    resp = await first_user_client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "test@example.com",
+            "display_name": "Test",
+            "password": "short",
+        },
+    )
+    assert resp.status_code == 422
+
+
+async def test_login_nonexistent_email(
+    mock_settings: Settings,
+) -> None:
+    """login with non-existent email returns 401."""
+    # session returns None for user lookup
+    session = MockSession(user_count=1, user=None)
+    app = _create_app(session, mock_settings)
+
+    with patch(
+        "loom.security.auth.get_settings",
+        return_value=mock_settings,
+    ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                "/api/v1/auth/login",
+                json={
+                    "email": "nobody@example.com",
+                    "password": "anypassword123",
+                },
+            )
+
+    assert resp.status_code == 401
+
+
+async def test_refresh_invalid_token(
+    mock_settings: Settings,
+) -> None:
+    """refresh with invalid token returns 401."""
+    session = MockSession(user_count=1)
+    app = _create_app(session, mock_settings)
+
+    with patch(
+        "loom.security.auth.get_settings",
+        return_value=mock_settings,
+    ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                "/api/v1/auth/refresh",
+                json={"refresh_token": "invalid.token.here"},
+            )
+
+    assert resp.status_code == 401
+
+
+async def test_get_me_without_token(
+    mock_settings: Settings,
+) -> None:
+    """GET /me without auth returns 401 or 403."""
+    session = MockSession(user_count=1)
+    app = _create_app(session, mock_settings)
+
+    with patch(
+        "loom.security.auth.get_settings",
+        return_value=mock_settings,
+    ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get("/api/v1/auth/me")
+
+    assert resp.status_code in (401, 403)

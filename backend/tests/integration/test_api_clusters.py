@@ -424,3 +424,111 @@ async def test_idor_cluster_wrong_case(
             )
 
     assert resp.status_code == 404
+
+
+async def test_reject_cluster_changes_status(
+    mock_settings: Settings,
+) -> None:
+    """reject endpoint returns cluster with rejected status."""
+    app = _create_app(mock_settings)
+    cluster = _make_cluster(status="rejected")
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            _SVC_CASE,
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC}.reject_cluster",
+            new_callable=AsyncMock,
+            return_value=cluster,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/clusters/{_CLUSTER_ID}/reject",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "rejected"
+
+
+async def test_merge_requires_at_least_two_clusters(
+    mock_settings: Settings,
+) -> None:
+    """merge with fewer than 2 cluster ids returns 422."""
+    app = _create_app(mock_settings)
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            _SVC_CASE,
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/clusters/merge",
+                json={"cluster_ids": [str(_CLUSTER_ID)]},
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 422
+
+
+async def test_cluster_detail_returns_items(
+    mock_settings: Settings,
+) -> None:
+    """cluster detail response includes items list."""
+    app = _create_app(mock_settings)
+    item = _make_cluster_item()
+    cluster = _make_cluster(items=[item])
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            _SVC_CASE,
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC}.get_cluster",
+            new_callable=AsyncMock,
+            return_value=cluster,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/cases/{_CASE_ID}/clusters/{_CLUSTER_ID}",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["items"]) == 1
+    assert data["items"][0]["content_type"] == "transcript"

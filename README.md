@@ -2,10 +2,9 @@
 
 [![CI](https://github.com/jrwinget/loom/actions/workflows/ci.yml/badge.svg)](https://github.com/jrwinget/loom/actions/workflows/ci.yml)
 
-An evidence operating system for the [National Lawyers
-Guild](https://www.nlg.org/). Loom helps combine multiple source documents —
-video, photos, statements — into defensible event timelines where every claim
-traces back to source material.
+An evidence synthesis operating system. Loom helps combine multiple source
+documents (e.g., video, photos, statements) into defensible event timelines
+where every claim traces back to source material.
 
 ## Architecture
 
@@ -114,30 +113,18 @@ make lint           # all linters
 
 ## Core Principles
 
-1. **Originals are sacred** — the system preserves original files, filenames,
+1. **Originals are sacred**: the system preserves original files, filenames,
    order, and hashes with WORM-style immutability. Every access is logged.
 
-2. **AI assists, humans decide** — AI can suggest transcripts, scene boundaries,
+2. **AI assists, humans decide**: AI can suggest transcripts, scene boundaries,
    and candidate events, but it never silently collapses ambiguity into false
    certainty. Contradictions are surfaced, not hidden.
 
-3. **Scale on ugly reality** — designed for terabytes of mixed footage with
+3. **Scale on ugly reality**: designed for terabytes of mixed footage with
    resumable upload, batch ingest, async processing, and proxy-based review.
 
-4. **No surveillance features** — face recognition, suspicion scoring, and
+4. **No surveillance features**: face recognition, suspicion scoring, and
    automated identity resolution are explicitly out of scope.
-
-## Phased Roadmap
-
-- **Phase 1** (complete): Immutable ingest, chain of custody, metadata extraction,
-  proxy generation, case workspace, manual timeline/annotation, export bundles
-- **Phase 2** (complete): Transcription (faster-whisper), OCR (Tesseract), scene
-  detection (PySceneDetect), full-text search, duplicate clustering,
-  transcript-linked review
-- **Phase 3** (complete): Cross-source event clustering, contradiction surfacing,
-  map/time alignment, multi-video sync, report drafting with PDF export
-- **Phase 4** (complete): C2PA provenance packaging, multi-chapter collaboration,
-  plugin architecture with webhooks
 
 ## Project Structure
 

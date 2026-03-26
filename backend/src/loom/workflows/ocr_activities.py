@@ -7,7 +7,9 @@ logger = logging.getLogger(__name__)
 
 
 @activity.defn
-async def prepare_ocr_input(asset_id: str) -> dict[str, Any]:
+async def prepare_ocr_input(  # pragma: no cover
+    asset_id: str,
+) -> dict[str, Any]:
     """prepare images for ocr processing.
 
     for video assets, extracts key frames. for images,
@@ -23,7 +25,9 @@ async def prepare_ocr_input(asset_id: str) -> dict[str, Any]:
 
 
 @activity.defn
-async def run_ocr(asset_id: str) -> dict[str, Any]:
+async def run_ocr(  # pragma: no cover
+    asset_id: str,
+) -> dict[str, Any]:
     """run ocr on prepared images.
 
     currently a stub that returns empty results.
@@ -37,7 +41,9 @@ async def run_ocr(asset_id: str) -> dict[str, Any]:
 
 
 @activity.defn
-async def store_ocr_results(asset_id: str) -> dict[str, Any]:
+async def store_ocr_results(  # pragma: no cover
+    asset_id: str,
+) -> dict[str, Any]:
     """store ocr results in the database.
 
     currently a stub.

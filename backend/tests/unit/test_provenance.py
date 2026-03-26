@@ -181,3 +181,235 @@ def test_provenance_record_model_validation() -> None:
     assert record.manifest_data == {"test": True}
     assert record.claim_generator == CLAIM_GENERATOR
     assert record.actions == [{"action": "test"}]
+
+
+class TestGetAssetProvenance:
+    """get_asset_provenance with case_id verification."""
+
+    async def test_returns_records_for_valid_asset(self) -> None:
+        """returns provenance records when asset belongs to case."""
+        from loom.services.provenance import get_asset_provenance
+
+        asset = _mock_asset()
+        record = MagicMock(spec=ProvenanceRecord)
+
+        session = AsyncMock()
+        call_count = 0
+
+        async def mock_execute(query: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            m = MagicMock()
+            if call_count == 1:
+                # asset verification query
+                m.scalar_one_or_none.return_value = asset
+            else:
+                # provenance records query
+                m.scalars.return_value.all.return_value = [record]
+            return m
+
+        session.execute = AsyncMock(side_effect=mock_execute)
+
+        records = await get_asset_provenance(
+            session, str(_ASSET_ID), str(_CASE_ID)
+        )
+        assert len(records) == 1
+
+    async def test_returns_empty_for_wrong_case(self) -> None:
+        """returns empty list when asset not in case (idor)."""
+        from loom.services.provenance import get_asset_provenance
+
+        session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        session.execute = AsyncMock(return_value=mock_result)
+
+        records = await get_asset_provenance(
+            session,
+            str(_ASSET_ID),
+            "99999999-9999-9999-9999-999999999999",
+        )
+        assert records == []
+
+
+class TestGetExportProvenance:
+    """get_export_provenance with case_id verification."""
+
+    async def test_returns_records_for_valid_export(self) -> None:
+        """returns provenance records when export belongs to case."""
+        from loom.services.provenance import get_export_provenance
+
+        export = MagicMock()
+        record = MagicMock(spec=ProvenanceRecord)
+
+        session = AsyncMock()
+        call_count = 0
+
+        async def mock_execute(query: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            m = MagicMock()
+            if call_count == 1:
+                m.scalar_one_or_none.return_value = export
+            else:
+                m.scalars.return_value.all.return_value = [record]
+            return m
+
+        session.execute = AsyncMock(side_effect=mock_execute)
+
+        export_id = "01912345-6789-7abc-8def-0123456789ab"
+        records = await get_export_provenance(session, export_id, str(_CASE_ID))
+        assert len(records) == 1
+
+    async def test_returns_empty_for_wrong_case(self) -> None:
+        """returns empty when export not in case."""
+        from loom.services.provenance import get_export_provenance
+
+        session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        session.execute = AsyncMock(return_value=mock_result)
+
+        records = await get_export_provenance(
+            session,
+            "01912345-6789-7abc-8def-0123456789ab",
+            "99999999-9999-9999-9999-999999999999",
+        )
+        assert records == []
+
+
+class TestEmbedProvenanceInExport:
+    """embed_provenance_in_export orchestration."""
+
+    async def test_returns_false_without_c2pa(self) -> None:
+        """returns False when c2pa not installed."""
+        from loom.services.provenance import embed_provenance_in_export
+
+        session = AsyncMock()
+        storage = MagicMock()
+
+        with patch(
+            "loom.services.provenance._c2pa_available",
+            return_value=False,
+        ):
+            result = await embed_provenance_in_export(
+                session, "export-id", str(_CASE_ID), storage
+            )
+        assert result is False
+
+    async def test_returns_false_for_wrong_case(self) -> None:
+        """returns False when export not in case."""
+        from loom.services.provenance import embed_provenance_in_export
+
+        session = AsyncMock()
+        storage = MagicMock()
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        session.execute = AsyncMock(return_value=mock_result)
+
+        with patch(
+            "loom.services.provenance._c2pa_available",
+            return_value=True,
+        ):
+            result = await embed_provenance_in_export(
+                session,
+                "01912345-6789-7abc-8def-0123456789ab",
+                "99999999-9999-9999-9999-999999999999",
+                storage,
+            )
+        assert result is False
+
+    async def test_records_provenance_for_unsupported_format(
+        self,
+    ) -> None:
+        """records provenance even for unsupported mime types."""
+        from loom.services.provenance import embed_provenance_in_export
+
+        export = MagicMock()
+        export.id = "export-1"
+        export.case_id = _CASE_ID
+
+        asset = MagicMock()
+        asset.id = _ASSET_ID
+        asset.original_filename = "doc.pdf"
+        asset.mime_type = "application/pdf"
+        asset.sha256_hash = "b" * 64
+
+        session = AsyncMock()
+        call_count = 0
+
+        async def mock_execute(query: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            m = MagicMock()
+            if call_count == 1:
+                # export verification
+                m.scalar_one_or_none.return_value = export
+            elif call_count == 2:
+                # assets query
+                m.scalars.return_value.all.return_value = [asset]
+            elif call_count == 3:
+                # asset query in build_c2pa_manifest
+                m.scalar_one_or_none.return_value = asset
+            elif call_count == 4:
+                # custody entries
+                m.scalars.return_value.all.return_value = []
+            else:
+                m.scalar_one_or_none.return_value = None
+                m.scalars.return_value.all.return_value = []
+            return m
+
+        session.execute = AsyncMock(side_effect=mock_execute)
+        storage = MagicMock()
+
+        with patch(
+            "loom.services.provenance._c2pa_available",
+            return_value=True,
+        ):
+            await embed_provenance_in_export(
+                session, str(_ASSET_ID), str(_CASE_ID), storage
+            )
+
+        # provenance record still created for unsupported format
+        assert session.add.call_count >= 1
+
+
+class TestSignManifestUnsupported:
+    """sign_manifest returns None for unsupported formats."""
+
+    def test_unsupported_format_returns_none(self) -> None:
+        """application/pdf is not c2pa-supported."""
+        manifest = {
+            "claim_generator": CLAIM_GENERATOR,
+            "format": "application/pdf",
+        }
+
+        with patch(
+            "loom.services.provenance._c2pa_available",
+            return_value=True,
+        ):
+            result = sign_manifest(
+                manifest,
+                "/tmp/in.pdf",  # noqa: S108
+                "/tmp/out.pdf",  # noqa: S108
+            )
+        assert result is None
+
+    def test_text_format_returns_none(self) -> None:
+        """text/plain is not c2pa-supported."""
+        manifest = {
+            "claim_generator": CLAIM_GENERATOR,
+            "format": "text/plain",
+        }
+
+        with patch(
+            "loom.services.provenance._c2pa_available",
+            return_value=True,
+        ):
+            result = sign_manifest(
+                manifest,
+                "/tmp/in.txt",  # noqa: S108
+                "/tmp/out.txt",  # noqa: S108
+            )
+        assert result is None

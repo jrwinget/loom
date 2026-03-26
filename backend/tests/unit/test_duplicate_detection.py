@@ -181,3 +181,182 @@ async def test_find_duplicates_no_assets() -> None:
 
     clusters = await find_duplicates(session, _CASE_ID)
     assert clusters == []
+
+
+async def test_find_duplicates_near_duplicates() -> None:
+    """find_duplicates detects phash near-duplicates."""
+    from loom.services.duplicate_detection import find_duplicates
+
+    asset1 = MagicMock()
+    asset1.id = "00000000-0000-0000-0000-000000000001"
+    asset1.sha256_hash = "a" * 64
+    asset1.media_type = "image"
+
+    asset2 = MagicMock()
+    asset2.id = "00000000-0000-0000-0000-000000000002"
+    asset2.sha256_hash = "b" * 64  # different sha
+    asset2.media_type = "image"
+
+    session = AsyncMock()
+    call_count = 0
+
+    async def mock_execute(query: object) -> MagicMock:
+        nonlocal call_count
+        call_count += 1
+        m = MagicMock()
+        if call_count == 1:
+            m.scalars.return_value.all.return_value = [asset1, asset2]
+        elif call_count == 2:
+            # phash for asset1
+            m.scalar_one_or_none.return_value = "0000000000000000"
+        elif call_count == 3:
+            # phash for asset2 (1 bit difference)
+            m.scalar_one_or_none.return_value = "0000000000000001"
+        return m
+
+    session.execute = AsyncMock(side_effect=mock_execute)
+
+    clusters = await find_duplicates(session, _CASE_ID, threshold=10)
+    # should find a near-duplicate cluster
+    near = [c for c in clusters if c["type"] == "near"]
+    assert len(near) == 1
+    assert set(near[0]["asset_ids"]) == {
+        str(asset1.id),
+        str(asset2.id),
+    }
+
+
+async def test_find_duplicates_no_duplicates() -> None:
+    """find_duplicates returns empty when no duplicates."""
+    from loom.services.duplicate_detection import find_duplicates
+
+    asset1 = MagicMock()
+    asset1.id = "00000000-0000-0000-0000-000000000001"
+    asset1.sha256_hash = "a" * 64
+    asset1.media_type = "document"
+
+    asset2 = MagicMock()
+    asset2.id = "00000000-0000-0000-0000-000000000002"
+    asset2.sha256_hash = "b" * 64
+    asset2.media_type = "document"
+
+    session = AsyncMock()
+    call_count = 0
+
+    async def mock_execute(query: object) -> MagicMock:
+        nonlocal call_count
+        call_count += 1
+        m = MagicMock()
+        if call_count == 1:
+            m.scalars.return_value.all.return_value = [asset1, asset2]
+        else:
+            # no phashes (documents)
+            m.scalar_one_or_none.return_value = None
+        return m
+
+    session.execute = AsyncMock(side_effect=mock_execute)
+
+    clusters = await find_duplicates(session, _CASE_ID)
+    assert clusters == []
+
+
+async def test_create_cluster() -> None:
+    """create_cluster persists cluster with members."""
+    from loom.services.duplicate_detection import create_cluster
+
+    session = AsyncMock()
+    session.add = MagicMock()
+    session.flush = AsyncMock()
+
+    await create_cluster(
+        session,
+        _CASE_ID,
+        [
+            "00000000-0000-0000-0000-000000000001",
+            "00000000-0000-0000-0000-000000000002",
+        ],
+        {
+            "00000000-0000-0000-0000-000000000001": "abcdef0123456789",
+            "00000000-0000-0000-0000-000000000002": "abcdef0123456780",
+        },
+    )
+
+    # cluster + 2 members = 3 adds
+    assert session.add.call_count == 3
+    assert session.flush.await_count == 2
+
+
+async def test_update_cluster_status() -> None:
+    """update_cluster_status changes status."""
+    from loom.services.duplicate_detection import (
+        update_cluster_status,
+    )
+
+    cluster = MagicMock()
+    cluster.status = "pending"
+
+    session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalar_one.return_value = cluster
+    session.execute = AsyncMock(return_value=mock_result)
+
+    await update_cluster_status(session, _CASE_ID, "resolved")
+    assert cluster.status == "resolved"
+    session.flush.assert_awaited_once()
+
+
+async def test_set_primary_member() -> None:
+    """set_primary_member marks one member as primary."""
+    from loom.services.duplicate_detection import set_primary_member
+
+    m1 = MagicMock()
+    m1.asset_id = "00000000-0000-0000-0000-000000000001"
+    m1.is_primary = True
+
+    m2 = MagicMock()
+    m2.asset_id = "00000000-0000-0000-0000-000000000002"
+    m2.is_primary = False
+
+    session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = [m1, m2]
+    session.execute = AsyncMock(return_value=mock_result)
+
+    await set_primary_member(
+        session,
+        _CASE_ID,
+        "00000000-0000-0000-0000-000000000002",
+    )
+
+    assert m1.is_primary is False
+    assert m2.is_primary is True
+    session.flush.assert_awaited_once()
+
+
+def test_compute_video_phash_probe_failure() -> None:
+    """compute_video_phash returns empty on ffprobe failure."""
+    from loom.services.duplicate_detection import compute_video_phash
+
+    with patch(
+        "subprocess.run",
+        side_effect=Exception("ffprobe not found"),
+    ):
+        result = compute_video_phash("/nonexistent/video.mp4")
+    assert result == ""
+
+
+def test_compute_video_phash_ffmpeg_failure() -> None:
+    """compute_video_phash returns empty on ffmpeg failure."""
+    from loom.services.duplicate_detection import compute_video_phash
+
+    # first call (ffprobe) succeeds, second (ffmpeg) fails
+    probe_result = MagicMock()
+    probe_result.stdout = "10.0\n"
+
+    with patch("subprocess.run") as mock_run:
+        mock_run.side_effect = [
+            probe_result,
+            Exception("ffmpeg failed"),
+        ]
+        result = compute_video_phash("/nonexistent/video.mp4")
+    assert result == ""

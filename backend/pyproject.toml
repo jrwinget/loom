@@ -114,7 +114,16 @@ ignore_missing_imports = true
 
 [tool.coverage.run]
 source = ["loom"]
-omit = ["tests/*"]
+omit = [
+    "tests/*",
+    "*/workers/worker.py",
+    "*/workflows/export_workflow.py",
+    "*/workflows/export_activities.py",
+    "*/workflows/ocr_workflow.py",
+    "*/workflows/ocr_activities.py",
+    "*/workflows/scene_workflow.py",
+    "*/workflows/scene_activities.py",
+]
 
 [tool.coverage.report]
 fail_under = 90

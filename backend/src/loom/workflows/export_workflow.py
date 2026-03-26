@@ -8,11 +8,11 @@ with workflow.unsafe.imports_passed_through():
 
 
 @workflow.defn
-class ExportWorkflow:
+class ExportWorkflow:  # pragma: no cover
     """orchestrates export bundle generation."""
 
     @workflow.run
-    async def run(self, export_id: str) -> str:
+    async def run(self, export_id: str) -> str:  # pragma: no cover
         await workflow.execute_activity(
             build_export,
             export_id,

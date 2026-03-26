@@ -412,3 +412,306 @@ async def test_download_url(
     data = resp.json()
     assert "url" in data
     assert "key" in data
+
+
+async def test_upload_missing_file_returns_422(
+    mock_settings: Settings,
+) -> None:
+    """upload without file field returns 422."""
+    app = _create_app(mock_settings)
+
+    with patch(
+        "loom.security.auth.get_settings",
+        return_value=mock_settings,
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/assets/upload",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 422
+
+
+async def test_upload_oversized_file_returns_413(
+    mock_settings: Settings,
+) -> None:
+    """upload file exceeding 100mb returns 413."""
+    app = _create_app(mock_settings)
+
+    # build data larger than 100mb limit
+    oversized = b"\x00" * (100 * 1024 * 1024 + 1)
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/assets/upload",
+                files={
+                    "file": (
+                        "huge.bin",
+                        oversized,
+                        "application/octet-stream",
+                    )
+                },
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 413
+
+
+async def test_presigned_upload_url(
+    mock_settings: Settings,
+) -> None:
+    """presigned url endpoint returns url and key."""
+    app = _create_app(mock_settings)
+
+    mock_minio = MagicMock()
+    mock_minio.presigned_put_object.return_value = "https://minio.local/upload"
+    from loom.dependencies import get_minio_client
+
+    app.dependency_overrides[get_minio_client] = lambda: mock_minio
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC}.StorageService",
+        ) as mock_storage_cls,
+    ):
+        mock_storage = MagicMock()
+        mock_storage.get_presigned_upload_url.return_value = (
+            "https://minio.local/upload"
+        )
+        mock_storage_cls.return_value = mock_storage
+
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/assets/upload-url",
+                json={
+                    "filename": "large-video.mp4",
+                    "content_type": "video/mp4",
+                },
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "url" in data
+    assert "key" in data
+    assert data["url"] == "https://minio.local/upload"
+
+
+async def test_complete_nonexistent_asset_returns_404(
+    mock_settings: Settings,
+) -> None:
+    """complete for non-existent asset returns 404."""
+    app = _create_app(mock_settings)
+
+    mock_minio = MagicMock()
+    mock_minio.list_objects.return_value = iter([])
+    from loom.dependencies import get_minio_client
+
+    app.dependency_overrides[get_minio_client] = lambda: mock_minio
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC}.StorageService",
+        ) as mock_storage_cls,
+    ):
+        mock_storage = MagicMock()
+        mock_storage_cls.return_value = mock_storage
+
+        token = create_access_token(str(_USER_ID), "analyst")
+        fake_asset_id = "01912345-6789-7abc-8def-999999999999"
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/assets/{fake_asset_id}/complete",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 404
+
+
+async def test_download_url_nonexistent_asset_returns_404(
+    mock_settings: Settings,
+) -> None:
+    """download url for non-existent asset returns 404."""
+    app = _create_app(mock_settings)
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+
+    async def _override_db():
+        stub = _StubSession()
+        stub.execute = AsyncMock(return_value=mock_result)
+        yield stub
+
+    app.dependency_overrides[get_db_session] = _override_db
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        fake_id = "01912345-6789-7abc-8def-999999999999"
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/cases/{_CASE_ID}/assets/{fake_id}/download-url",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 404
+
+
+async def test_list_assets_pagination(
+    mock_settings: Settings,
+) -> None:
+    """list assets respects skip and limit params."""
+    app = _create_app(mock_settings)
+    asset = _make_asset()
+
+    mock_count_result = MagicMock()
+    mock_count_result.scalar_one.return_value = 5
+
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = [asset]
+    mock_select_result = MagicMock()
+    mock_select_result.scalars.return_value = mock_scalars
+
+    async def _override_db():
+        stub = _StubSession()
+        results = [mock_count_result, mock_select_result]
+        idx = {"val": 0}
+
+        async def _execute(stmt):
+            r = results[idx["val"]]
+            idx["val"] += 1
+            return r
+
+        stub.execute = _execute  # type: ignore[assignment]
+        yield stub
+
+    app.dependency_overrides[get_db_session] = _override_db
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            "loom.schemas.asset.AssetResponse.model_validate",
+            side_effect=lambda a: _asset_response_from_mock(a),
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/cases/{_CASE_ID}/assets",
+                params={"skip": 2, "limit": 1},
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 5
+    assert len(data["items"]) == 1
+
+
+async def test_get_asset_nonexistent_returns_404(
+    mock_settings: Settings,
+) -> None:
+    """get detail for non-existent asset returns 404."""
+    app = _create_app(mock_settings)
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+
+    async def _override_db():
+        stub = _StubSession()
+        stub.execute = AsyncMock(return_value=mock_result)
+        yield stub
+
+    app.dependency_overrides[get_db_session] = _override_db
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        fake_id = "01912345-6789-7abc-8def-999999999999"
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/cases/{_CASE_ID}/assets/{fake_id}",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 404

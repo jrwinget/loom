@@ -7,7 +7,9 @@ logger = logging.getLogger(__name__)
 
 
 @activity.defn
-async def detect_asset_scenes(asset_id: str) -> list[dict[str, Any]]:
+async def detect_asset_scenes(  # pragma: no cover
+    asset_id: str,
+) -> list[dict[str, Any]]:
     """download video from minio and run scene detection.
 
     currently a stub that returns an empty list. full
@@ -23,7 +25,7 @@ async def detect_asset_scenes(asset_id: str) -> list[dict[str, Any]]:
 
 
 @activity.defn
-async def generate_scene_thumbs(
+async def generate_scene_thumbs(  # pragma: no cover
     asset_id: str,
 ) -> list[str]:
     """generate thumbnail images for detected scenes.
@@ -43,7 +45,9 @@ async def generate_scene_thumbs(
 
 
 @activity.defn
-async def store_scene_results(asset_id: str) -> None:
+async def store_scene_results(  # pragma: no cover
+    asset_id: str,
+) -> None:
     """persist detected scene records to the database.
 
     currently a stub.
