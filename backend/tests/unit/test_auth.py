@@ -18,7 +18,7 @@ from loom.security.auth import (
 def _mock_settings():
     """provide test settings for all tests."""
     settings = Settings(
-        secret_key="test-secret-key",
+        secret_key="test-secret-key-that-is-long-enough-for-validation",
         access_token_expire_minutes=15,
         refresh_token_expire_days=7,
         database_url="sqlite+aiosqlite:///",

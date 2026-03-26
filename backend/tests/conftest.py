@@ -15,7 +15,7 @@ def settings() -> Settings:
         database_url=(
             "postgresql+asyncpg://loom:loom_dev@localhost:5432/loom_test"
         ),
-        secret_key="test-secret-key",
+        secret_key="test-secret-key-that-is-long-enough-for-validation",
         debug=True,
         log_level="debug",
     )

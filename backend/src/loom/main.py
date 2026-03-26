@@ -44,6 +44,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     log = structlog.get_logger()
 
+    # validate secret key before anything else
+    try:
+        settings.validate_secret_key()
+    except ValueError as exc:
+        logging.critical("configuration error: %s", exc)
+        raise
+
     # database
     engine = create_async_engine(
         settings.database_url,

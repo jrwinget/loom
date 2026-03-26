@@ -2,6 +2,9 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_INSECURE_DEFAULT = "change-me-in-production"
+_MIN_SECRET_LENGTH = 32
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="LOOM_")
@@ -13,11 +16,30 @@ class Settings(BaseSettings):
     minio_secure: bool = False
     temporal_host: str = "localhost:7233"
     temporal_namespace: str = "loom"
-    secret_key: str = "change-me-in-production"  # noqa: S105
+    secret_key: str = _INSECURE_DEFAULT
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
     debug: bool = False
     log_level: str = "info"
+
+    def validate_secret_key(self) -> None:
+        """reject insecure or short secret keys.
+
+        called at startup rather than at construction so that
+        tests and module-level imports are not blocked.
+        """
+        if self.secret_key == _INSECURE_DEFAULT:
+            raise ValueError(
+                "secret_key is the insecure default. "
+                "Set LOOM_SECRET_KEY to a random string of "
+                f"at least {_MIN_SECRET_LENGTH} characters."
+            )
+        if len(self.secret_key) < _MIN_SECRET_LENGTH:
+            raise ValueError(
+                f"secret_key must be at least "
+                f"{_MIN_SECRET_LENGTH} characters, "
+                f"got {len(self.secret_key)}."
+            )
 
 
 @lru_cache
