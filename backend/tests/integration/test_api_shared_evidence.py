@@ -229,9 +229,7 @@ async def test_share_evidence_forbidden_no_target_access(
         patch(
             f"{_SVC}.share_evidence",
             new_callable=AsyncMock,
-            side_effect=PermissionError(
-                "insufficient access on target case"
-            ),
+            side_effect=PermissionError("insufficient access on target case"),
         ),
     ):
         token = create_access_token(str(_USER_ID), "analyst")
@@ -266,9 +264,7 @@ async def test_share_evidence_forbidden_viewer_on_target(
         patch(
             f"{_SVC}.share_evidence",
             new_callable=AsyncMock,
-            side_effect=PermissionError(
-                "insufficient access on target case"
-            ),
+            side_effect=PermissionError("insufficient access on target case"),
         ),
     ):
         token = create_access_token(str(_USER_ID), "analyst")
