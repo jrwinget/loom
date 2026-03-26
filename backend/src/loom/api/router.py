@@ -11,8 +11,12 @@ from loom.api.v1.exports import router as exports_router
 from loom.api.v1.geo import router as geo_router
 from loom.api.v1.health import router as health_router
 from loom.api.v1.ocr import router as ocr_router
+from loom.api.v1.organizations import router as organizations_router
+from loom.api.v1.plugins import router as plugins_router
+from loom.api.v1.provenance import router as provenance_router
 from loom.api.v1.scenes import router as scenes_router
 from loom.api.v1.search import router as search_router
+from loom.api.v1.shared_evidence import router as shared_evidence_router
 from loom.api.v1.timeline import router as timeline_router
 from loom.api.v1.transcripts import router as transcripts_router
 
@@ -32,3 +36,7 @@ api_router.include_router(scenes_router)
 api_router.include_router(search_router)
 api_router.include_router(transcripts_router)
 api_router.include_router(duplicates_router)
+api_router.include_router(provenance_router)
+api_router.include_router(organizations_router)
+api_router.include_router(shared_evidence_router)
+api_router.include_router(plugins_router)

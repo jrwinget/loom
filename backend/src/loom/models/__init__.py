@@ -10,6 +10,13 @@ from loom.models.duplicate import DuplicateCluster, DuplicateClusterMember
 from loom.models.event_cluster import EventCluster, EventClusterItem
 from loom.models.export_bundle import ExportBundle
 from loom.models.ocr import OcrRegion
+from loom.models.organization import (
+    Organization,
+    OrganizationMembership,
+    SharedEvidenceLink,
+)
+from loom.models.plugin import Plugin, Webhook, WebhookDelivery
+from loom.models.provenance import ProvenanceRecord
 from loom.models.scene import Scene
 from loom.models.timeline import TimelineEvent, TimelineEventEvidence
 from loom.models.transcript import TranscriptSegment
@@ -31,9 +38,16 @@ __all__ = [
     "EventClusterItem",
     "ExportBundle",
     "OcrRegion",
+    "Organization",
+    "OrganizationMembership",
+    "Plugin",
+    "ProvenanceRecord",
     "Scene",
+    "SharedEvidenceLink",
     "TimelineEvent",
     "TimelineEventEvidence",
     "TranscriptSegment",
     "User",
+    "Webhook",
+    "WebhookDelivery",
 ]

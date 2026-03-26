@@ -37,6 +37,9 @@ ai = [
     "Pillow>=10.0.0",
     "scenedetect[opencv]>=0.6.0",
 ]
+provenance = [
+    "c2pa-python>=0.6.0",
+]
 report = [
     "weasyprint>=62.0",
     "jinja2>=3.1.0",
@@ -106,7 +109,7 @@ warn_unused_configs = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["minio.*", "temporalio.*", "av.*", "pytesseract.*", "PIL.*", "scenedetect.*", "uuid_extensions.*", "faster_whisper.*", "pyannote.*", "weasyprint.*", "jinja2.*"]
+module = ["minio.*", "temporalio.*", "av.*", "pytesseract.*", "PIL.*", "scenedetect.*", "uuid_extensions.*", "faster_whisper.*", "pyannote.*", "weasyprint.*", "jinja2.*", "c2pa.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
