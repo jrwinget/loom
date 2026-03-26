@@ -92,14 +92,15 @@ jobs:
           --health-timeout 5s
           --health-retries 5
       minio:
-        image: minio/minio:latest
+        image: bitnami/minio:latest
         env:
           MINIO_ROOT_USER: loom_minio
           MINIO_ROOT_PASSWORD: loom_minio_test
+          MINIO_DEFAULT_BUCKETS: "loom-originals,loom-derivatives"
         ports:
           - 9000:9000
         options: >-
-          --health-cmd "mc ready local"
+          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -110,7 +111,7 @@ jobs:
       LOOM_MINIO_ACCESS_KEY: loom_minio
       LOOM_MINIO_SECRET_KEY: loom_minio_test
       LOOM_MINIO_SECURE: "false"
-      LOOM_SECRET_KEY: test-secret-key
+      LOOM_SECRET_KEY: test-secret-key-that-is-long-enough-for-ci
     steps:
       - uses: actions/checkout@v4
 
