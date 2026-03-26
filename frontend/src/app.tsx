@@ -5,6 +5,8 @@ import { Dashboard } from '@/routes/index';
 import { CaseListPage } from '@/routes/cases/index';
 import { CaseDetailPage } from '@/routes/cases/[caseId]/index';
 import { AssetsPage } from '@/routes/cases/[caseId]/assets';
+import { TimelinePage } from '@/routes/cases/[caseId]/timeline';
+import { ExportPage } from '@/routes/cases/[caseId]/export';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +48,14 @@ export function App(): React.ReactElement {
             <Route
               path="cases/:caseId/assets"
               element={<AssetsPage />}
+            />
+            <Route
+              path="cases/:caseId/timeline"
+              element={<TimelinePage />}
+            />
+            <Route
+              path="cases/:caseId/export"
+              element={<ExportPage />}
             />
             <Route path="*" element={<NotFound />} />
           </Route>

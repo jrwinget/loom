@@ -15,6 +15,18 @@ export const queryKeys = {
     detail: (id: string) =>
       ['annotations', 'detail', id] as const,
   },
+  timeline: {
+    events: (caseId: string, status?: string) =>
+      ['timeline', caseId, 'events', status] as const,
+    full: (caseId: string, status?: string) =>
+      ['timeline', caseId, 'full', status] as const,
+  },
+  exports: {
+    byCase: (caseId: string) =>
+      ['exports', caseId] as const,
+    detail: (id: string) =>
+      ['exports', 'detail', id] as const,
+  },
   users: {
     me: ['users', 'me'] as const,
   },
