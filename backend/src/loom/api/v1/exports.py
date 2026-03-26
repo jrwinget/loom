@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import (
     APIRouter,
@@ -63,7 +64,7 @@ async def _check_access(
 async def create_export_endpoint(
     case_id: str,
     body: ExportCreate,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -105,7 +106,7 @@ async def list_exports_endpoint(
     case_id: str,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -129,7 +130,7 @@ async def list_exports_endpoint(
 async def get_export_endpoint(
     case_id: str,
     export_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008

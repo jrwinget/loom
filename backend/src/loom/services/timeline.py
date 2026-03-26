@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -12,7 +13,7 @@ from loom.models.timeline import (
 async def create_event(
     session: AsyncSession,
     case_id: str,
-    data: dict,
+    data: dict[str, Any],
     user_id: str,
 ) -> TimelineEvent:
     """create a timeline event."""
@@ -42,7 +43,7 @@ async def list_events(
     status: str | None = None,
     skip: int = 0,
     limit: int = 50,
-) -> tuple[list, int]:
+) -> tuple[list[TimelineEvent], int]:
     """list events with evidence_count and has_contradictions."""
     # subquery for evidence count
     evidence_count_sq = (
@@ -163,13 +164,13 @@ async def get_event(
     supports = row[2] or 0
     contradicts = row[3] or 0
     event.has_contradictions = supports > 0 and contradicts > 0
-    return event
+    return event  # type: ignore[no-any-return]
 
 
 async def update_event(
     session: AsyncSession,
     event_id: str,
-    data: dict,
+    data: dict[str, Any],
 ) -> TimelineEvent:
     """update event fields."""
     result = await session.execute(
@@ -185,13 +186,15 @@ async def update_event(
     await session.refresh(event)
 
     # re-fetch with counts
-    return await get_event(session, event_id)
+    updated = await get_event(session, event_id)
+    assert updated is not None  # just committed, must exist
+    return updated
 
 
 async def link_evidence(
     session: AsyncSession,
     event_id: str,
-    data: dict,
+    data: dict[str, Any],
     user_id: str,
 ) -> TimelineEventEvidence:
     """link evidence to an event."""
@@ -252,7 +255,7 @@ async def get_timeline(
     session: AsyncSession,
     case_id: str,
     status: str | None = None,
-) -> list:
+) -> list[TimelineEvent]:
     """full timeline with events and their evidence links."""
     events, _ = await list_events(
         session, case_id, status=status, skip=0, limit=10000
@@ -260,6 +263,6 @@ async def get_timeline(
 
     for event in events:
         evidence = await get_event_evidence(session, str(event.id))
-        event.evidence = evidence
+        event.evidence = evidence  # type: ignore[attr-defined]
 
     return events

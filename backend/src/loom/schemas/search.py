@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -7,7 +9,7 @@ class SearchResult(BaseModel):
     text: str
     asset_id: str | None = None
     relevance_score: float = 0.0
-    metadata: dict = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class SearchResponse(BaseModel):

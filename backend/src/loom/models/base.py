@@ -12,7 +12,7 @@ from uuid_extensions import uuid7
 
 def _generate_uuid7() -> UUID:
     """generate a uuid7 value for primary keys."""
-    return uuid7()
+    return UUID(str(uuid7()))
 
 
 class Base(DeclarativeBase):

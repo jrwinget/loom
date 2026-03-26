@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from temporalio import activity
 
@@ -6,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 @activity.defn
-async def detect_asset_scenes(asset_id: str) -> list[dict]:
+async def detect_asset_scenes(asset_id: str) -> list[dict[str, Any]]:
     """download video from minio and run scene detection.
 
     currently a stub that returns an empty list. full

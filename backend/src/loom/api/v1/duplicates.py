@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from typing import Any
 from uuid import UUID
 
 from fastapi import (
@@ -64,7 +65,7 @@ async def list_duplicates(
     cluster_status: str | None = Query(None, alias="status"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -144,7 +145,7 @@ async def list_duplicates(
 )
 async def scan_duplicates(
     case_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -220,7 +221,7 @@ async def update_cluster(
     case_id: str,
     cluster_id: str,
     body: ClusterUpdateRequest,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -296,7 +297,7 @@ async def update_cluster(
 async def dismiss_cluster(
     case_id: str,
     cluster_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008

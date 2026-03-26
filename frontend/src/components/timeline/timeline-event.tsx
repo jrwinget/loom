@@ -51,7 +51,11 @@ export function TimelineEventCard(
       data-status={event.status}
       className={`flex w-full flex-col rounded-lg border
         p-3 text-left shadow-sm transition-colors
-        ${selected ? 'border-primary bg-accent/50' : 'border-border bg-card hover:bg-accent/30'}`}
+        ${
+          selected
+            ? 'border-primary bg-accent/50'
+            : 'border-border bg-card hover:bg-accent/30'
+        }`}
       onClick={() => onClick(event)}
     >
       {/* header */}

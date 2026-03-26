@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -10,7 +11,7 @@ from loom.models.user import User
 async def create_annotation(
     session: AsyncSession,
     case_id: str,
-    data: dict,
+    data: dict[str, Any],
     user_id: str,
 ) -> Annotation:
     """create an annotation on a case."""
@@ -88,13 +89,13 @@ async def get_annotation(
         return None
     annotation = row[0]
     annotation.created_by_email = row[1]
-    return annotation
+    return annotation  # type: ignore[no-any-return]
 
 
 async def update_annotation(
     session: AsyncSession,
     annotation_id: str,
-    data: dict,
+    data: dict[str, Any],
 ) -> Annotation:
     """update annotation fields."""
     result = await session.execute(
@@ -113,7 +114,7 @@ async def update_annotation(
     user_result = await session.execute(
         select(User.email).where(User.id == annotation.created_by)
     )
-    annotation.created_by_email = user_result.scalar_one()
+    annotation.created_by_email = user_result.scalar_one()  # type: ignore[attr-defined]
     return annotation
 
 

@@ -1,7 +1,9 @@
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import String, cast, func, literal, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Executable
 
 from loom.models.annotation import Annotation
 from loom.models.asset import Asset
@@ -28,7 +30,7 @@ async def search_case(
     result_types: list[str] | None = None,
     skip: int = 0,
     limit: int = 50,
-) -> dict:
+) -> dict[str, Any]:
     """search across multiple tables in a case.
 
     uses postgresql full-text search when available,
@@ -38,7 +40,7 @@ async def search_case(
     allowed = set(result_types) & VALID_TYPES if result_types else VALID_TYPES
 
     subqueries = []
-    facet_queries: dict[str, object] = {}
+    facet_queries: dict[str, Executable] = {}
 
     pattern = _ilike_pattern(query)
 
@@ -79,7 +81,7 @@ async def search_case(
         )
 
     if "ocr" in allowed:
-        sq = select(
+        sq_ocr = select(
             literal("ocr").label("type"),
             cast(OcrRegion.id, String).label("id"),
             OcrRegion.text.label("text"),
@@ -91,7 +93,7 @@ async def search_case(
             ),
             OcrRegion.text.ilike(pattern),
         )
-        subqueries.append(sq)
+        subqueries.append(sq_ocr)
         facet_queries["ocr"] = select(func.count()).select_from(
             select(OcrRegion.id)
             .where(
@@ -104,7 +106,7 @@ async def search_case(
         )
 
     if "annotations" in allowed:
-        sq = select(
+        sq_ann = select(
             literal("annotation").label("type"),
             cast(Annotation.id, String).label("id"),
             Annotation.content.label("text"),
@@ -114,7 +116,7 @@ async def search_case(
             Annotation.case_id == case_uuid,
             Annotation.content.ilike(pattern),
         )
-        subqueries.append(sq)
+        subqueries.append(sq_ann)
         facet_queries["annotations"] = select(func.count()).select_from(
             select(Annotation.id)
             .where(
@@ -125,7 +127,7 @@ async def search_case(
         )
 
     if "events" in allowed:
-        sq = select(
+        sq_evt = select(
             literal("event").label("type"),
             cast(TimelineEvent.id, String).label("id"),
             TimelineEvent.title.label("text"),
@@ -138,7 +140,7 @@ async def search_case(
                 | TimelineEvent.description.ilike(pattern)
             ),
         )
-        subqueries.append(sq)
+        subqueries.append(sq_evt)
         facet_queries["events"] = select(func.count()).select_from(
             select(TimelineEvent.id)
             .where(
@@ -152,7 +154,7 @@ async def search_case(
         )
 
     if "assets" in allowed:
-        sq = select(
+        sq_asset = select(
             literal("asset").label("type"),
             cast(Asset.id, String).label("id"),
             Asset.original_filename.label("text"),
@@ -162,7 +164,7 @@ async def search_case(
             Asset.case_id == case_uuid,
             Asset.original_filename.ilike(pattern),
         )
-        subqueries.append(sq)
+        subqueries.append(sq_asset)
         facet_queries["assets"] = select(func.count()).select_from(
             select(Asset.id)
             .where(
@@ -214,7 +216,7 @@ async def search_transcripts(
     query: str,
     skip: int = 0,
     limit: int = 50,
-) -> tuple[list, int]:
+) -> tuple[list[Any], int]:
     """search only transcript segments in a case."""
     case_uuid = UUID(case_id)
     pattern = _ilike_pattern(query)
@@ -257,7 +259,7 @@ async def search_annotations(
     query: str,
     skip: int = 0,
     limit: int = 50,
-) -> tuple[list, int]:
+) -> tuple[list[Any], int]:
     """search only annotations in a case."""
     case_uuid = UUID(case_id)
     pattern = _ilike_pattern(query)

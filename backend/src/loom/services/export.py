@@ -3,6 +3,7 @@ import io
 import json
 import zipfile
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -78,8 +79,8 @@ async def get_export(
 async def build_export_manifest(
     session: AsyncSession,
     case_id: str,
-    options: dict,
-) -> dict:
+    options: dict[str, Any],
+) -> dict[str, Any]:
     """gather all data for export and return as structured dict.
 
     options may include event_ids, asset_ids, date_range_start,
@@ -94,8 +95,8 @@ async def build_export_manifest(
         asset_query = asset_query.where(
             Asset.id.in_([UUID(a) for a in asset_ids])
         )
-    result = await session.execute(asset_query)
-    assets = list(result.scalars().all())
+    asset_result = await session.execute(asset_query)
+    assets = list(asset_result.scalars().all())
 
     # timeline events
     event_query = select(TimelineEvent).where(TimelineEvent.case_id == cid)
@@ -120,13 +121,13 @@ async def build_export_manifest(
             else datetime.fromisoformat(date_end)
         )
         event_query = event_query.where(TimelineEvent.event_time_start <= dt)
-    result = await session.execute(event_query)
-    events = list(result.scalars().all())
+    event_result = await session.execute(event_query)
+    events = list(event_result.scalars().all())
 
     # annotations
     ann_query = select(Annotation).where(Annotation.case_id == cid)
-    result = await session.execute(ann_query)
-    annotations = list(result.scalars().all())
+    ann_result = await session.execute(ann_query)
+    annotations = list(ann_result.scalars().all())
 
     # chain of custody (for assets in this case)
     asset_id_list = [a.id for a in assets]
@@ -135,8 +136,8 @@ async def build_export_manifest(
         coc_query = select(ChainOfCustodyEntry).where(
             ChainOfCustodyEntry.asset_id.in_(asset_id_list)
         )
-        result = await session.execute(coc_query)
-        custody_entries = list(result.scalars().all())
+        coc_result = await session.execute(coc_query)
+        custody_entries = list(coc_result.scalars().all())
 
     return {
         "case_id": case_id,
@@ -189,7 +190,7 @@ async def build_export_manifest(
 
 
 def package_export_bundle(
-    manifest: dict,
+    manifest: dict[str, Any],
     storage_service: StorageService,
     output_key: str,
 ) -> tuple[str, str]:

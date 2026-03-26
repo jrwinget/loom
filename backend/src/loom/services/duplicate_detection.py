@@ -1,5 +1,6 @@
 import logging
 from itertools import combinations
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -112,13 +113,13 @@ def hamming_distance(hash1: str, hash2: str) -> int:
 
 def _find_exact_duplicates(
     assets: list[Asset],
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """group assets with identical sha256 hashes."""
     hash_groups: dict[str, list[Asset]] = {}
     for asset in assets:
         hash_groups.setdefault(asset.sha256_hash, []).append(asset)
 
-    clusters: list[dict] = []
+    clusters: list[dict[str, Any]] = []
     for _sha256, group in hash_groups.items():
         if len(group) >= 2:
             clusters.append(
@@ -153,9 +154,9 @@ async def _load_phash_map(
 
 def _find_near_duplicate_clusters(
     phash_map: dict[str, str],
-    existing_clusters: list[dict],
+    existing_clusters: list[dict[str, Any]],
     threshold: int,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """find near-duplicate clusters from phash comparisons."""
     phash_ids = list(phash_map.keys())
     near_dup_pairs: list[tuple[str, str]] = []
@@ -172,7 +173,7 @@ def _find_near_duplicate_clusters(
     for c in existing_clusters:
         exact_ids.update(c["asset_ids"])
 
-    clusters: list[dict] = []
+    clusters: list[dict[str, Any]] = []
     components = _connected_components(near_dup_pairs)
     for component in components:
         if not component - exact_ids:
@@ -191,7 +192,7 @@ async def find_duplicates(
     session: AsyncSession,
     case_id: str,
     threshold: int = 10,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """find duplicate clusters among assets in a case.
 
     queries all assets, compares phashes stored on cluster

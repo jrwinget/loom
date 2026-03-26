@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -27,7 +28,7 @@ router = APIRouter(
 async def list_scenes(
     case_id: str,
     asset_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -80,13 +81,13 @@ async def get_scene_thumbnail(
     case_id: str,
     asset_id: str,
     scene_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-) -> dict:
+) -> dict[str, Any]:
     """redirect to presigned thumbnail url (viewer+)."""
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
@@ -123,13 +124,13 @@ async def get_scene_thumbnail(
 async def start_scene_detection(
     case_id: str,
     asset_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-) -> dict:
+) -> dict[str, Any]:
     """start scene detection workflow (editor+).
 
     returns 202 accepted with the asset id.

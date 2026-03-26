@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
@@ -84,7 +85,7 @@ async def register(
 )
 async def register_user(
     body: UserCreate,
-    token_payload: dict = Depends(_admin_dep),  # noqa: B008
+    token_payload: dict[str, Any] = Depends(_admin_dep),  # noqa: B008
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
@@ -185,7 +186,7 @@ async def refresh(
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008

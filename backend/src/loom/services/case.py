@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -42,7 +43,7 @@ async def list_cases(
     role: str,
     skip: int = 0,
     limit: int = 20,
-) -> tuple[list, int]:
+) -> tuple[list[Case], int]:
     """list cases with asset/event counts.
 
     admins see all cases; others see only their memberships.
@@ -105,7 +106,7 @@ async def get_case(
 async def update_case(
     session: AsyncSession,
     case_id: str,
-    data: dict,
+    data: dict[str, Any],
 ) -> Case:
     """update case fields."""
     result = await session.execute(select(Case).where(Case.id == UUID(case_id)))

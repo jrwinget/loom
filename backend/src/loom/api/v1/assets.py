@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import AsyncIterator
+from typing import Any
 from uuid import UUID
 
 from fastapi import (
@@ -75,7 +76,7 @@ async def upload_asset(
     case_id: str,
     file: UploadFile,
     request: Request,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -166,7 +167,7 @@ async def upload_asset(
 async def get_upload_url(
     case_id: str,
     body: PresignedUrlRequest,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -208,7 +209,7 @@ async def complete_presigned_upload(
     case_id: str,
     asset_id: str,
     request: Request,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -326,7 +327,7 @@ async def list_assets(
     case_id: str,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -367,7 +368,7 @@ async def list_assets(
 async def get_asset(
     case_id: str,
     asset_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -402,7 +403,7 @@ async def get_asset(
 async def get_download_url(
     case_id: str,
     asset_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008

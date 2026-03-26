@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -24,7 +25,7 @@ async def get_ocr_regions(
     min_confidence: float | None = Query(None, ge=0.0, le=1.0),
     frame_start: int | None = Query(None, ge=0),
     frame_end: int | None = Query(None, ge=0),
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -89,13 +90,13 @@ async def get_ocr_regions(
 async def start_ocr_workflow(
     case_id: str,
     asset_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-) -> dict:
+) -> dict[str, Any]:
     """start ocr workflow for an asset (requires editor+).
 
     returns 202 accepted with workflow id.

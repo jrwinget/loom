@@ -2,6 +2,7 @@ import logging
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +17,7 @@ _FFMPEG = shutil.which("ffmpeg")
 def detect_scenes(
     video_path: str,
     threshold: float = 27.0,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """use pyscenedetect to find scene boundaries.
 
     returns list of dicts with scene_number, start_time,
@@ -56,7 +57,7 @@ def detect_scenes(
     if not scene_list:
         return _single_scene_fallback(video_path)
 
-    results: list[dict] = []
+    results: list[dict[str, Any]] = []
     for i, (start, end) in enumerate(scene_list):
         results.append(
             {
@@ -71,7 +72,7 @@ def detect_scenes(
     return results
 
 
-def _single_scene_fallback(video_path: str) -> list[dict]:
+def _single_scene_fallback(video_path: str) -> list[dict[str, Any]]:
     """return a single scene covering the full video."""
     duration = _get_duration(video_path)
     return [
@@ -114,7 +115,7 @@ def _get_duration(video_path: str) -> float:
 
 def generate_scene_thumbnails(
     video_path: str,
-    scenes: list[dict],
+    scenes: list[dict[str, Any]],
     output_dir: str,
 ) -> list[str]:
     """extract a representative frame from each scene.
@@ -173,7 +174,7 @@ def generate_scene_thumbnails(
 async def store_scenes(
     session: AsyncSession,
     asset_id: str,
-    scenes: list[dict],
+    scenes: list[dict[str, Any]],
 ) -> list[Scene]:
     """bulk insert scene records for an asset."""
     records: list[Scene] = []

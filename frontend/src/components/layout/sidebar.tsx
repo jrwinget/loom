@@ -13,9 +13,10 @@ export function Sidebar(): React.ReactElement {
   return (
     <aside
       data-testid="sidebar"
-      className={`flex flex-col border-r border-border bg-muted/40 transition-all ${
-        sidebarOpen ? 'w-60' : 'w-14'
-      }`}
+      className={`flex flex-col border-r border-border
+        bg-muted/40 transition-all ${
+          sidebarOpen ? 'w-60' : 'w-14'
+        }`}
     >
       {/* logo / title */}
       <div className="flex h-14 items-center border-b border-border px-4">

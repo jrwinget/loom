@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from temporalio import activity
 
@@ -22,7 +23,7 @@ async def verify_asset_hash(asset_id: str) -> bool:
 
 
 @activity.defn
-async def extract_asset_metadata(asset_id: str) -> dict:
+async def extract_asset_metadata(asset_id: str) -> dict[str, Any]:
     """download file, extract metadata, store in db.
 
     currently a stub that returns empty metadata.

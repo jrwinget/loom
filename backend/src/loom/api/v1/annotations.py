@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,7 +35,7 @@ router = APIRouter(
 async def create_annotation_endpoint(
     case_id: str,
     body: AnnotationCreate,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -91,7 +92,7 @@ async def list_annotations_endpoint(
     type: str | None = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -124,7 +125,7 @@ async def list_annotations_endpoint(
             frame_number=a.frame_number,
             spatial_region=a.spatial_region,
             created_by=a.created_by,
-            created_by_email=a.created_by_email,
+            created_by_email=a.created_by_email,  # type: ignore[attr-defined]
             created_at=a.created_at,
             updated_at=a.updated_at,
         )
@@ -140,7 +141,7 @@ async def list_annotations_endpoint(
 async def get_annotation_endpoint(
     case_id: str,
     annotation_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -176,7 +177,7 @@ async def get_annotation_endpoint(
         frame_number=annotation.frame_number,
         spatial_region=annotation.spatial_region,
         created_by=annotation.created_by,
-        created_by_email=annotation.created_by_email,
+        created_by_email=annotation.created_by_email,  # type: ignore[attr-defined]
         created_at=annotation.created_at,
         updated_at=annotation.updated_at,
     )
@@ -190,7 +191,7 @@ async def update_annotation_endpoint(
     case_id: str,
     annotation_id: str,
     body: AnnotationUpdate,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -230,7 +231,7 @@ async def update_annotation_endpoint(
         frame_number=annotation.frame_number,
         spatial_region=annotation.spatial_region,
         created_by=annotation.created_by,
-        created_by_email=annotation.created_by_email,
+        created_by_email=annotation.created_by_email,  # type: ignore[attr-defined]
         created_at=annotation.created_at,
         updated_at=annotation.updated_at,
     )
@@ -243,7 +244,7 @@ async def update_annotation_endpoint(
 async def delete_annotation_endpoint(
     case_id: str,
     annotation_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008

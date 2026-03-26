@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,7 +35,7 @@ router = APIRouter(prefix="/cases", tags=["cases"])
 )
 async def create_case_endpoint(
     body: CaseCreate,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -63,7 +64,7 @@ async def create_case_endpoint(
 async def list_cases_endpoint(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -96,7 +97,7 @@ async def list_cases_endpoint(
 @router.get("/{case_id}", response_model=CaseResponse)
 async def get_case_endpoint(
     case_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -136,7 +137,7 @@ async def get_case_endpoint(
 async def update_case_endpoint(
     case_id: str,
     body: CaseUpdate,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -177,7 +178,7 @@ async def update_case_endpoint(
 async def add_member_endpoint(
     case_id: str,
     body: CaseMemberCreate,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -223,7 +224,7 @@ async def add_member_endpoint(
 async def remove_member_endpoint(
     case_id: str,
     member_user_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -257,7 +258,7 @@ async def remove_member_endpoint(
 )
 async def list_members_endpoint(
     case_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -281,7 +282,7 @@ async def list_members_endpoint(
             id=m.id,
             case_id=m.case_id,
             user_id=m.user_id,
-            user_email=m.user_email,
+            user_email=m.user_email,  # type: ignore[attr-defined]
             role=m.role,
             granted_at=m.granted_at,
         )

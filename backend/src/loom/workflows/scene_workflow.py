@@ -26,7 +26,7 @@ class SceneDetectionWorkflow:
             detect_asset_scenes,
             asset_id,
             start_to_close_timeout=timedelta(minutes=30),
-            retry_policy=RetryPolicy(max_attempts=2),
+            retry_policy=RetryPolicy(maximum_attempts=2),
         )
 
         # step 2: generate thumbnails for each scene

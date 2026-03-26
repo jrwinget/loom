@@ -2,6 +2,7 @@ import logging
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -72,7 +73,7 @@ def extract_key_frames(
 def run_ocr_on_image(
     image_path: str,
     language: str = "eng",
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """use pytesseract to ocr an image.
 
     returns list of {text, confidence, bounding_box}.
@@ -84,13 +85,13 @@ def run_ocr_on_image(
         return []
 
     try:
-        import pytesseract  # type: ignore[import-untyped]
+        import pytesseract
     except ImportError:
         logger.warning("pytesseract not installed, skipping ocr")
         return []
 
     try:
-        from PIL import Image  # type: ignore[import-untyped]
+        from PIL import Image
     except ImportError:
         logger.warning("Pillow not installed, skipping ocr")
         return []
@@ -107,7 +108,7 @@ def run_ocr_on_image(
         return []
 
     img_width, img_height = img.size
-    regions: list[dict] = []
+    regions: list[dict[str, Any]] = []
     n_boxes = len(data["text"])
 
     for i in range(n_boxes):
@@ -144,7 +145,7 @@ def run_ocr_on_image(
 def run_ocr_on_asset(
     asset_path: str,
     media_type: str,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """orchestrate ocr for an asset.
 
     for images, ocr directly. for video, extract key frames
@@ -167,7 +168,7 @@ def run_ocr_on_asset(
 
     if media_type.startswith("video"):
         frames = extract_key_frames(asset_path)
-        all_regions: list[dict] = []
+        all_regions: list[dict[str, Any]] = []
         for frame_number, timestamp, frame_path in frames:
             regions = run_ocr_on_image(frame_path)
             for r in regions:
@@ -194,7 +195,7 @@ def run_ocr_on_asset(
 async def store_ocr_regions(
     session: AsyncSession,
     asset_id: str,
-    regions: list[dict],
+    regions: list[dict[str, Any]],
 ) -> list[OcrRegion]:
     """bulk insert ocr regions into the database."""
     ocr_records: list[OcrRegion] = []

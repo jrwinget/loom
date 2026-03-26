@@ -105,9 +105,9 @@ def create_app() -> FastAPI:
     @application.middleware("http")
     async def add_request_id(request: Request, call_next: object) -> Response:
         request_id = str(uuid.uuid4())
-        response = await call_next(request)  # type: ignore[operator]
+        response: Response = await call_next(request)  # type: ignore[operator]
         response.headers["X-Request-Id"] = request_id
-        return response  # type: ignore[return-value]
+        return response
 
     # routes
     application.include_router(api_router, prefix="/api/v1")

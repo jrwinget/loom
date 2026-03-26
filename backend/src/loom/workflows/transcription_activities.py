@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from temporalio import activity
 
@@ -28,7 +29,7 @@ async def extract_audio(asset_id: str) -> str:
 async def transcribe_asset(
     asset_id: str,
     audio_path: str,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """run transcription service on extracted audio.
 
     currently a stub that returns an empty segment list.
@@ -48,7 +49,7 @@ async def transcribe_asset(
 async def diarize_asset(
     asset_id: str,
     audio_path: str,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """run speaker diarization and align with transcript.
 
     currently a stub that returns an empty list.

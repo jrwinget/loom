@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import (
     APIRouter,
@@ -49,7 +50,7 @@ router = APIRouter(
 async def create_event_endpoint(
     case_id: str,
     body: TimelineEventCreate,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -101,7 +102,7 @@ async def list_events_endpoint(
     event_status: str | None = Query(None, alias="status"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -137,8 +138,8 @@ async def list_events_endpoint(
             created_by=e.created_by,
             created_at=e.created_at,
             updated_at=e.updated_at,
-            evidence_count=e.evidence_count,
-            has_contradictions=e.has_contradictions,
+            evidence_count=e.evidence_count,  # type: ignore[attr-defined]
+            has_contradictions=e.has_contradictions,  # type: ignore[attr-defined]
         )
         for e in events
     ]
@@ -152,7 +153,7 @@ async def list_events_endpoint(
 async def get_event_endpoint(
     case_id: str,
     event_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -193,8 +194,8 @@ async def get_event_endpoint(
         created_by=event.created_by,
         created_at=event.created_at,
         updated_at=event.updated_at,
-        evidence_count=event.evidence_count,
-        has_contradictions=event.has_contradictions,
+        evidence_count=event.evidence_count,  # type: ignore[attr-defined]
+        has_contradictions=event.has_contradictions,  # type: ignore[attr-defined]
     )
 
 
@@ -206,7 +207,7 @@ async def update_event_endpoint(
     case_id: str,
     event_id: str,
     body: TimelineEventUpdate,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -251,8 +252,8 @@ async def update_event_endpoint(
         created_by=event.created_by,
         created_at=event.created_at,
         updated_at=event.updated_at,
-        evidence_count=event.evidence_count,
-        has_contradictions=event.has_contradictions,
+        evidence_count=event.evidence_count,  # type: ignore[attr-defined]
+        has_contradictions=event.has_contradictions,  # type: ignore[attr-defined]
     )
 
 
@@ -265,7 +266,7 @@ async def link_evidence_endpoint(
     case_id: str,
     event_id: str,
     body: EvidenceLinkCreate,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -317,7 +318,7 @@ async def unlink_evidence_endpoint(
     case_id: str,
     event_id: str,
     link_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -352,7 +353,7 @@ async def unlink_evidence_endpoint(
 async def get_timeline_endpoint(
     case_id: str,
     event_status: str | None = Query(None, alias="status"),
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -388,8 +389,8 @@ async def get_timeline_endpoint(
             created_by=e.created_by,
             created_at=e.created_at,
             updated_at=e.updated_at,
-            evidence_count=e.evidence_count,
-            has_contradictions=e.has_contradictions,
+            evidence_count=e.evidence_count,  # type: ignore[attr-defined]
+            has_contradictions=e.has_contradictions,  # type: ignore[attr-defined]
             evidence=[
                 EvidenceLinkResponse(
                     id=ev.id,
@@ -404,7 +405,7 @@ async def get_timeline_endpoint(
                     linked_by=ev.linked_by,
                     linked_at=ev.linked_at,
                 )
-                for ev in (e.evidence or [])
+                for ev in (e.evidence or [])  # type: ignore[attr-defined]
             ],
         )
         for e in events

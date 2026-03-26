@@ -28,7 +28,7 @@ class IngestWorkflow:
             verify_asset_hash,
             asset_id,
             start_to_close_timeout=timedelta(minutes=10),
-            retry_policy=RetryPolicy(max_attempts=3),
+            retry_policy=RetryPolicy(maximum_attempts=3),
         )
 
         # step 2: extract metadata

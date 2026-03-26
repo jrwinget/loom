@@ -1,4 +1,6 @@
 import re
+from collections.abc import MutableMapping
+from typing import Any
 from uuid import UUID
 
 import structlog
@@ -46,7 +48,7 @@ class AuditMiddleware:
         status_code = 500
         original_send = send
 
-        async def capture_send(message: dict) -> None:  # type: ignore[type-arg]
+        async def capture_send(message: MutableMapping[str, Any]) -> None:
             nonlocal status_code
             if message["type"] == "http.response.start":
                 status_code = message["status"]

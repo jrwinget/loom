@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 def transcribe_audio(
     audio_path: str,
     model_size: str = "base",
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """transcribe audio using faster-whisper.
 
     returns list of segment dicts with keys:
@@ -38,7 +39,7 @@ def transcribe_audio(
     model = WhisperModel(model_size, compute_type="int8")
     segments_iter, info = model.transcribe(audio_path)
 
-    results: list[dict] = []
+    results: list[dict[str, Any]] = []
     for segment in segments_iter:
         results.append(
             {
@@ -52,7 +53,7 @@ def transcribe_audio(
     return results
 
 
-def diarize_audio(audio_path: str) -> list[dict]:
+def diarize_audio(audio_path: str) -> list[dict[str, Any]]:
     """run speaker diarization using pyannote.audio.
 
     returns list of dicts with keys: speaker, start, end.
@@ -67,7 +68,7 @@ def diarize_audio(audio_path: str) -> list[dict]:
     pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1")
     diarization = pipeline(audio_path)
 
-    results: list[dict] = []
+    results: list[dict[str, Any]] = []
     for turn, _, speaker in diarization.itertracks(
         yield_label=True,
     ):
@@ -82,9 +83,9 @@ def diarize_audio(audio_path: str) -> list[dict]:
 
 
 def align_transcript_with_speakers(
-    segments: list[dict],
-    diarization: list[dict],
-) -> list[dict]:
+    segments: list[dict[str, Any]],
+    diarization: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """merge transcript segments with speaker labels.
 
     for each transcript segment, assigns the speaker label
@@ -93,7 +94,7 @@ def align_transcript_with_speakers(
     if not diarization:
         return segments
 
-    aligned: list[dict] = []
+    aligned: list[dict[str, Any]] = []
     for seg in segments:
         seg_start = seg["start"]
         seg_end = seg["end"]
@@ -116,7 +117,7 @@ def align_transcript_with_speakers(
 async def store_transcript_segments(
     session: AsyncSession,
     asset_id: str,
-    segments: list[dict],
+    segments: list[dict[str, Any]],
 ) -> list[TranscriptSegment]:
     """bulk insert transcript segments into the database."""
     records: list[TranscriptSegment] = []

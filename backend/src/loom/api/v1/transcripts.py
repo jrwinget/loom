@@ -1,5 +1,6 @@
 import logging
 from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import (
     APIRouter,
@@ -42,7 +43,7 @@ async def get_transcript_endpoint(
     speaker: str | None = Query(None),
     start_time: float | None = Query(None, ge=0),
     end_time: float | None = Query(None, ge=0),
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
@@ -108,13 +109,13 @@ async def get_transcript_endpoint(
 async def start_transcription_endpoint(
     case_id: str,
     asset_id: str,
-    token_payload: dict = Depends(  # noqa: B008
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-) -> dict:
+) -> dict[str, Any]:
     """start transcription workflow (editor+).
 
     returns 202 with workflow_id.

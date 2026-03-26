@@ -17,6 +17,6 @@ class ExportWorkflow:
             build_export,
             export_id,
             start_to_close_timeout=timedelta(minutes=60),
-            retry_policy=RetryPolicy(max_attempts=2),
+            retry_policy=RetryPolicy(maximum_attempts=2),
         )
         return export_id

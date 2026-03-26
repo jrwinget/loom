@@ -1,11 +1,12 @@
 from collections.abc import Callable
+from typing import Any
 
 from fastapi import Depends, HTTPException, Request, status
 
 from loom.security.auth import decode_token
 
 
-def _extract_token(request: Request) -> dict:
+def _extract_token(request: Request) -> dict[str, Any]:
     """extract and decode jwt from authorization header."""
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
@@ -28,12 +29,12 @@ _token_dep = Depends(_extract_token)
 
 def require_role(
     *roles: str,
-) -> Callable[..., dict]:
+) -> Callable[..., dict[str, Any]]:
     """dependency factory that checks user role."""
 
     def dependency(
-        payload: dict = _token_dep,
-    ) -> dict:
+        payload: dict[str, Any] = _token_dep,
+    ) -> dict[str, Any]:
         if payload.get("role") not in roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -45,12 +46,12 @@ def require_role(
 
 
 def require_authenticated(
-    payload: dict = _token_dep,
-) -> dict:
+    payload: dict[str, Any] = _token_dep,
+) -> dict[str, Any]:
     """dependency that verifies a valid token (any role)."""
     return payload
 
 
-def get_current_user_id(token_payload: dict) -> str:
+def get_current_user_id(token_payload: dict[str, Any]) -> str:
     """extract user_id from token payload."""
-    return token_payload["sub"]
+    return str(token_payload["sub"])

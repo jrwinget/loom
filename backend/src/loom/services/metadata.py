@@ -1,11 +1,12 @@
 import logging
 import mimetypes
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def extract_metadata_from_file(file_path: str) -> dict:
+def extract_metadata_from_file(file_path: str) -> dict[str, Any]:
     """attempts to extract metadata from a file.
 
     uses pyav for video/audio files, basic info for others.
@@ -28,7 +29,7 @@ def extract_metadata_from_file(file_path: str) -> dict:
 
     # basic metadata for everything else
     stat = path.stat()
-    raw: dict = {
+    raw: dict[str, Any] = {
         "file_size_bytes": stat.st_size,
         "file_type_detected": mime_type,
     }
@@ -39,7 +40,7 @@ def extract_metadata_from_file(file_path: str) -> dict:
     }
 
 
-def _extract_av_metadata(file_path: str, mime_type: str) -> dict:
+def _extract_av_metadata(file_path: str, mime_type: str) -> dict[str, Any]:
     """extract metadata using pyav for audio/video files."""
     try:
         import av
@@ -50,7 +51,7 @@ def _extract_av_metadata(file_path: str, mime_type: str) -> dict:
             "normalized": normalize_metadata({}),
         }
 
-    raw: dict = {"file_type_detected": mime_type}
+    raw: dict[str, Any] = {"file_type_detected": mime_type}
     try:
         container = av.open(file_path)
     except Exception as exc:
@@ -102,7 +103,7 @@ def _extract_av_metadata(file_path: str, mime_type: str) -> dict:
     }
 
 
-def normalize_metadata(raw: dict) -> dict:
+def normalize_metadata(raw: dict[str, Any]) -> dict[str, Any]:
     """extracts normalized fields from raw metadata.
 
     all fields are nullable; returns a dict with a fixed
