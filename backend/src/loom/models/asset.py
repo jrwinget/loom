@@ -26,9 +26,7 @@ class Asset(UUIDMixin, TimestampMixin, Base):
             "upload_status",
         ),
         CheckConstraint(
-            "upload_status IN ("
-            "'pending', 'uploading', 'complete', 'failed'"
-            ")",
+            "upload_status IN ('pending', 'uploading', 'complete', 'failed')",
             name="ck_assets_upload_status",
         ),
         CheckConstraint(

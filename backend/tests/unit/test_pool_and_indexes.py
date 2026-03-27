@@ -1,6 +1,6 @@
 """tests for connection pool configuration and database indexes."""
 
-from sqlalchemy import CheckConstraint, inspect
+from sqlalchemy import CheckConstraint
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from loom.config import Settings
@@ -11,9 +11,9 @@ from loom.models import (
     Case,
     CaseMembership,
     ChainOfCustodyEntry,
+    Derivative,
     DuplicateCluster,
     DuplicateClusterMember,
-    Derivative,
     ExportBundle,
     OcrRegion,
     Scene,
@@ -72,9 +72,9 @@ class TestPoolConfiguration:
         )
         pool = engine.pool
         assert pool.size() == 7
-        assert pool._max_overflow == 3  # noqa: SLF001
-        assert pool._recycle == 900  # noqa: SLF001
-        assert pool._timeout == 15  # noqa: SLF001
+        assert pool._max_overflow == 3
+        assert pool._recycle == 900
+        assert pool._timeout == 15
         engine.sync_engine.dispose()
 
 
@@ -162,18 +162,13 @@ class TestOnDeleteBehavior:
         assert _fk_ondelete(CaseMembership, "user_id") == "CASCADE"
 
     def test_custody_asset_restrict(self) -> None:
-        assert (
-            _fk_ondelete(ChainOfCustodyEntry, "asset_id")
-            == "RESTRICT"
-        )
+        assert _fk_ondelete(ChainOfCustodyEntry, "asset_id") == "RESTRICT"
 
     def test_audit_actor_set_null(self) -> None:
         assert _fk_ondelete(AuditLogEntry, "actor_id") == "SET NULL"
 
     def test_transcript_asset_cascade(self) -> None:
-        assert (
-            _fk_ondelete(TranscriptSegment, "asset_id") == "CASCADE"
-        )
+        assert _fk_ondelete(TranscriptSegment, "asset_id") == "CASCADE"
 
     def test_ocr_asset_cascade(self) -> None:
         assert _fk_ondelete(OcrRegion, "asset_id") == "CASCADE"
@@ -188,33 +183,19 @@ class TestOnDeleteBehavior:
         assert _fk_ondelete(ExportBundle, "case_id") == "CASCADE"
 
     def test_duplicate_cluster_case_cascade(self) -> None:
-        assert (
-            _fk_ondelete(DuplicateCluster, "case_id") == "CASCADE"
-        )
+        assert _fk_ondelete(DuplicateCluster, "case_id") == "CASCADE"
 
     def test_duplicate_member_cluster_cascade(self) -> None:
-        assert (
-            _fk_ondelete(DuplicateClusterMember, "cluster_id")
-            == "CASCADE"
-        )
+        assert _fk_ondelete(DuplicateClusterMember, "cluster_id") == "CASCADE"
 
     def test_duplicate_member_asset_cascade(self) -> None:
-        assert (
-            _fk_ondelete(DuplicateClusterMember, "asset_id")
-            == "CASCADE"
-        )
+        assert _fk_ondelete(DuplicateClusterMember, "asset_id") == "CASCADE"
 
     def test_event_evidence_event_cascade(self) -> None:
-        assert (
-            _fk_ondelete(TimelineEventEvidence, "event_id")
-            == "CASCADE"
-        )
+        assert _fk_ondelete(TimelineEventEvidence, "event_id") == "CASCADE"
 
     def test_event_evidence_asset_set_null(self) -> None:
-        assert (
-            _fk_ondelete(TimelineEventEvidence, "asset_id")
-            == "SET NULL"
-        )
+        assert _fk_ondelete(TimelineEventEvidence, "asset_id") == "SET NULL"
 
 
 class TestCheckConstraints:

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
+import { useToastStore } from '@/stores/toast-store';
 import type {
   CreateExportPayload,
   ExportBundle,
@@ -41,6 +42,16 @@ export function useCreateExport(
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.exports.byCase(caseId),
+      });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Export created',
+      });
+    },
+    onError: (error: Error) => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: error.message || 'Failed to create export',
       });
     },
   });

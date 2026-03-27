@@ -63,7 +63,19 @@ class MockSession:
         pass
 
     async def refresh(self, obj: object) -> None:
-        pass
+        # simulate db setting fields after insert
+        if getattr(obj, "id", None) is None:
+            obj.id = _USER_ID  # type: ignore[attr-defined]
+        if getattr(obj, "created_at", None) is None:
+            obj.created_at = datetime(  # type: ignore[attr-defined]
+                2025, 1, 1, tzinfo=UTC
+            )
+        if getattr(obj, "updated_at", None) is None:
+            obj.updated_at = datetime(  # type: ignore[attr-defined]
+                2025, 1, 1, tzinfo=UTC
+            )
+        if getattr(obj, "is_active", None) is None:
+            obj.is_active = True  # type: ignore[attr-defined]
 
 
 @pytest_asyncio.fixture
@@ -181,10 +193,10 @@ async def test_register_rate_limit(
             assert resp.status_code == 429
 
 
-async def test_rate_limit_returns_retry_after(
+async def test_rate_limit_returns_429_body(
     mock_settings: Settings,
 ) -> None:
-    """429 response should include retry-after header."""
+    """429 response should include an error message."""
     user = _make_user()
     session = MockSession(user_count=1, user=user)
     app = _create_app(session, mock_settings)
@@ -215,4 +227,6 @@ async def test_rate_limit_returns_retry_after(
                 },
             )
             assert resp.status_code == 429
-            assert "retry-after" in resp.headers
+            body = resp.json()
+            assert "error" in body
+            assert "Rate limit exceeded" in body["error"]

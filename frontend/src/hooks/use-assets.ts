@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
 import { queryKeys } from '@/lib/query-keys';
 import { apiClient } from '@/lib/api-client';
+import { useToastStore } from '@/stores/toast-store';
 import type { Asset, AssetListResponse } from '@/types/asset';
 
 export function useAssets(
@@ -75,6 +76,16 @@ export function useUploadAsset(
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.assets.byCase(caseId),
+      });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Asset uploaded',
+      });
+    },
+    onError: (error: Error) => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: error.message || 'Asset upload failed',
       });
     },
   });
