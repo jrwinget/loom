@@ -13,7 +13,7 @@ class ExportBundle(UUIDMixin, Base):
     __tablename__ = "export_bundles"
 
     case_id: Mapped[UUID] = mapped_column(
-        ForeignKey("cases.id"),
+        ForeignKey("cases.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

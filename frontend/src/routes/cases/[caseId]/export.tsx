@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import * as Tabs from '@radix-ui/react-tabs';
+import { QueryError } from '@/components/layout/query-error';
 import { ExportWizard } from '@/components/export/export-wizard';
 import { ReportBuilder } from '@/components/export/report-builder';
 import { ReportPreview } from '@/components/export/report-preview';
@@ -17,7 +18,7 @@ export function ExportPage(): React.ReactElement {
   const { caseId } = useParams<{ caseId: string }>();
   const safeId = caseId ?? '';
   const [wizardOpen, setWizardOpen] = useState(false);
-  const { data, isLoading } = useExports(safeId);
+  const { data, isLoading, isError, refetch } = useExports(safeId);
 
   const exports = data?.items ?? [];
 
@@ -55,6 +56,13 @@ export function ExportPage(): React.ReactElement {
               New Export
             </button>
           </div>
+
+          {isError && (
+            <QueryError
+              message="Failed to load exports."
+              onRetry={() => void refetch()}
+            />
+          )}
 
           {isLoading && (
             <p className="text-sm text-muted-foreground">Loading exports...</p>

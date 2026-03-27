@@ -20,7 +20,7 @@ class DuplicateCluster(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "duplicate_clusters"
 
     case_id: Mapped[UUID] = mapped_column(
-        ForeignKey("cases.id"),
+        ForeignKey("cases.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -44,12 +44,12 @@ class DuplicateClusterMember(UUIDMixin, Base):
     )
 
     cluster_id: Mapped[UUID] = mapped_column(
-        ForeignKey("duplicate_clusters.id"),
+        ForeignKey("duplicate_clusters.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     asset_id: Mapped[UUID] = mapped_column(
-        ForeignKey("assets.id"),
+        ForeignKey("assets.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

@@ -1,7 +1,15 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Float, ForeignKey, String, Text, func
+from sqlalchemy import (
+    CheckConstraint,
+    Float,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from loom.models.base import Base, TimestampMixin, UUIDMixin
@@ -9,9 +17,25 @@ from loom.models.base import Base, TimestampMixin, UUIDMixin
 
 class TimelineEvent(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "timeline_events"
+    __table_args__ = (
+        Index(
+            "ix_timeline_events_case_status",
+            "case_id",
+            "status",
+        ),
+        Index(
+            "ix_timeline_events_case_time",
+            "case_id",
+            "event_time_start",
+        ),
+        CheckConstraint(
+            "status IN ('draft', 'confirmed', 'disputed')",
+            name="ck_timeline_events_status",
+        ),
+    )
 
     case_id: Mapped[UUID] = mapped_column(
-        ForeignKey("cases.id"),
+        ForeignKey("cases.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -66,20 +90,20 @@ class TimelineEventEvidence(UUIDMixin, Base):
     __tablename__ = "timeline_event_evidence"
 
     event_id: Mapped[UUID] = mapped_column(
-        ForeignKey("timeline_events.id"),
+        ForeignKey("timeline_events.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     asset_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("assets.id"),
+        ForeignKey("assets.id", ondelete="SET NULL"),
         nullable=True,
     )
     annotation_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("annotations.id"),
+        ForeignKey("annotations.id", ondelete="SET NULL"),
         nullable=True,
     )
     derivative_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("derivatives.id"),
+        ForeignKey("derivatives.id", ondelete="SET NULL"),
         nullable=True,
     )
     clip_start: Mapped[float | None] = mapped_column(

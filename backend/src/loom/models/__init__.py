@@ -17,6 +17,7 @@ from loom.models.organization import (
 )
 from loom.models.plugin import Plugin, Webhook, WebhookDelivery
 from loom.models.provenance import ProvenanceRecord
+from loom.models.revoked_token import RevokedToken
 from loom.models.scene import Scene
 from loom.models.timeline import TimelineEvent, TimelineEventEvidence
 from loom.models.transcript import TranscriptSegment
@@ -42,6 +43,7 @@ __all__ = [
     "OrganizationMembership",
     "Plugin",
     "ProvenanceRecord",
+    "RevokedToken",
     "Scene",
     "SharedEvidenceLink",
     "TimelineEvent",

@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import uuid4
 
 import jwt
 from argon2 import PasswordHasher
@@ -29,6 +30,7 @@ def create_access_token(user_id: str, role: str) -> str:
     payload = {
         "sub": user_id,
         "role": role,
+        "jti": str(uuid4()),
         "exp": datetime.now(UTC)
         + timedelta(minutes=settings.access_token_expire_minutes),
     }
@@ -45,6 +47,7 @@ def create_refresh_token(user_id: str) -> str:
     payload = {
         "sub": user_id,
         "type": "refresh",
+        "jti": str(uuid4()),
         "exp": datetime.now(UTC)
         + timedelta(days=settings.refresh_token_expire_days),
     }

@@ -1,5 +1,6 @@
 import * as Tabs from '@radix-ui/react-tabs';
 import { useParams } from 'react-router-dom';
+import { QueryError } from '@/components/layout/query-error';
 import { useCase, useCaseMembers } from '@/hooks/use-case';
 
 const statusColors: Record<string, string> = {
@@ -13,8 +14,24 @@ const statusColors: Record<string, string> = {
 
 export function CaseDetailPage(): React.ReactElement {
   const { caseId } = useParams<{ caseId: string }>();
-  const { data: caseData, isLoading } = useCase(caseId ?? '');
+  const {
+    data: caseData,
+    isLoading,
+    isError,
+    refetch,
+  } = useCase(caseId ?? '');
   const { data: members } = useCaseMembers(caseId ?? '');
+
+  if (isError) {
+    return (
+      <div className="p-6">
+        <QueryError
+          message="Failed to load case details."
+          onRetry={() => void refetch()}
+        />
+      </div>
+    );
+  }
 
   if (isLoading || !caseData) {
     return (

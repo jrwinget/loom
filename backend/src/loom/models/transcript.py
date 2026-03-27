@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Float, ForeignKey, String, Text, func
+from sqlalchemy import Float, ForeignKey, Index, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from loom.models.base import Base, UUIDMixin
@@ -11,9 +11,16 @@ class TranscriptSegment(UUIDMixin, Base):
     """immutable transcript segment tied to an asset."""
 
     __tablename__ = "transcript_segments"
+    __table_args__ = (
+        Index(
+            "ix_transcript_segments_asset_start",
+            "asset_id",
+            "start_time",
+        ),
+    )
 
     asset_id: Mapped[UUID] = mapped_column(
-        ForeignKey("assets.id"),
+        ForeignKey("assets.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

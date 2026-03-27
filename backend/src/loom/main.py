@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import (
 from loom.api.router import api_router
 from loom.config import get_settings
 from loom.security.audit import AuditMiddleware
+from loom.security.rate_limit import limiter
 
 
 def _configure_logging(log_level: str) -> None:
@@ -55,6 +56,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = create_async_engine(
         settings.database_url,
         echo=settings.debug,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        pool_recycle=settings.db_pool_recycle,
+        pool_pre_ping=settings.db_pool_pre_ping,
+        pool_timeout=settings.db_pool_timeout,
     )
     session_factory = async_sessionmaker(
         engine,
@@ -97,6 +103,16 @@ def create_app() -> FastAPI:
         version="0.1.0",
         lifespan=_lifespan,
         debug=settings.debug,
+    )
+
+    # rate limiter
+    application.state.limiter = limiter
+    from slowapi import _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+
+    application.add_exception_handler(
+        RateLimitExceeded,
+        _rate_limit_exceeded_handler,
     )
 
     # cors

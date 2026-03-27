@@ -1,7 +1,14 @@
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -10,14 +17,18 @@ from loom.models.base import Base, TimestampMixin, UUIDMixin
 
 class Annotation(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "annotations"
+    __table_args__ = (
+        Index("ix_annotations_case_asset", "case_id", "asset_id"),
+        Index("ix_annotations_case_type", "case_id", "type"),
+    )
 
     case_id: Mapped[UUID] = mapped_column(
-        ForeignKey("cases.id"),
+        ForeignKey("cases.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     asset_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("assets.id"),
+        ForeignKey("assets.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )

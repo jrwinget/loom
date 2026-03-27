@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String, func
+from sqlalchemy import ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,9 +11,17 @@ from loom.models.base import Base, UUIDMixin
 
 class AuditLogEntry(UUIDMixin, Base):
     __tablename__ = "audit_log"
+    __table_args__ = (
+        Index(
+            "ix_audit_log_created_actor",
+            "timestamp",
+            "actor_id",
+        ),
+        Index("ix_audit_log_resource_type", "resource_type"),
+    )
 
     actor_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
     action: Mapped[str] = mapped_column(

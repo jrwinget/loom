@@ -2,7 +2,15 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import BigInteger, Float, ForeignKey, String, func
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    Float,
+    ForeignKey,
+    Index,
+    String,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,9 +19,28 @@ from loom.models.base import Base, TimestampMixin, UUIDMixin
 
 class Asset(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "assets"
+    __table_args__ = (
+        Index(
+            "ix_assets_case_upload_status",
+            "case_id",
+            "upload_status",
+        ),
+        CheckConstraint(
+            "upload_status IN ("
+            "'pending', 'uploading', 'complete', 'failed'"
+            ")",
+            name="ck_assets_upload_status",
+        ),
+        CheckConstraint(
+            "processing_status IN ("
+            "'pending', 'processing', 'complete', 'failed'"
+            ")",
+            name="ck_assets_processing_status",
+        ),
+    )
 
     case_id: Mapped[UUID] = mapped_column(
-        ForeignKey("cases.id"),
+        ForeignKey("cases.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

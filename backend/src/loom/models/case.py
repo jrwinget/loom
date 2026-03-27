@@ -1,7 +1,13 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKey,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from loom.models.base import Base, TimestampMixin, UUIDMixin
@@ -9,6 +15,12 @@ from loom.models.base import Base, TimestampMixin, UUIDMixin
 
 class Case(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "cases"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active', 'closed', 'archived')",
+            name="ck_cases_status",
+        ),
+    )
 
     name: Mapped[str] = mapped_column(
         String,
@@ -34,11 +46,11 @@ class CaseMembership(UUIDMixin, Base):
     __table_args__ = (UniqueConstraint("case_id", "user_id"),)
 
     case_id: Mapped[UUID] = mapped_column(
-        ForeignKey("cases.id"),
+        ForeignKey("cases.id", ondelete="CASCADE"),
         nullable=False,
     )
     user_id: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
     role: Mapped[str] = mapped_column(

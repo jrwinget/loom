@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { CaseCreateDialog } from '@/components/case/case-create-dialog';
 import { CaseList } from '@/components/case/case-list';
+import { QueryError } from '@/components/layout/query-error';
 import { useCases } from '@/hooks/use-case';
 
 export function CaseListPage(): React.ReactElement {
-  const { data: cases, isLoading } = useCases();
+  const { data: cases, isLoading, isError, refetch } = useCases();
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
@@ -26,7 +27,16 @@ export function CaseListPage(): React.ReactElement {
         </button>
       </div>
 
-      <CaseList cases={cases ?? []} isLoading={isLoading} />
+      {isError && (
+        <QueryError
+          message="Failed to load cases."
+          onRetry={() => void refetch()}
+        />
+      )}
+
+      {!isError && (
+        <CaseList cases={cases ?? []} isLoading={isLoading} />
+      )}
 
       <CaseCreateDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>

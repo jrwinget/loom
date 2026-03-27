@@ -37,6 +37,7 @@ from loom.services.ingest import (
     record_upload_custody,
     validate_file_type,
 )
+from loom.security.rate_limit import user_limiter
 from loom.services.storage import (
     ORIGINALS_BUCKET,
     StorageService,
@@ -72,6 +73,7 @@ async def _check_access(
     response_model=AssetUploadResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@user_limiter.limit("10/minute")
 async def upload_asset(
     case_id: str,
     file: UploadFile,
@@ -164,9 +166,11 @@ async def upload_asset(
     "/upload-url",
     response_model=PresignedUrlResponse,
 )
+@user_limiter.limit("10/minute")
 async def get_upload_url(
     case_id: str,
     body: PresignedUrlRequest,
+    request: Request,
     token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),

@@ -13,7 +13,7 @@ class Derivative(UUIDMixin, Base):
     __tablename__ = "derivatives"
 
     asset_id: Mapped[UUID] = mapped_column(
-        ForeignKey("assets.id"),
+        ForeignKey("assets.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

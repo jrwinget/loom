@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { QueryError } from '@/components/layout/query-error';
 import { TimelineCanvas } from '@/components/timeline/timeline-canvas';
 import { TimelineControls } from '@/components/timeline/timeline-controls';
 import { useTimelineEvents } from '@/hooks/use-timeline';
@@ -17,7 +18,12 @@ export function TimelinePage(): React.ReactElement {
 
   const filterParam = statusFilter === 'all' ? undefined : statusFilter;
 
-  const { data, isLoading } = useTimelineEvents(safeId, filterParam);
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+  } = useTimelineEvents(safeId, filterParam);
 
   const handleAddEvent = useCallback(() => {
     // placeholder for add event modal
@@ -47,13 +53,23 @@ export function TimelinePage(): React.ReactElement {
         onZoomChange={setZoomLevel}
       />
 
+      {/* error state */}
+      {isError && (
+        <QueryError
+          message="Failed to load timeline events."
+          onRetry={() => void refetch()}
+        />
+      )}
+
       {/* canvas */}
-      <TimelineCanvas
-        events={data?.items ?? []}
-        selectedEventId={selectedEvent?.id ?? null}
-        onSelectEvent={handleSelectEvent}
-        loading={isLoading}
-      />
+      {!isError && (
+        <TimelineCanvas
+          events={data?.items ?? []}
+          selectedEventId={selectedEvent?.id ?? null}
+          onSelectEvent={handleSelectEvent}
+          loading={isLoading}
+        />
+      )}
 
       {/* event detail panel */}
       {selectedEvent && (

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAssets } from '@/hooks/use-assets';
 import { useAssetDownloadUrl } from '@/hooks/use-assets';
+import { QueryError } from '@/components/layout/query-error';
 import { UploadDropzone } from '@/components/asset/upload-dropzone';
 import { AssetGrid } from '@/components/asset/asset-grid';
 import { AssetDetail } from '@/components/asset/asset-detail';
@@ -37,7 +38,12 @@ export function AssetsPage(): React.ReactElement {
   const { caseId } = useParams<{ caseId: string }>();
   const safeId = caseId ?? '';
 
-  const { data: assets, isLoading } = useAssets(safeId);
+  const {
+    data: assets,
+    isLoading,
+    isError,
+    refetch,
+  } = useAssets(safeId);
   const [selected, setSelected] = useState<Asset | null>(null);
 
   const handleSelect = useCallback((asset: Asset) => {
@@ -55,12 +61,22 @@ export function AssetsPage(): React.ReactElement {
       {/* upload zone */}
       <UploadDropzone caseId={safeId} />
 
+      {/* error state */}
+      {isError && (
+        <QueryError
+          message="Failed to load assets."
+          onRetry={() => void refetch()}
+        />
+      )}
+
       {/* asset grid */}
-      <AssetGrid
-        assets={assets ?? []}
-        loading={isLoading}
-        onSelect={handleSelect}
-      />
+      {!isError && (
+        <AssetGrid
+          assets={assets ?? []}
+          loading={isLoading}
+          onSelect={handleSelect}
+        />
+      )}
 
       {/* side panel overlay */}
       {selected && (

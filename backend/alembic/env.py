@@ -2,6 +2,7 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from loom.config import get_settings
@@ -23,17 +24,19 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
     )
 
     with context.begin_transaction():
         context.run_migrations()
 
 
-def do_run_migrations(connection: object) -> None:
+def do_run_migrations(connection: Connection) -> None:
     """run migrations with a connection."""
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
+        compare_type=True,
     )
 
     with context.begin_transaction():

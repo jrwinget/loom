@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { QueryError } from '@/components/layout/query-error';
 import { ClusterReview } from '@/components/timeline/cluster-review';
 import { useClusters, useProposeClusters } from '@/hooks/use-clusters';
 
@@ -14,7 +15,12 @@ export function ClustersPage(): React.ReactElement {
 
   const filterParam = statusFilter === 'all' ? undefined : statusFilter;
 
-  const { data, isLoading } = useClusters(safeId, filterParam);
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+  } = useClusters(safeId, filterParam);
   const proposeClusters = useProposeClusters(safeId);
 
   const handleRunClustering = useCallback(() => {
@@ -70,8 +76,16 @@ export function ClustersPage(): React.ReactElement {
         ))}
       </div>
 
+      {/* error state */}
+      {isError && (
+        <QueryError
+          message="Failed to load clusters."
+          onRetry={() => void refetch()}
+        />
+      )}
+
       {/* loading state */}
-      {(isLoading || proposeClusters.isPending) && (
+      {!isError && (isLoading || proposeClusters.isPending) && (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div
@@ -84,7 +98,7 @@ export function ClustersPage(): React.ReactElement {
       )}
 
       {/* cluster review */}
-      {!isLoading && !proposeClusters.isPending && (
+      {!isError && !isLoading && !proposeClusters.isPending && (
         <ClusterReview caseId={safeId} clusters={clusters} />
       )}
     </div>

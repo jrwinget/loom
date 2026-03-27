@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     debug: bool = False
     log_level: str = "info"
 
+    # connection pool settings
+    db_pool_size: int = 20
+    db_max_overflow: int = 10
+    db_pool_recycle: int = 3600
+    db_pool_pre_ping: bool = True
+    db_pool_timeout: int = 30
+
     def validate_secret_key(self) -> None:
         """reject insecure or short secret keys.
 

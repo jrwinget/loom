@@ -18,7 +18,7 @@ class OcrRegion(UUIDMixin, Base):
     __tablename__ = "ocr_regions"
 
     asset_id: Mapped[UUID] = mapped_column(
-        ForeignKey("assets.id"),
+        ForeignKey("assets.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

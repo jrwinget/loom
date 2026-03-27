@@ -45,8 +45,10 @@ services:
         $${MINIO_ROOT_PASSWORD:-loom_minio_dev};
       mc mb --ignore-existing loom/loom-originals;
       mc mb --ignore-existing loom/loom-derivatives;
+      mc mb --ignore-existing loom/loom-backups;
       mc anonymous set none loom/loom-originals;
       mc anonymous set none loom/loom-derivatives;
+      mc anonymous set none loom/loom-backups;
       exit 0;
       "
 
@@ -154,6 +156,43 @@ services:
     profiles:
       - production
 
+  backup:
+    image: postgres:16-alpine
+    entrypoint: >
+      /bin/sh -c "
+      echo 'loom backup scheduler starting';
+      apk add --no-cache curl;
+      curl -sL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc;
+      chmod +x /usr/local/bin/mc;
+      echo 'running initial backup';
+      /scripts/backup.sh;
+      echo 'entering schedule loop (every 24h)';
+      while true; do
+        sleep 86400;
+        /scripts/backup.sh;
+      done
+      "
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-loom}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-loom_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-loom}
+      PGHOST: postgres
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-loom_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-loom_minio_dev}
+      MINIO_BACKUP_BUCKET: loom-backups
+    volumes:
+      - backup-data:/backups
+      - ./postgres/backup.sh:/scripts/backup.sh:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
+    profiles:
+      - backup
+
 volumes:
   postgres-data:
   minio-data:
+  backup-data:

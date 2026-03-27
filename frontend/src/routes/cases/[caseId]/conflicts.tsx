@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { QueryError } from '@/components/layout/query-error';
 import { ConflictPanel } from '@/components/timeline/conflict-panel';
 import { useCaseConflicts } from '@/hooks/use-conflicts';
 import type { ConflictListItem } from '@/types/conflict';
@@ -37,7 +38,12 @@ export function ConflictsPage(): React.ReactElement {
   const resolvedParam =
     filter === 'resolved' ? true : filter === 'unresolved' ? false : undefined;
 
-  const { data, isLoading } = useCaseConflicts(safeId, resolvedParam);
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+  } = useCaseConflicts(safeId, resolvedParam);
 
   const handleSelectItem = useCallback((item: ConflictListItem) => {
     setSelectedItem(item);
@@ -83,8 +89,16 @@ export function ConflictsPage(): React.ReactElement {
         ))}
       </div>
 
+      {/* error state */}
+      {isError && (
+        <QueryError
+          message="Failed to load conflicts."
+          onRetry={() => void refetch()}
+        />
+      )}
+
       {/* loading state */}
-      {isLoading && (
+      {!isError && isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div
@@ -97,7 +111,7 @@ export function ConflictsPage(): React.ReactElement {
       )}
 
       {/* empty state */}
-      {!isLoading && items.length === 0 && (
+      {!isError && !isLoading && items.length === 0 && (
         <div
           data-testid="conflicts-empty"
           className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border"
@@ -107,7 +121,7 @@ export function ConflictsPage(): React.ReactElement {
       )}
 
       {/* conflict list */}
-      {!isLoading && items.length > 0 && (
+      {!isError && !isLoading && items.length > 0 && (
         <div className="space-y-2">
           {items.map((item) => (
             <button
