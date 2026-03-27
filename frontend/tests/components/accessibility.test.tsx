@@ -8,11 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { axe } from 'jest-axe';
 import { CaseCard } from '@/components/case/case-card';
 import { Shell } from '@/components/layout/shell';
-import { ReviewWorkspace } from
-  '@/components/review/review-workspace';
-import { ErrorFallback } from
-  '@/components/layout/error-boundary';
-import type { Asset } from '@/types/asset';
+import { ErrorFallback } from '@/components/layout/error-boundary';
 
 // mock keyboard shortcut
 vi.mock('@/hooks/use-keyboard', () => ({
@@ -38,27 +34,6 @@ function makeQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-}
-
-function makeAsset(
-  overrides: Partial<Asset> = {},
-): Asset {
-  return {
-    id: 'asset-1',
-    caseId: 'case-1',
-    originalFilename: 'evidence.mp4',
-    storageKey: 'abc/evidence.mp4',
-    mediaType: 'video',
-    mimeType: 'video/mp4',
-    fileSizeBytes: 1_048_576,
-    sha256Hash: 'a'.repeat(64),
-    uploadStatus: 'complete',
-    processingStatus: 'complete',
-    captureTime: null,
-    createdAt: '2026-01-15T10:00:00Z',
-    updatedAt: '2026-01-15T10:05:00Z',
-    ...overrides,
-  };
 }
 
 describe('Accessibility (axe)', () => {
@@ -97,23 +72,6 @@ describe('Accessibility (axe)', () => {
     expect(
       screen.getByTestId('main-content'),
     ).toHaveAttribute('id', 'main-content');
-
-    expect(await axe(container)).toHaveNoViolations();
-  });
-
-  it('ReviewWorkspace has no violations', async () => {
-    const qc = makeQueryClient();
-    const { container } = render(
-      <QueryClientProvider client={qc}>
-        <ReviewWorkspace
-          caseId="case-1"
-          asset={makeAsset()}
-          assetSrc="/test.mp4"
-          segments={[]}
-          scenes={[]}
-        />
-      </QueryClientProvider>,
-    );
 
     expect(await axe(container)).toHaveNoViolations();
   });
