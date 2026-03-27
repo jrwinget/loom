@@ -54,6 +54,16 @@ def _make_asset(
     return a
 
 
+class _SavepointStub:
+    """stub for begin_nested() async context manager."""
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        pass
+
+
 class _StubSession:
     """minimal stub session for dependency override."""
 
@@ -74,6 +84,9 @@ class _StubSession:
 
     async def delete(self, obj):
         pass
+
+    def begin_nested(self):
+        return _SavepointStub()
 
 
 def _create_app(settings: Settings) -> object:

@@ -111,6 +111,10 @@ async def test_login_rate_limit(
     mock_settings: Settings,
 ) -> None:
     """login endpoint should return 429 after 5 requests."""
+    from loom.security.rate_limit import limiter
+
+    limiter.reset()
+
     user = _make_user()
     session = MockSession(user_count=1, user=user)
     app = _create_app(session, mock_settings)
@@ -149,6 +153,10 @@ async def test_register_rate_limit(
     mock_settings: Settings,
 ) -> None:
     """register endpoint should return 429 after 3 requests."""
+    from loom.security.rate_limit import limiter
+
+    limiter.reset()
+
     # use user_count=0 so first-user flow works
     session = MockSession(user_count=0, user=None)
     app = _create_app(session, mock_settings)
@@ -189,6 +197,10 @@ async def test_rate_limit_returns_429_body(
     mock_settings: Settings,
 ) -> None:
     """429 response should include an error message."""
+    from loom.security.rate_limit import limiter
+
+    limiter.reset()
+
     user = _make_user()
     session = MockSession(user_count=1, user=user)
     app = _create_app(session, mock_settings)

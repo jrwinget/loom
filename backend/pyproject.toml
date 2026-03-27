@@ -119,12 +119,9 @@ source = ["loom"]
 omit = [
     "tests/*",
     "*/workers/worker.py",
-    "*/workflows/export_workflow.py",
-    "*/workflows/export_activities.py",
-    "*/workflows/ocr_workflow.py",
-    "*/workflows/ocr_activities.py",
-    "*/workflows/scene_workflow.py",
-    "*/workflows/scene_activities.py",
+    "*/workflows/*_workflow.py",
+    "*/workflows/*_activities.py",
+    "*/workflows/shared.py",
 ]
 
 [tool.coverage.report]
