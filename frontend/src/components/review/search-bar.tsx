@@ -107,7 +107,12 @@ export function SearchBar(props: SearchBarProps): React.ReactElement {
         <input
           ref={inputRef}
           data-testid="search-input"
-          type="text"
+          type="search"
+          role="combobox"
+          aria-expanded={open && query.trim().length >= 2}
+          aria-controls="search-results-list"
+          aria-label="Search evidence"
+          aria-autocomplete="list"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -123,7 +128,10 @@ export function SearchBar(props: SearchBarProps): React.ReactElement {
       {/* results dropdown */}
       {open && query.trim().length >= 2 && (
         <div
+          id="search-results-list"
           data-testid="search-results"
+          role="region"
+          aria-label="Search results"
           className="bg-card absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded border border-border shadow-lg"
         >
           {/* type tabs */}

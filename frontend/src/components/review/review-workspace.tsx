@@ -123,7 +123,8 @@ export function ReviewWorkspace(
         }}
       >
         {/* left: video + scene browser */}
-        <div
+        <section
+          aria-label="Video player"
           data-testid="panel-video"
           className={`flex flex-col overflow-hidden border-r border-border ${
             focusedPanel === 'video' ? 'ring-2 ring-inset ring-primary/30' : ''
@@ -132,10 +133,11 @@ export function ReviewWorkspace(
           <div className="flex-1 overflow-y-auto p-3" ref={videoRef}>
             <AssetViewer asset={asset} src={assetSrc} />
           </div>
-        </div>
+        </section>
 
         {/* center: transcript */}
-        <div
+        <section
+          aria-label="Transcript"
           data-testid="panel-transcript"
           className={`flex flex-col overflow-hidden border-r border-border ${
             focusedPanel === 'transcript'
@@ -149,10 +151,11 @@ export function ReviewWorkspace(
             onSeek={handleSeek}
             onCreateAnnotation={onCreateAnnotation}
           />
-        </div>
+        </section>
 
         {/* right: annotations / ocr (tabbed) */}
-        <div
+        <section
+          aria-label="Annotations"
           data-testid="panel-right"
           className={`flex flex-col overflow-hidden ${
             focusedPanel === 'right' ? 'ring-2 ring-inset ring-primary/30' : ''
@@ -163,7 +166,7 @@ export function ReviewWorkspace(
               Annotations panel
             </div>
           )}
-        </div>
+        </section>
 
         {/* bottom: scene browser spanning full width */}
         <div

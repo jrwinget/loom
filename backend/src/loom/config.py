@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     debug: bool = False
     log_level: str = "info"
 
+    # observability
+    otel_enabled: bool = False
+    otel_service_name: str = "loom-api"
+    otel_exporter_endpoint: str = "http://localhost:4317"
+
     # connection pool settings
     db_pool_size: int = 20
     db_max_overflow: int = 10

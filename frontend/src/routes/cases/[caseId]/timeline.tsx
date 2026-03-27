@@ -79,10 +79,16 @@ export function TimelinePage(): React.ReactElement {
             aria-label="Close panel"
           />
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="event-detail-title"
             data-testid="event-detail-panel"
             className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col overflow-y-auto border-l border-border bg-background p-6 shadow-lg"
           >
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2
+              id="event-detail-title"
+              className="text-lg font-semibold text-foreground"
+            >
               {selectedEvent.title}
             </h2>
             {selectedEvent.description && (

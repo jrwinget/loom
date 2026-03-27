@@ -37,6 +37,8 @@ class AssetResponse(BaseModel):
     processing_status: str
     created_at: datetime
     updated_at: datetime
+    deleted_at: datetime | None = None
+    deleted_by: UUID | None = None
 
     model_config = {"from_attributes": True}
 

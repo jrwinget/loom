@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { Component, createRef, useEffect, useRef } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 
 interface ErrorBoundaryProps {
@@ -15,6 +15,8 @@ export class ErrorBoundary extends Component<
   ErrorBoundaryProps,
   ErrorBoundaryState
 > {
+  private headingRef = createRef<HTMLHeadingElement>();
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -28,6 +30,15 @@ export class ErrorBoundary extends Component<
     console.error('ErrorBoundary caught:', error, info);
   }
 
+  componentDidUpdate(
+    _prevProps: ErrorBoundaryProps,
+    prevState: ErrorBoundaryState,
+  ): void {
+    if (this.state.hasError && !prevState.hasError) {
+      this.headingRef.current?.focus();
+    }
+  }
+
   handleReset = (): void => {
     this.setState({ hasError: false, error: null });
   };
@@ -39,7 +50,11 @@ export class ErrorBoundary extends Component<
       }
 
       return (
-        <ErrorFallback error={this.state.error} onReset={this.handleReset} />
+        <ErrorFallback
+          error={this.state.error}
+          onReset={this.handleReset}
+          headingRef={this.headingRef}
+        />
       );
     }
 
@@ -50,24 +65,39 @@ export class ErrorBoundary extends Component<
 interface ErrorFallbackProps {
   error: Error | null;
   onReset: () => void;
+  headingRef?: React.RefObject<HTMLHeadingElement>;
 }
 
 export function ErrorFallback(props: ErrorFallbackProps): React.ReactElement {
-  const { error, onReset } = props;
+  const { error, onReset, headingRef } = props;
+  const localRef = useRef<HTMLHeadingElement>(null);
+  const ref = headingRef ?? localRef;
+
+  // focus heading on mount when used standalone
+  useEffect(() => {
+    if (!headingRef) {
+      localRef.current?.focus();
+    }
+  }, [headingRef]);
 
   return (
     <div
       role="alert"
+      aria-live="assertive"
       className="flex min-h-[400px] items-center justify-center p-6"
     >
       <div className="max-w-md text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
+        <div
+          className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900"
+          aria-hidden="true"
+        >
           <svg
             className="h-6 w-6 text-red-600 dark:text-red-300"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth={2}
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -76,7 +106,11 @@ export function ErrorFallback(props: ErrorFallbackProps): React.ReactElement {
             />
           </svg>
         </div>
-        <h2 className="text-lg font-semibold text-foreground">
+        <h2
+          ref={ref}
+          tabIndex={-1}
+          className="text-lg font-semibold text-foreground focus:outline-none"
+        >
           Something went wrong
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">

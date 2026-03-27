@@ -59,6 +59,7 @@ export function TimelineEventCard(
               data-testid="contradiction-indicator"
               className="cursor-pointer text-amber-500 hover:text-amber-600"
               title="Has contradicting evidence"
+              aria-label="Has contradicting evidence"
               onClick={(e) => {
                 e.stopPropagation();
                 onConflictClick?.(event);

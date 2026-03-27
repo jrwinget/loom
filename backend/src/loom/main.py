@@ -1,7 +1,8 @@
 import logging
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, MutableMapping
 from contextlib import asynccontextmanager
+from typing import Any
 
 import structlog
 from fastapi import FastAPI, Request, Response
@@ -15,8 +16,28 @@ from sqlalchemy.ext.asyncio import (
 
 from loom.api.router import api_router
 from loom.config import get_settings
+from loom.observability import setup_db_telemetry, setup_telemetry
 from loom.security.audit import AuditMiddleware
 from loom.security.rate_limit import limiter
+
+
+def _add_otel_context(
+    _logger: Any,
+    _method: str,
+    event_dict: MutableMapping[str, Any],
+) -> MutableMapping[str, Any]:
+    """inject otel trace/span ids into structlog events."""
+    try:
+        from opentelemetry import trace
+
+        span = trace.get_current_span()
+        ctx = span.get_span_context()
+        if ctx and ctx.trace_id:
+            event_dict["trace_id"] = format(ctx.trace_id, "032x")
+            event_dict["span_id"] = format(ctx.span_id, "016x")
+    except Exception:  # noqa: S110
+        pass  # otel may not be configured; safe to skip
+    return event_dict
 
 
 def _configure_logging(log_level: str) -> None:
@@ -25,6 +46,7 @@ def _configure_logging(log_level: str) -> None:
         processors=[
             structlog.contextvars.merge_contextvars,
             structlog.processors.add_log_level,
+            _add_otel_context,
             structlog.processors.StackInfoRenderer(),
             structlog.dev.set_exc_info,
             structlog.processors.TimeStamper(fmt="iso", utc=True),
@@ -69,6 +91,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     app.state.db_engine = engine
     app.state.db_session_factory = session_factory
+
+    # trace database queries when otel is active
+    if settings.otel_enabled:
+        setup_db_telemetry(engine.sync_engine)
 
     # minio / object storage
     minio_client = Minio(
@@ -137,6 +163,9 @@ def create_app() -> FastAPI:
 
     # audit middleware
     application.add_middleware(AuditMiddleware)
+
+    # observability (opt-in via LOOM_OTEL_ENABLED=true)
+    setup_telemetry(application, settings)
 
     return application
 

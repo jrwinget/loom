@@ -94,6 +94,7 @@ export function DuplicatePanel(props: DuplicatePanelProps): React.ReactElement {
             <button
               type="button"
               onClick={() => toggle(cluster.id)}
+              aria-expanded={isExpanded}
               className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent/30"
             >
               <span className="text-sm font-medium text-foreground">

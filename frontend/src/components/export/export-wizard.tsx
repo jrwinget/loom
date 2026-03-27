@@ -79,6 +79,9 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
           <Dialog.Title className="text-lg font-semibold text-foreground">
             Export Bundle — Step {step} of 3
           </Dialog.Title>
+          <div aria-live="polite" className="sr-only">
+            Step {step} of 3
+          </div>
           <Dialog.Description className="mt-1 text-sm text-muted-foreground">
             Configure and generate an export bundle.
           </Dialog.Description>

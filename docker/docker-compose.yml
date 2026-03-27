@@ -192,6 +192,16 @@ services:
     profiles:
       - backup
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "${JAEGER_UI_PORT:-16686}:16686"
+      - "${JAEGER_OTLP_GRPC_PORT:-4317}:4317"
+    profiles:
+      - observability
+
 volumes:
   postgres-data:
   minio-data:

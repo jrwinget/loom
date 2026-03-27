@@ -97,6 +97,8 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
     return (
       <div
         data-testid="asset-grid"
+        aria-busy="true"
+        aria-label="Loading assets"
         className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
       >
         {Array.from({ length: 8 }).map((_, i) => (
@@ -123,8 +125,11 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
       {/* controls row */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         {/* sort */}
-        <label className="text-xs text-muted-foreground">Sort by</label>
+        <label htmlFor="asset-sort" className="text-xs text-muted-foreground">
+          Sort by
+        </label>
         <select
+          id="asset-sort"
           data-testid="sort-select"
           value={sortField}
           onChange={(e) => setSortField(e.target.value as SortField)}
@@ -136,8 +141,11 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
         </select>
 
         {/* filter */}
-        <label className="text-xs text-muted-foreground">Filter</label>
+        <label htmlFor="asset-filter" className="text-xs text-muted-foreground">
+          Filter
+        </label>
         <select
+          id="asset-filter"
           data-testid="filter-select"
           value={filterType}
           onChange={(e) => setFilterType(e.target.value as MediaType | 'all')}
@@ -196,6 +204,8 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
               <span
                 data-testid="processing-status"
                 title={asset.processingStatus}
+                role="status"
+                aria-label={`Processing: ${asset.processingStatus}`}
                 className={`ml-auto h-2 w-2 rounded-full ${
                   processingStatusColors[asset.processingStatus] ??
                   'bg-gray-500'

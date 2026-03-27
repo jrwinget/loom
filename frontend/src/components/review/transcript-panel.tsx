@@ -104,6 +104,7 @@ export function TranscriptPanel(
         {speakers.length > 0 && (
           <select
             data-testid="speaker-filter"
+            aria-label="Filter by speaker"
             value={speakerFilter ?? ''}
             onChange={(e) => setSpeakerFilter(e.target.value || null)}
             className="bg-card ml-auto rounded border border-border px-2 py-0.5 text-xs text-foreground"
@@ -188,6 +189,7 @@ export function TranscriptPanel(
                     data-testid="low-confidence"
                     className="text-xs text-yellow-600 dark:text-yellow-400"
                     title={`Confidence: ${Math.round(seg.confidence * 100)}%`}
+                    aria-label={`Low confidence: ${Math.round(seg.confidence * 100)}%`}
                   >
                     ?
                   </span>

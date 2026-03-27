@@ -1,7 +1,6 @@
 import asyncio
 from collections.abc import AsyncIterator
 from typing import Any
-from uuid import UUID
 
 from fastapi import (
     APIRouter,
@@ -13,11 +12,9 @@ from fastapi import (
     status,
 )
 from minio import Minio
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.dependencies import get_db_session, get_minio_client
-from loom.models.asset import Asset
 from loom.schemas.asset import (
     AssetListResponse,
     AssetResponse,
@@ -29,7 +26,11 @@ from loom.security.rate_limit import user_limiter
 from loom.security.rbac import (
     get_current_user_id,
     require_authenticated,
+    require_role,
 )
+from loom.services.asset import get_asset as get_asset_svc
+from loom.services.asset import list_assets as list_assets_svc
+from loom.services.asset import restore_asset, soft_delete_asset
 from loom.services.case import check_case_access
 from loom.services.hashing import compute_hashes_from_bytes
 from loom.services.ingest import (
@@ -333,6 +334,7 @@ async def list_assets(
     case_id: str,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    include_deleted: bool = Query(False),
     token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
@@ -340,26 +342,26 @@ async def list_assets(
         get_db_session
     ),
 ) -> AssetListResponse:
-    """list assets for a case (paginated)."""
+    """list assets for a case (paginated).
+
+    include_deleted is admin-only; non-admins always see
+    only active assets.
+    """
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id)
 
-    # total count
-    count_q = select(func.count(Asset.id)).where(Asset.case_id == UUID(case_id))
-    total_result = await db.execute(count_q)
-    total = total_result.scalar_one()
+    # only admins may see deleted assets
+    role = token_payload.get("role", "")
+    show_deleted = include_deleted and role == "admin"
 
-    # paginated query
-    query = (
-        select(Asset)
-        .where(Asset.case_id == UUID(case_id))
-        .offset(skip)
-        .limit(limit)
-        .order_by(Asset.created_at.desc())
+    assets, total = await list_assets_svc(
+        db,
+        case_id,
+        skip,
+        limit,
+        include_deleted=show_deleted,
     )
-    result = await db.execute(query)
-    assets = list(result.scalars().all())
 
     return AssetListResponse(
         items=[AssetResponse.model_validate(a) for a in assets],
@@ -386,13 +388,7 @@ async def get_asset(
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id)
 
-    result = await db.execute(
-        select(Asset).where(
-            Asset.id == UUID(asset_id),
-            Asset.case_id == UUID(case_id),
-        )
-    )
-    asset = result.scalar_one_or_none()
+    asset = await get_asset_svc(db, case_id, asset_id)
     if not asset:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -424,13 +420,7 @@ async def get_download_url(
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id)
 
-    result = await db.execute(
-        select(Asset).where(
-            Asset.id == UUID(asset_id),
-            Asset.case_id == UUID(case_id),
-        )
-    )
-    asset = result.scalar_one_or_none()
+    asset = await get_asset_svc(db, case_id, asset_id)
     if not asset:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -448,3 +438,108 @@ async def get_download_url(
     )
 
     return PresignedUrlResponse(url=url, key=asset.storage_key)
+
+
+@router.delete(
+    "/{asset_id}",
+    response_model=AssetResponse,
+)
+async def delete_asset(
+    case_id: str,
+    asset_id: str,
+    request: Request,
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_authenticated
+    ),
+    session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
+        get_db_session
+    ),
+) -> AssetResponse:
+    """soft-delete an asset (editor+ required).
+
+    marks the asset as deleted without removing any data.
+    records a chain-of-custody entry for the deletion.
+    """
+    db: AsyncSession = session  # type: ignore[assignment]
+    user_id = get_current_user_id(token_payload)
+    await _check_access(db, case_id, user_id, "editor")
+
+    # verify asset belongs to this case
+    asset = await get_asset_svc(db, case_id, asset_id)
+    if not asset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="asset not found",
+        )
+
+    ip_address = request.client.host if request.client else None
+    try:
+        asset = await soft_delete_asset(
+            db,
+            asset_id,
+            user_id,
+            ip_address,
+        )
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(err),
+        ) from err
+
+    await db.commit()
+    await db.refresh(asset)
+    return AssetResponse.model_validate(asset)
+
+
+@router.post(
+    "/{asset_id}/restore",
+    response_model=AssetResponse,
+)
+async def restore_asset_endpoint(
+    case_id: str,
+    asset_id: str,
+    request: Request,
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_role("admin")  # noqa: B008
+    ),
+    session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
+        get_db_session
+    ),
+) -> AssetResponse:
+    """restore a soft-deleted asset (admin only).
+
+    clears the deletion marker and records a custody entry.
+    """
+    db: AsyncSession = session  # type: ignore[assignment]
+    user_id = get_current_user_id(token_payload)
+
+    # verify asset belongs to this case (include deleted)
+    asset = await get_asset_svc(
+        db,
+        case_id,
+        asset_id,
+        include_deleted=True,
+    )
+    if not asset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="asset not found",
+        )
+
+    ip_address = request.client.host if request.client else None
+    try:
+        asset = await restore_asset(
+            db,
+            asset_id,
+            user_id,
+            ip_address,
+        )
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(err),
+        ) from err
+
+    await db.commit()
+    await db.refresh(asset)
+    return AssetResponse.model_validate(asset)

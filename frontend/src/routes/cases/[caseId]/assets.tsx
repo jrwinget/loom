@@ -18,6 +18,9 @@ function SelectedAssetPanel(props: {
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Asset detail: ${asset.originalFilename}`}
       data-testid="asset-panel"
       className="fixed inset-y-0 right-0 z-40 flex w-full max-w-2xl flex-col overflow-y-auto border-l border-border bg-background shadow-lg"
     >

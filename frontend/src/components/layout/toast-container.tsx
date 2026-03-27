@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToastStore } from '@/stores/toast-store';
 import type { Toast, ToastType } from '@/stores/toast-store';
 
@@ -100,7 +100,9 @@ function ToastItem(props: {
         visible ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'
       }`}
     >
-      <span className="mt-0.5 shrink-0">{ICON_MAP[toast.type]}</span>
+      <span className="mt-0.5 shrink-0" aria-hidden="true">
+        {ICON_MAP[toast.type]}
+      </span>
       <p className="flex-1 text-sm text-foreground">{toast.message}</p>
       <button
         type="button"
@@ -130,6 +132,22 @@ export function ToastContainer(): React.ReactElement | null {
   const toasts = useToastStore((s) => s.toasts);
   const removeToast = useToastStore((s) => s.removeToast);
 
+  // dismiss most recent toast on Escape
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && toasts.length > 0) {
+        removeToast(toasts[toasts.length - 1].id);
+      }
+    },
+    [toasts, removeToast],
+  );
+
+  useEffect(() => {
+    if (toasts.length === 0) return;
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [toasts.length, handleKeyDown]);
+
   if (toasts.length === 0) {
     return null;
   }
@@ -137,6 +155,7 @@ export function ToastContainer(): React.ReactElement | null {
   return (
     <div
       data-testid="toast-container"
+      aria-label="Notifications"
       className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2"
     >
       {toasts.map((t) => (

@@ -50,7 +50,7 @@ export function ReviewPage(): React.ReactElement {
   // loading state
   if (assetLoading || !asset) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div aria-busy="true" className="flex h-full items-center justify-center">
         <p className="text-sm text-muted-foreground">Loading asset...</p>
       </div>
     );

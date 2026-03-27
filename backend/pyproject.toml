@@ -41,6 +41,10 @@ ai = [
 provenance = [
     "c2pa-python>=0.6.0",
 ]
+observability = [
+    "opentelemetry-exporter-otlp-proto-grpc>=1.21.0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.42b0",
+]
 report = [
     "weasyprint>=62.0",
     "jinja2>=3.1.0",
@@ -111,7 +115,7 @@ warn_unused_configs = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["minio.*", "temporalio.*", "av.*", "pytesseract.*", "PIL.*", "scenedetect.*", "uuid_extensions.*", "faster_whisper.*", "pyannote.*", "weasyprint.*", "jinja2.*", "c2pa.*", "slowapi.*"]
+module = ["minio.*", "temporalio.*", "av.*", "pytesseract.*", "PIL.*", "scenedetect.*", "uuid_extensions.*", "faster_whisper.*", "pyannote.*", "weasyprint.*", "jinja2.*", "c2pa.*", "slowapi.*", "opentelemetry.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]

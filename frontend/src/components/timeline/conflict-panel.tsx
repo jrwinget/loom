@@ -124,13 +124,19 @@ export function ConflictPanel(props: ConflictPanelProps): React.ReactElement {
       />
 
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="conflict-panel-title"
         data-testid="conflict-panel"
         className="fixed inset-y-0 right-0 z-40 flex w-full max-w-lg flex-col overflow-y-auto border-l border-border bg-background p-6 shadow-lg"
       >
         {/* header */}
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2
+              id="conflict-panel-title"
+              className="text-lg font-semibold text-foreground"
+            >
               {eventTitle}
             </h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
@@ -199,6 +205,7 @@ export function ConflictPanel(props: ConflictPanelProps): React.ReactElement {
           >
             <select
               data-testid="resolution-type-select"
+              aria-label="Resolution type"
               value={resolutionType}
               onChange={(e) => setResolutionType(e.target.value)}
               className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground"
@@ -211,6 +218,7 @@ export function ConflictPanel(props: ConflictPanelProps): React.ReactElement {
             </select>
             <textarea
               data-testid="resolution-notes"
+              aria-label="Resolution notes"
               placeholder="Notes (optional)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

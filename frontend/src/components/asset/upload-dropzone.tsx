@@ -104,6 +104,7 @@ export function UploadDropzone(props: UploadDropzoneProps): React.ReactElement {
           className="hidden"
           onChange={handleFileInput}
           data-testid="file-input"
+          aria-label="Select files to upload"
         />
       </div>
 
@@ -130,7 +131,14 @@ export function UploadDropzone(props: UploadDropzoneProps): React.ReactElement {
 
               {/* progress bar */}
               {f.status === 'uploading' && (
-                <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
+                <div
+                  role="progressbar"
+                  aria-valuenow={f.progress}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`Uploading ${f.file.name}`}
+                  className="h-2 w-24 overflow-hidden rounded-full bg-muted"
+                >
                   <div
                     className="h-full bg-primary transition-all"
                     style={{

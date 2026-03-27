@@ -238,6 +238,7 @@ function ImageViewer(props: { src: string; alt: string }): React.ReactElement {
         <button
           type="button"
           onClick={zoomOut}
+          aria-label="Zoom out"
           className="rounded bg-muted px-2 py-1 text-xs text-foreground"
         >
           -
@@ -248,6 +249,7 @@ function ImageViewer(props: { src: string; alt: string }): React.ReactElement {
         <button
           type="button"
           onClick={zoomIn}
+          aria-label="Zoom in"
           className="rounded bg-muted px-2 py-1 text-xs text-foreground"
         >
           +

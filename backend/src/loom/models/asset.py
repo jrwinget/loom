@@ -25,6 +25,11 @@ class Asset(UUIDMixin, TimestampMixin, Base):
             "case_id",
             "upload_status",
         ),
+        Index(
+            "ix_assets_case_deleted_at",
+            "case_id",
+            "deleted_at",
+        ),
         CheckConstraint(
             "upload_status IN ('pending', 'uploading', 'complete', 'failed')",
             name="ck_assets_upload_status",
@@ -107,4 +112,13 @@ class Asset(UUIDMixin, TimestampMixin, Base):
         String,
         nullable=False,
         default="pending",
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        nullable=True,
+        default=None,
+    )
+    deleted_by: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True,
+        default=None,
     )

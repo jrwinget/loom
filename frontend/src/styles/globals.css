@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './print.css';
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -75,5 +77,10 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* visible focus rings for keyboard navigation (WCAG 2.1 AA) */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
   }
 }

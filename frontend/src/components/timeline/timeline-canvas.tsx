@@ -24,6 +24,8 @@ export function TimelineCanvas(props: TimelineCanvasProps): React.ReactElement {
     return (
       <div
         data-testid="timeline-canvas"
+        aria-busy="true"
+        aria-label="Loading timeline events"
         className="flex gap-4 overflow-x-auto p-4"
       >
         {Array.from({ length: 4 }).map((_, i) => (

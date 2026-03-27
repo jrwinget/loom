@@ -72,6 +72,8 @@ export function SceneBrowser(props: SceneBrowserProps): React.ReactElement {
             data-testid={`scene-${scene.id}`}
             data-active={isActive}
             onClick={() => onSeek(scene.startTime)}
+            aria-label={`Scene ${scene.sceneNumber}: ${formatTimestamp(scene.startTime)} to ${formatTimestamp(scene.endTime)}`}
+            aria-current={isActive ? 'true' : undefined}
             title={
               `Scene ${scene.sceneNumber}: ` +
               `${formatTimestamp(scene.startTime)} - ` +
