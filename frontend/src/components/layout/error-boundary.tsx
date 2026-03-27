@@ -20,9 +20,7 @@ export class ErrorBoundary extends Component<
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(
-    error: Error,
-  ): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
@@ -41,10 +39,7 @@ export class ErrorBoundary extends Component<
       }
 
       return (
-        <ErrorFallback
-          error={this.state.error}
-          onReset={this.handleReset}
-        />
+        <ErrorFallback error={this.state.error} onReset={this.handleReset} />
       );
     }
 
@@ -57,9 +52,7 @@ interface ErrorFallbackProps {
   onReset: () => void;
 }
 
-export function ErrorFallback(
-  props: ErrorFallbackProps,
-): React.ReactElement {
+export function ErrorFallback(props: ErrorFallbackProps): React.ReactElement {
   const { error, onReset } = props;
 
   return (
@@ -68,11 +61,7 @@ export function ErrorFallback(
       className="flex min-h-[400px] items-center justify-center p-6"
     >
       <div className="max-w-md text-center">
-        <div
-          className="mx-auto mb-4 flex h-12 w-12 items-center
-            justify-center rounded-full bg-red-100
-            dark:bg-red-900"
-        >
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
           <svg
             className="h-6 w-6 text-red-600 dark:text-red-300"
             fill="none"
@@ -91,8 +80,7 @@ export function ErrorFallback(
           Something went wrong
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          An unexpected error occurred. You can try again or
-          reload the page.
+          An unexpected error occurred. You can try again or reload the page.
         </p>
         {error?.message && (
           <p className="mt-3 rounded bg-muted px-3 py-2 text-xs text-muted-foreground">

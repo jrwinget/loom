@@ -11,11 +11,7 @@ const ICON_MAP: Record<ToastType, React.ReactElement> = {
       stroke="currentColor"
       strokeWidth={2}
     >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M5 13l4 4L19 7"
-      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   ),
   error: (
@@ -67,17 +63,11 @@ const ICON_MAP: Record<ToastType, React.ReactElement> = {
 
 const BG_MAP: Record<ToastType, string> = {
   success:
-    'border-green-200 bg-green-50 dark:border-green-800 ' +
-    'dark:bg-green-950',
-  error:
-    'border-red-200 bg-red-50 dark:border-red-800 ' +
-    'dark:bg-red-950',
+    'border-green-200 bg-green-50 dark:border-green-800 ' + 'dark:bg-green-950',
+  error: 'border-red-200 bg-red-50 dark:border-red-800 ' + 'dark:bg-red-950',
   warning:
-    'border-amber-200 bg-amber-50 dark:border-amber-800 ' +
-    'dark:bg-amber-950',
-  info:
-    'border-blue-200 bg-blue-50 dark:border-blue-800 ' +
-    'dark:bg-blue-950',
+    'border-amber-200 bg-amber-50 dark:border-amber-800 ' + 'dark:bg-amber-950',
+  info: 'border-blue-200 bg-blue-50 dark:border-blue-800 ' + 'dark:bg-blue-950',
 };
 
 function ToastItem(props: {
@@ -106,26 +96,17 @@ function ToastItem(props: {
       role="alert"
       aria-live="polite"
       data-testid={`toast-${toast.id}`}
-      className={`flex items-start gap-3 rounded-lg border
-        px-4 py-3 shadow-md transition-all duration-300
-        ${BG_MAP[toast.type]}
-        ${visible
-          ? 'translate-x-0 opacity-100'
-          : 'translate-x-4 opacity-0'
-        }`}
+      className={`flex items-start gap-3 rounded-lg border px-4 py-3 shadow-md transition-all duration-300 ${BG_MAP[toast.type]} ${
+        visible ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'
+      }`}
     >
-      <span className="mt-0.5 shrink-0">
-        {ICON_MAP[toast.type]}
-      </span>
-      <p className="flex-1 text-sm text-foreground">
-        {toast.message}
-      </p>
+      <span className="mt-0.5 shrink-0">{ICON_MAP[toast.type]}</span>
+      <p className="flex-1 text-sm text-foreground">{toast.message}</p>
       <button
         type="button"
         onClick={() => onDismiss(toast.id)}
         aria-label="Dismiss notification"
-        className="shrink-0 text-muted-foreground
-          hover:text-foreground"
+        className="shrink-0 text-muted-foreground hover:text-foreground"
       >
         <svg
           className="h-4 w-4"
@@ -156,8 +137,7 @@ export function ToastContainer(): React.ReactElement | null {
   return (
     <div
       data-testid="toast-container"
-      className="pointer-events-none fixed bottom-4 right-4
-        z-50 flex flex-col gap-2"
+      className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2"
     >
       {toasts.map((t) => (
         <div key={t.id} className="pointer-events-auto">

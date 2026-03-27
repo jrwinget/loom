@@ -22,12 +22,12 @@ from loom.security.auth import (
     hash_password,
     verify_password,
 )
+from loom.security.rate_limit import limiter
 from loom.security.rbac import (
     get_current_user_id,
     require_authenticated,
     require_role,
 )
-from loom.security.rate_limit import limiter, user_limiter
 from loom.services.token_revocation import revoke_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -52,9 +52,7 @@ async def register(
     db: AsyncSession = session  # type: ignore[assignment]
 
     # check if any users exist (first user becomes admin)
-    count_result = await db.execute(
-        select(func.count()).select_from(User)
-    )
+    count_result = await db.execute(select(func.count()).select_from(User))
     user_count = count_result.scalar_one()
     is_first_user = user_count == 0
 
@@ -66,9 +64,7 @@ async def register(
         )
 
     # check for existing email
-    existing = await db.execute(
-        select(User).where(User.email == body.email)
-    )
+    existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -107,9 +103,7 @@ async def register_user(
     db: AsyncSession = session  # type: ignore[assignment]
 
     # check for existing email
-    existing = await db.execute(
-        select(User).where(User.email == body.email)
-    )
+    existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -140,14 +134,10 @@ async def login(
     """authenticate and return tokens."""
     db: AsyncSession = session  # type: ignore[assignment]
 
-    result = await db.execute(
-        select(User).where(User.email == body.email)
-    )
+    result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(
-        body.password, user.password_hash
-    ):
+    if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid credentials",
@@ -160,9 +150,7 @@ async def login(
         )
 
     return TokenResponse(
-        access_token=create_access_token(
-            str(user.id), user.role
-        ),
+        access_token=create_access_token(str(user.id), user.role),
         refresh_token=create_refresh_token(str(user.id)),
     )
 
@@ -207,13 +195,12 @@ async def refresh(
                 )
         except HTTPException:
             raise
-        except Exception:
+        except Exception:  # noqa: S110
+            # allow refresh if revocation check fails
             pass
 
     user_id = payload["sub"]
-    result = await db.execute(
-        select(User).where(User.id == user_id)
-    )
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if not user or not user.is_active:
@@ -234,9 +221,7 @@ async def refresh(
             )
 
     return TokenResponse(
-        access_token=create_access_token(
-            str(user.id), user.role
-        ),
+        access_token=create_access_token(str(user.id), user.role),
         refresh_token=create_refresh_token(str(user.id)),
     )
 
@@ -291,9 +276,7 @@ async def get_me(
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
 
-    result = await db.execute(
-        select(User).where(User.id == user_id)
-    )
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
     if not user:

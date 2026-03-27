@@ -34,9 +34,7 @@ export function CaseListPage(): React.ReactElement {
         />
       )}
 
-      {!isError && (
-        <CaseList cases={cases ?? []} isLoading={isLoading} />
-      )}
+      {!isError && <CaseList cases={cases ?? []} isLoading={isLoading} />}
 
       <CaseCreateDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>

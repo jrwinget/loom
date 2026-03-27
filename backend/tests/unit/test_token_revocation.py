@@ -1,16 +1,14 @@
-import time
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
-import jwt
 import pytest
 
 from loom.config import Settings
 
 # fixed test values
 _USER_ID = UUID("01912345-6789-7abc-8def-0123456789ab")
-_SECRET = "test-secret-key-that-is-long-enough-for-validation"
+_SECRET = "test-secret-key-that-is-long-enough-for-validation"  # noqa: S105
 
 
 @pytest.fixture(autouse=True)

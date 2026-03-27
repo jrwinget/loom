@@ -32,8 +32,7 @@ export const useToastStore = create<ToastState>((set) => ({
   toasts: [],
   addToast: (toast) => {
     const id = uid();
-    const duration =
-      toast.duration ?? DEFAULT_DURATIONS[toast.type];
+    const duration = toast.duration ?? DEFAULT_DURATIONS[toast.type];
 
     set((s) => ({
       toasts: [...s.toasts, { ...toast, id }],

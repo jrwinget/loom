@@ -15,12 +15,10 @@ export function ClustersPage(): React.ReactElement {
 
   const filterParam = statusFilter === 'all' ? undefined : statusFilter;
 
-  const {
-    data,
-    isLoading,
-    isError,
-    refetch,
-  } = useClusters(safeId, filterParam);
+  const { data, isLoading, isError, refetch } = useClusters(
+    safeId,
+    filterParam,
+  );
   const proposeClusters = useProposeClusters(safeId);
 
   const handleRunClustering = useCallback(() => {

@@ -6,8 +6,8 @@ from loom.api.v1.audit import router as audit_router
 from loom.api.v1.auth import router as auth_router
 from loom.api.v1.cases import router as cases_router
 from loom.api.v1.clusters import router as clusters_router
-from loom.api.v1.custody import router as custody_router
 from loom.api.v1.conflicts import router as conflicts_router
+from loom.api.v1.custody import router as custody_router
 from loom.api.v1.duplicates import router as duplicates_router
 from loom.api.v1.exports import router as exports_router
 from loom.api.v1.geo import router as geo_router

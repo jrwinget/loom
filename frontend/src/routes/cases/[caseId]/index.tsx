@@ -14,12 +14,7 @@ const statusColors: Record<string, string> = {
 
 export function CaseDetailPage(): React.ReactElement {
   const { caseId } = useParams<{ caseId: string }>();
-  const {
-    data: caseData,
-    isLoading,
-    isError,
-    refetch,
-  } = useCase(caseId ?? '');
+  const { data: caseData, isLoading, isError, refetch } = useCase(caseId ?? '');
   const { data: members } = useCaseMembers(caseId ?? '');
 
   if (isError) {

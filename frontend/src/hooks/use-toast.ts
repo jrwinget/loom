@@ -33,10 +33,7 @@ export function useToast(): UseToastReturn {
     (message: string) => addToast({ type: 'warning', message }),
     [addToast],
   );
-  const dismiss = useCallback(
-    (id: string) => removeToast(id),
-    [removeToast],
-  );
+  const dismiss = useCallback((id: string) => removeToast(id), [removeToast]);
 
   const toast = useMemo(
     () => ({ success, error, info, warning, dismiss }),

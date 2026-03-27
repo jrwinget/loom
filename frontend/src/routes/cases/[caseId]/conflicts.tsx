@@ -38,12 +38,10 @@ export function ConflictsPage(): React.ReactElement {
   const resolvedParam =
     filter === 'resolved' ? true : filter === 'unresolved' ? false : undefined;
 
-  const {
-    data,
-    isLoading,
-    isError,
-    refetch,
-  } = useCaseConflicts(safeId, resolvedParam);
+  const { data, isLoading, isError, refetch } = useCaseConflicts(
+    safeId,
+    resolvedParam,
+  );
 
   const handleSelectItem = useCallback((item: ConflictListItem) => {
     setSelectedItem(item);

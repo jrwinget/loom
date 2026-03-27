@@ -34,9 +34,7 @@ async def _extract_token(request: Request) -> dict[str, Any]:
 
                 async with session_factory() as session:
                     result = await session.execute(
-                        select(RevokedToken.id).where(
-                            RevokedToken.jti == jti
-                        )
+                        select(RevokedToken.id).where(RevokedToken.jti == jti)
                     )
                     if result.scalar_one_or_none() is not None:
                         raise HTTPException(
@@ -45,7 +43,7 @@ async def _extract_token(request: Request) -> dict[str, Any]:
                         )
         except HTTPException:
             raise
-        except Exception:
+        except Exception:  # noqa: S110
             # if db is unavailable, allow the request through
             # rather than blocking all authenticated requests
             pass

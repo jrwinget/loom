@@ -18,12 +18,10 @@ export function TimelinePage(): React.ReactElement {
 
   const filterParam = statusFilter === 'all' ? undefined : statusFilter;
 
-  const {
-    data,
-    isLoading,
-    isError,
-    refetch,
-  } = useTimelineEvents(safeId, filterParam);
+  const { data, isLoading, isError, refetch } = useTimelineEvents(
+    safeId,
+    filterParam,
+  );
 
   const handleAddEvent = useCallback(() => {
     // placeholder for add event modal

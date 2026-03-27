@@ -1,4 +1,3 @@
-from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 from uuid import UUID
@@ -61,9 +60,7 @@ class MockSession:
 @pytest_asyncio.fixture
 def mock_settings():
     return Settings(
-        secret_key=(
-            "test-secret-key-that-is-long-enough-for-validation"
-        ),
+        secret_key=("test-secret-key-that-is-long-enough-for-validation"),
         access_token_expire_minutes=15,
         refresh_token_expire_days=7,
         database_url="sqlite+aiosqlite:///",
@@ -73,9 +70,7 @@ def mock_settings():
 def _create_app(mock_session, settings):
     get_settings.cache_clear()
 
-    with patch(
-        "loom.config.get_settings", return_value=settings
-    ):
+    with patch("loom.config.get_settings", return_value=settings):
         from loom.main import create_app
 
         application = create_app()
@@ -83,9 +78,7 @@ def _create_app(mock_session, settings):
     async def override_db():
         yield mock_session
 
-    application.dependency_overrides[get_db_session] = (
-        override_db
-    )
+    application.dependency_overrides[get_db_session] = override_db
     # set session factory to None to skip audit writes,
     # but this also skips revocation checks in rbac
     application.state.db_session_factory = None
@@ -112,9 +105,7 @@ async def test_logout_returns_204(
         ) as ac:
             resp = await ac.post(
                 "/api/v1/auth/logout",
-                headers={
-                    "Authorization": f"Bearer {token}"
-                },
+                headers={"Authorization": f"Bearer {token}"},
             )
 
     assert resp.status_code == 204
@@ -139,9 +130,7 @@ async def test_logout_revokes_token(
         ) as ac:
             await ac.post(
                 "/api/v1/auth/logout",
-                headers={
-                    "Authorization": f"Bearer {token}"
-                },
+                headers={"Authorization": f"Bearer {token}"},
             )
 
     # verify a revoked token was added

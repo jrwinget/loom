@@ -49,7 +49,10 @@ export function App(): React.ReactElement {
               <Route path="cases/:caseId" element={<CaseDetailPage />} />
               <Route path="cases/:caseId/assets" element={<AssetsPage />} />
               <Route path="cases/:caseId/timeline" element={<TimelinePage />} />
-              <Route path="cases/:caseId/conflicts" element={<ConflictsPage />} />
+              <Route
+                path="cases/:caseId/conflicts"
+                element={<ConflictsPage />}
+              />
               <Route path="cases/:caseId/clusters" element={<ClustersPage />} />
               <Route path="cases/:caseId/map" element={<MapPage />} />
               <Route path="cases/:caseId/export" element={<ExportPage />} />
@@ -57,7 +60,10 @@ export function App(): React.ReactElement {
                 path="cases/:caseId/review/:assetId"
                 element={<ReviewPage />}
               />
-              <Route path="settings/plugins" element={<PluginsSettingsPage />} />
+              <Route
+                path="settings/plugins"
+                element={<PluginsSettingsPage />}
+              />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>

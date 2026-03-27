@@ -1,6 +1,6 @@
 """unit tests for loom.services.custody_verification."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -17,7 +17,7 @@ from loom.services.custody_verification import (
 _ASSET_ID = str(uuid4())
 _CASE_ID = str(uuid4())
 _USER_ID = str(uuid4())
-_NOW = datetime.now(tz=timezone.utc)
+_NOW = datetime.now(tz=UTC)
 
 
 def _mock_session() -> AsyncMock:

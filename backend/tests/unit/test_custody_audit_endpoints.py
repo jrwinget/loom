@@ -61,7 +61,6 @@ class TestCustodyAuthorization:
         data_result.scalars.return_value = mock_scalars
 
         call_count = 0
-        original_execute = session.execute
 
         async def mock_execute(query):
             nonlocal call_count
@@ -81,8 +80,7 @@ class TestCustodyAuthorization:
         ] = lambda: _VIEWER_PAYLOAD
 
         # use testclient for sync testing
-        with TestClient(app) as client:
-            # we need to override at the route level
+        with TestClient(app):
             pass
 
         # since full integration testing requires db,
@@ -144,8 +142,6 @@ class TestAuditAuthorization:
         """verify custody schemas have expected fields."""
         from loom.schemas.custody import (
             CaseCustodyVerificationResult,
-            CustodyEntryListResponse,
-            CustodyEntryResponse,
             CustodyReportResponse,
             CustodyVerificationResult,
         )

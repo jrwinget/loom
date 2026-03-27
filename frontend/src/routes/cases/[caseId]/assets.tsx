@@ -38,12 +38,7 @@ export function AssetsPage(): React.ReactElement {
   const { caseId } = useParams<{ caseId: string }>();
   const safeId = caseId ?? '';
 
-  const {
-    data: assets,
-    isLoading,
-    isError,
-    refetch,
-  } = useAssets(safeId);
+  const { data: assets, isLoading, isError, refetch } = useAssets(safeId);
   const [selected, setSelected] = useState<Asset | null>(null);
 
   const handleSelect = useCallback((asset: Asset) => {

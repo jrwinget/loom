@@ -16,7 +16,7 @@ def _get_user_key(request: Request) -> str:
             token = auth_header.removeprefix("Bearer ")
             payload = decode_token(token)
             return f"user:{payload['sub']}"
-        except Exception:
+        except Exception:  # noqa: S110
             pass
     return get_remote_address(request)
 

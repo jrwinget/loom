@@ -1,6 +1,6 @@
 """unit tests for loom.services.audit_viewer."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -13,7 +13,7 @@ from loom.services.audit_viewer import (
 )
 
 _USER_ID = uuid4()
-_NOW = datetime.now(tz=timezone.utc)
+_NOW = datetime.now(tz=UTC)
 
 
 def _mock_session() -> AsyncMock:
@@ -169,7 +169,7 @@ class TestListAuditEntries:
 
         session.execute = mock_execute
 
-        result, total = await list_audit_entries(
+        _result, total = await list_audit_entries(
             session, case_id=case_id, skip=0, limit=20
         )
 
