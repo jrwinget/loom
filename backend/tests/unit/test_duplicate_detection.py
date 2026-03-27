@@ -268,6 +268,12 @@ async def test_create_cluster() -> None:
     session.add = MagicMock()
     session.flush = AsyncMock()
 
+    # mock begin_nested() as async context manager
+    nested_cm = AsyncMock()
+    nested_cm.__aenter__ = AsyncMock(return_value=None)
+    nested_cm.__aexit__ = AsyncMock(return_value=False)
+    session.begin_nested = MagicMock(return_value=nested_cm)
+
     await create_cluster(
         session,
         _CASE_ID,
@@ -283,7 +289,7 @@ async def test_create_cluster() -> None:
 
     # cluster + 2 members = 3 adds
     assert session.add.call_count == 3
-    assert session.flush.await_count == 2
+    assert session.flush.await_count == 1
 
 
 async def test_update_cluster_status() -> None:
