@@ -295,6 +295,14 @@ class TestProposeClusters:
         session.flush = AsyncMock()
         session.commit = AsyncMock()
 
+        # mock begin_nested() as async context manager
+        nested_cm = AsyncMock()
+        nested_cm.__aenter__ = AsyncMock(return_value=None)
+        nested_cm.__aexit__ = AsyncMock(return_value=False)
+        session.begin_nested = MagicMock(
+            return_value=nested_cm
+        )
+
         await propose_clusters(session, _CASE_ID, 60, _USER_ID)
         # session.add should be called (cluster + items)
         assert session.add.call_count >= 1
@@ -335,6 +343,14 @@ class TestAcceptCluster:
         session.flush = AsyncMock()
         session.commit = AsyncMock()
         session.refresh = AsyncMock()
+
+        # mock begin_nested() as async context manager
+        nested_cm = AsyncMock()
+        nested_cm.__aenter__ = AsyncMock(return_value=None)
+        nested_cm.__aexit__ = AsyncMock(return_value=False)
+        session.begin_nested = MagicMock(
+            return_value=nested_cm
+        )
 
         await accept_cluster(
             session,
@@ -441,6 +457,14 @@ class TestMergeClusters:
 
         session.execute = AsyncMock(side_effect=mock_execute)
         session.commit = AsyncMock()
+
+        # mock begin_nested() as async context manager
+        nested_cm = AsyncMock()
+        nested_cm.__aenter__ = AsyncMock(return_value=None)
+        nested_cm.__aexit__ = AsyncMock(return_value=False)
+        session.begin_nested = MagicMock(
+            return_value=nested_cm
+        )
 
         await merge_clusters(
             session,
