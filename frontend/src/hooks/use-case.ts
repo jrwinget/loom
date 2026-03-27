@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
+import { useToastStore } from '@/stores/toast-store';
 import type {
   Case,
   CaseMember,
@@ -35,6 +36,16 @@ export function useCreateCase(): ReturnType<
       void queryClient.invalidateQueries({
         queryKey: queryKeys.cases.all,
       });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Case created',
+      });
+    },
+    onError: (error: Error) => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: error.message || 'Failed to create case',
+      });
     },
   });
 }
@@ -53,6 +64,16 @@ export function useUpdateCase(): ReturnType<
       });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.cases.all,
+      });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Case updated',
+      });
+    },
+    onError: (error: Error) => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: error.message || 'Failed to update case',
       });
     },
   });

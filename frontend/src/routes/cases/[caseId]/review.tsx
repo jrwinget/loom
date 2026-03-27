@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { useAsset, useAssetDownloadUrl } from '@/hooks/use-assets';
+import { QueryError } from '@/components/layout/query-error';
 import { useTranscript, useStartTranscription } from '@/hooks/use-transcript';
 import { useScenes, useStartSceneDetection } from '@/hooks/use-scenes';
 import { ReviewWorkspace } from '@/components/review/review-workspace';
@@ -13,7 +14,12 @@ export function ReviewPage(): React.ReactElement {
   const safeCase = caseId ?? '';
   const safeAsset = assetId ?? '';
 
-  const { data: asset, isLoading: assetLoading } = useAsset(safeAsset);
+  const {
+    data: asset,
+    isLoading: assetLoading,
+    isError: assetError,
+    refetch: refetchAsset,
+  } = useAsset(safeAsset);
   const { data: assetSrc } = useAssetDownloadUrl(safeCase, safeAsset);
   const {
     data: transcript,
@@ -28,6 +34,18 @@ export function ReviewPage(): React.ReactElement {
 
   const startTranscription = useStartTranscription(safeCase, safeAsset);
   const startSceneDetection = useStartSceneDetection(safeCase, safeAsset);
+
+  // error state
+  if (assetError) {
+    return (
+      <div className="p-6">
+        <QueryError
+          message="Failed to load asset."
+          onRetry={() => void refetchAsset()}
+        />
+      </div>
+    );
+  }
 
   // loading state
   if (assetLoading || !asset) {
