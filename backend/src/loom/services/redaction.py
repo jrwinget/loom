@@ -126,9 +126,11 @@ def apply_image_redaction(
             # shrink then enlarge to pixelate
             small = region_crop.resize(
                 (max(1, rw // 10), max(1, rh // 10)),
-                resample=Image.NEAREST,
+                resample=Image.Resampling.NEAREST,
             )
-            pixelated = small.resize((rw, rh), resample=Image.NEAREST)
+            pixelated = small.resize(
+                (rw, rh), resample=Image.Resampling.NEAREST
+            )
             img.paste(pixelated, box)
 
     buf = io.BytesIO()
