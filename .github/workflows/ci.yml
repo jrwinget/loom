@@ -1,0 +1,388 @@
+name: CI
+
+on:
+  push:
+    branches: [staging, main]
+  pull_request:
+    branches: [staging, main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-backend:
+    name: Lint Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('backend/uv.lock') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --all-extras
+
+      - name: Ruff check
+        working-directory: backend
+        run: uv run ruff check src tests
+
+      - name: Ruff format check
+        working-directory: backend
+        run: uv run ruff format --check src tests
+
+      - name: Mypy
+        working-directory: backend
+        run: uv run mypy src
+
+  lint-frontend:
+    name: Lint Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: ESLint
+        working-directory: frontend
+        run: pnpm lint
+
+      - name: Prettier
+        working-directory: frontend
+        run: pnpm format:check
+
+      - name: TypeScript
+        working-directory: frontend
+        run: pnpm typecheck
+
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+    needs: lint-backend
+    env:
+      LOOM_SECRET_KEY: test-secret-key-that-is-long-enough-for-ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('backend/uv.lock') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --all-extras
+
+      - name: Run tests with coverage
+        working-directory: backend
+        run: >-
+          uv run pytest
+          --cov=loom
+          --cov-report=term-missing
+          --cov-report=xml
+          --cov-report=html
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: |
+            backend/coverage.xml
+            backend/htmlcov/
+          retention-days: 14
+
+      - name: Coverage summary
+        if: always()
+        working-directory: backend
+        run: |
+          echo "## Backend Coverage Report" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          uv run python -m coverage report >> "$GITHUB_STEP_SUMMARY" 2>&1 \
+            || echo "Coverage report unavailable" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    needs: lint-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests with coverage
+        working-directory: frontend
+        run: pnpm test -- --coverage
+
+      - name: Upload frontend coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          retention-days: 14
+
+  test-migrations:
+    name: Test Migrations
+    runs-on: ubuntu-latest
+    needs: [lint-backend, lint-frontend]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: loom
+          POSTGRES_PASSWORD: loom_ci
+          POSTGRES_DB: loom_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U loom"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      LOOM_DATABASE_URL: postgresql+asyncpg://loom:loom_ci@localhost:5432/loom_test
+      LOOM_SECRET_KEY: test-secret-key-that-is-long-enough-for-ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('backend/uv.lock') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --all-extras
+
+      - name: Upgrade to head
+        working-directory: backend
+        run: uv run alembic upgrade head
+
+      - name: Downgrade to base
+        working-directory: backend
+        run: uv run alembic downgrade base
+
+      - name: Upgrade to head again (round-trip)
+        working-directory: backend
+        run: uv run alembic upgrade head
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [lint-backend, lint-frontend]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('backend/uv.lock') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --all-extras
+
+      - name: Run pip-audit on backend
+        working-directory: backend
+        run: uv run pip-audit --strict --desc
+        continue-on-error: true
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Run pnpm audit on frontend
+        working-directory: frontend
+        run: pnpm audit --prod
+        continue-on-error: true
+
+      - name: Build Docker images for scanning
+        run: |
+          docker build -t loom-backend:scan backend/
+          docker build -t loom-worker:scan -f backend/Dockerfile.worker backend/
+          docker build -t loom-frontend:scan frontend/
+
+      - name: Trivy scan - backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: loom-backend:scan
+          format: table
+          exit-code: 0
+          severity: CRITICAL,HIGH
+
+      - name: Trivy scan - worker
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: loom-worker:scan
+          format: table
+          exit-code: 0
+          severity: CRITICAL,HIGH
+
+      - name: Trivy scan - frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: loom-frontend:scan
+          format: table
+          exit-code: 0
+          severity: CRITICAL,HIGH
+
+  build:
+    name: Build & Verify
+    runs-on: ubuntu-latest
+    needs:
+      - test-backend
+      - test-frontend
+      - test-migrations
+      - security-scan
+    if: always() && !cancelled() && needs.test-backend.result == 'success' && needs.test-frontend.result == 'success' && needs.test-migrations.result == 'success'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile
+          tags: loom-backend:ci
+          load: true
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile.worker
+          tags: loom-worker:ci
+          load: true
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          tags: loom-frontend:ci
+          load: true
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Verify backend starts
+        run: |
+          docker run -d --name backend-test \
+            -e LOOM_SECRET_KEY=ci-test-key-long-enough-here \
+            -e LOOM_DATABASE_URL=postgresql+asyncpg://fake:fake@localhost/fake \
+            -p 8000:8000 \
+            loom-backend:ci
+          # give uvicorn a moment to bind
+          sleep 3
+          # the health endpoint will return error (no db) but the
+          # process should be listening — a 200 or 503 both prove it
+          STATUS=$(docker inspect --format='{{.State.Running}}' backend-test)
+          echo "Container running: $STATUS"
+          if [ "$STATUS" != "true" ]; then
+            docker logs backend-test
+            exit 1
+          fi
+          docker stop backend-test
+
+      - name: Verify frontend serves content
+        run: |
+          docker run -d --name frontend-test \
+            -p 3080:80 \
+            loom-frontend:ci
+          sleep 2
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3080/)
+          echo "Frontend HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            docker logs frontend-test
+            exit 1
+          fi
+          # verify index.html content
+          curl -s http://localhost:3080/ | grep -q "</html>"
+          echo "Frontend index.html verified"
+          docker stop frontend-test

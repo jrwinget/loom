@@ -1,0 +1,119 @@
+/* print styles for court-ready evidence output */
+@media print {
+  /* hide chrome: sidebar, header, toasts, skip link */
+  [data-testid='sidebar'],
+  header[role='banner'],
+  [data-testid='toast-container'],
+  a[href='#main-content'] {
+    display: none !important;
+  }
+
+  /* maximize content width */
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* remove backgrounds and shadows for ink savings */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* ensure text is readable in print */
+  body {
+    color: #000 !important;
+    background: #fff !important;
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+
+  /* keep evidence images visible */
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+  }
+
+  /* timeline events: page break handling */
+  [data-testid^='timeline-event-'] {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 1rem;
+    border: 1px solid #ccc !important;
+    padding: 0.5rem;
+  }
+
+  /* timeline canvas: vertical layout for print */
+  [data-testid='timeline-canvas'] {
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  [data-testid='timeline-canvas'] > div {
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  /* asset detail: keep together */
+  [data-testid='asset-detail'] {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* chain of custody entries */
+  [data-testid='asset-detail'] > div {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* transcript segments */
+  [data-testid^='segment-'] {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* hide interactive controls */
+  [data-testid='upload-dropzone'],
+  [data-testid='timeline-controls'] button,
+  [data-testid='play-pause'],
+  [data-testid='scene-strip'],
+  [data-testid='search-bar'] {
+    display: none !important;
+  }
+
+  /* report preview: full width */
+  [data-testid='report-preview'] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* ensure links show their URLs */
+  a[href]::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.8em;
+    color: #666;
+  }
+
+  /* but not for internal navigation links */
+  a[href^='#']::after,
+  a[href^='/']::after {
+    content: '';
+  }
+
+  /* page margins */
+  @page {
+    margin: 2cm;
+  }
+
+  /* first page title */
+  h1 {
+    page-break-after: avoid;
+  }
+
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+}

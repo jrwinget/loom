@@ -1,0 +1,67 @@
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# virtual environments
+.venv/
+venv/
+env/
+
+# node
+node_modules/
+.pnpm-store/
+
+# build output
+frontend/dist/
+frontend/build/
+*.tsbuildinfo
+frontend/*.config.d.ts
+
+# vite
+frontend/stats.html
+
+# playwright
+frontend/test-results/
+frontend/playwright-report/
+
+# environment and secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ide
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# os
+.DS_Store
+Thumbs.db
+
+# docker
+docker/data/
+docker/minio-data/
+docker/postgres-data/
+docker/temporal-data/
+
+# misc
+*.log
+tmp/
