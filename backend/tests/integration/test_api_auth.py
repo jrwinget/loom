@@ -65,10 +65,15 @@ class MockSession:
         self._added: list[object] = []
 
     async def execute(self, stmt):
-        stmt_str = str(stmt)
-        if "count" in stmt_str.lower():
+        stmt_str = str(stmt).lower()
+        if "count" in stmt_str:
             result = MagicMock()
             result.scalar_one.return_value = self._user_count
+            return result
+        # revoked token lookups should return nothing
+        if "revoked" in stmt_str:
+            result = MagicMock()
+            result.scalar_one_or_none.return_value = None
             return result
         result = MagicMock()
         result.scalar_one_or_none.return_value = self._user
