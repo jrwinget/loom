@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 
 from minio import Minio
 from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
@@ -24,7 +25,7 @@ _session_factory: async_sessionmaker[AsyncSession] | None = None
 _minio_client: Minio | None = None
 
 
-def _get_engine():  # type: ignore[no-untyped-def]
+def _get_engine() -> "AsyncEngine":
     """return cached async engine, creating on first call."""
     global _engine
     if _engine is None:

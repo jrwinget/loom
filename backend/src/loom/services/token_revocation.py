@@ -48,8 +48,9 @@ async def cleanup_expired_tokens(
     returns the number of rows deleted.
     """
     now = datetime.now(UTC)
-    result = await session.execute(
+    cursor = await session.execute(
         delete(RevokedToken).where(RevokedToken.expires_at < now)
     )
     await session.commit()
-    return result.rowcount  # type: ignore[return-value]
+    count: int = cursor.rowcount  # type: ignore[attr-defined]
+    return count

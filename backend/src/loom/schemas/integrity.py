@@ -45,7 +45,7 @@ class CustodyEntryResponse(BaseModel):
     id: UUID
     action: str
     actor_id: UUID
-    detail: dict | None = None
+    detail: dict[str, str] | None = None
     ip_address: str | None = None
     timestamp: datetime
 
