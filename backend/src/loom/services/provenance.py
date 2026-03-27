@@ -312,9 +312,7 @@ async def embed_provenance_in_export(
                     asset.storage_key,
                     src.name,
                 )
-                result = sign_manifest(
-                    manifest, src.name, dst.name
-                )
+                result = sign_manifest(manifest, src.name, dst.name)
                 if result:
                     signed_key = (
                         f"exports/{export_id}/"
@@ -333,25 +331,20 @@ async def embed_provenance_in_export(
 
                     # store record in a savepoint
                     async with session.begin_nested():
-                        record = (
-                            await create_provenance_record(
-                                session,
-                                str(asset.id),
-                                export_id,
-                                manifest,
-                                manifest.get(
-                                    "assertions", [{}]
-                                )[-1]
-                                .get("data", {})
-                                .get("actions", []),
-                            )
+                        record = await create_provenance_record(
+                            session,
+                            str(asset.id),
+                            export_id,
+                            manifest,
+                            manifest.get("assertions", [{}])[-1]
+                            .get("data", {})
+                            .get("actions", []),
                         )
                         record.manifest_url = signed_key
                     await session.commit()
             except Exception:
                 logger.exception(
-                    "failed to embed provenance for "
-                    "asset %s",
+                    "failed to embed provenance for asset %s",
                     asset.id,
                 )
                 await session.rollback()

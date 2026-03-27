@@ -25,6 +25,7 @@ from loom.schemas.asset import (
     PresignedUrlRequest,
     PresignedUrlResponse,
 )
+from loom.security.rate_limit import user_limiter
 from loom.security.rbac import (
     get_current_user_id,
     require_authenticated,
@@ -38,7 +39,6 @@ from loom.services.ingest import (
     record_upload_custody,
     validate_file_type,
 )
-from loom.security.rate_limit import user_limiter
 from loom.services.storage import (
     ORIGINALS_BUCKET,
     StorageService,
@@ -134,15 +134,11 @@ async def upload_asset(
         )
 
         # generate storage key and update asset
-        storage_key = generate_storage_key(
-            case_id, str(asset.id), filename
-        )
+        storage_key = generate_storage_key(case_id, str(asset.id), filename)
         asset.storage_key = storage_key
         await db.flush()
 
-        await record_upload_custody(
-            db, str(asset.id), user_id, ip_address
-        )
+        await record_upload_custody(db, str(asset.id), user_id, ip_address)
 
     # upload to minio (sync call via executor)
     storage = StorageService(minio_client)

@@ -299,9 +299,7 @@ class TestProposeClusters:
         nested_cm = AsyncMock()
         nested_cm.__aenter__ = AsyncMock(return_value=None)
         nested_cm.__aexit__ = AsyncMock(return_value=False)
-        session.begin_nested = MagicMock(
-            return_value=nested_cm
-        )
+        session.begin_nested = MagicMock(return_value=nested_cm)
 
         await propose_clusters(session, _CASE_ID, 60, _USER_ID)
         # session.add should be called (cluster + items)
@@ -348,9 +346,7 @@ class TestAcceptCluster:
         nested_cm = AsyncMock()
         nested_cm.__aenter__ = AsyncMock(return_value=None)
         nested_cm.__aexit__ = AsyncMock(return_value=False)
-        session.begin_nested = MagicMock(
-            return_value=nested_cm
-        )
+        session.begin_nested = MagicMock(return_value=nested_cm)
 
         await accept_cluster(
             session,
@@ -462,9 +458,7 @@ class TestMergeClusters:
         nested_cm = AsyncMock()
         nested_cm.__aenter__ = AsyncMock(return_value=None)
         nested_cm.__aexit__ = AsyncMock(return_value=False)
-        session.begin_nested = MagicMock(
-            return_value=nested_cm
-        )
+        session.begin_nested = MagicMock(return_value=nested_cm)
 
         await merge_clusters(
             session,

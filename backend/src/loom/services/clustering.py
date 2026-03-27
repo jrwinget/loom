@@ -218,8 +218,7 @@ async def propose_clusters(
         # build a descriptive title from asset filenames
         asset_ids = {item["asset_id"] for item in cluster_items}
         names = [
-            asset_map.get(aid, "unknown")
-            for aid in sorted(asset_ids, key=str)
+            asset_map.get(aid, "unknown") for aid in sorted(asset_ids, key=str)
         ]
         title = f"Cross-source event: {', '.join(names[:3])}"
         if len(names) > 3:
@@ -244,12 +243,8 @@ async def propose_clusters(
                     asset_id=item["asset_id"],
                     content_type=item["content_type"],
                     content_id=item["content_id"],
-                    absolute_time_start=item[
-                        "absolute_time_start"
-                    ],
-                    absolute_time_end=item.get(
-                        "absolute_time_end"
-                    ),
+                    absolute_time_start=item["absolute_time_start"],
+                    absolute_time_end=item.get("absolute_time_end"),
                     text_preview=item["text_preview"],
                 )
                 session.add(ci)
@@ -363,8 +358,7 @@ async def merge_clusters(
                 i.absolute_time_start for i in all_items
             )
             primary.time_window_end = max(
-                i.absolute_time_end or i.absolute_time_start
-                for i in all_items
+                i.absolute_time_end or i.absolute_time_start for i in all_items
             )
 
     await session.commit()
@@ -411,9 +405,7 @@ async def split_cluster(
         new_cluster = EventCluster(
             case_id=UUID(case_id),
             status="proposed",
-            proposed_title=(
-                f"Split from: {original.proposed_title}"
-            ),
+            proposed_title=(f"Split from: {original.proposed_title}"),
             proposed_description=None,
             time_window_start=min(starts),
             time_window_end=max(ends),
@@ -436,8 +428,7 @@ async def split_cluster(
                 i.absolute_time_start for i in remaining
             )
             original.time_window_end = max(
-                i.absolute_time_end or i.absolute_time_start
-                for i in remaining
+                i.absolute_time_end or i.absolute_time_start for i in remaining
             )
 
     await session.commit()

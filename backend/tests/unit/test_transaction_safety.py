@@ -11,20 +11,19 @@ from uuid import uuid4
 import pytest
 
 from loom.dependencies import get_db_session
+from loom.models.asset import Asset
 from loom.models.case import Case, CaseMembership
+from loom.models.duplicate import (
+    DuplicateCluster,
+)
 from loom.models.organization import (
     Organization,
     OrganizationMembership,
 )
-from loom.models.duplicate import (
-    DuplicateCluster,
-    DuplicateClusterMember,
-)
 from loom.services.case import create_case
-from loom.services.organization import create_org
 from loom.services.duplicate_detection import create_cluster
-from loom.models.asset import Asset
 from loom.services.ingest import create_asset_with_custody
+from loom.services.organization import create_org
 
 _USER_ID = str(uuid4())
 _CASE_ID = str(uuid4())
@@ -62,16 +61,12 @@ class TestSessionRollback:
         mock_factory = MagicMock()
 
         mock_cm = AsyncMock()
-        mock_cm.__aenter__ = AsyncMock(
-            return_value=mock_session
-        )
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_session)
         mock_cm.__aexit__ = AsyncMock(return_value=False)
         mock_factory.return_value = mock_cm
 
         mock_request = MagicMock()
-        mock_request.app.state.db_session_factory = (
-            mock_factory
-        )
+        mock_request.app.state.db_session_factory = mock_factory
 
         gen = get_db_session(mock_request)
         session = await gen.__anext__()
@@ -85,16 +80,12 @@ class TestSessionRollback:
         mock_factory = MagicMock()
 
         mock_cm = AsyncMock()
-        mock_cm.__aenter__ = AsyncMock(
-            return_value=mock_session
-        )
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_session)
         mock_cm.__aexit__ = AsyncMock(return_value=False)
         mock_factory.return_value = mock_cm
 
         mock_request = MagicMock()
-        mock_request.app.state.db_session_factory = (
-            mock_factory
-        )
+        mock_request.app.state.db_session_factory = mock_factory
 
         gen = get_db_session(mock_request)
         await gen.__anext__()
@@ -113,16 +104,12 @@ class TestSessionRollback:
         mock_factory = MagicMock()
 
         mock_cm = AsyncMock()
-        mock_cm.__aenter__ = AsyncMock(
-            return_value=mock_session
-        )
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_session)
         mock_cm.__aexit__ = AsyncMock(return_value=False)
         mock_factory.return_value = mock_cm
 
         mock_request = MagicMock()
-        mock_request.app.state.db_session_factory = (
-            mock_factory
-        )
+        mock_request.app.state.db_session_factory = mock_factory
 
         gen = get_db_session(mock_request)
         await gen.__anext__()
@@ -146,9 +133,7 @@ class TestCreateCaseSavepoint:
     async def test_adds_case_and_membership(self) -> None:
         """both case and membership are added."""
         session = _mock_session()
-        result = await create_case(
-            session, "Test", "desc", _USER_ID
-        )
+        result = await create_case(session, "Test", "desc", _USER_ID)
         assert isinstance(result, Case)
         assert session.add.call_count == 2
         # first add is the case
@@ -176,17 +161,11 @@ class TestCreateCaseSavepoint:
         nested_cm.__aenter__ = AsyncMock(return_value=None)
         nested_cm.__aexit__ = AsyncMock(return_value=False)
         # make flush raise inside the savepoint
-        session.flush = AsyncMock(
-            side_effect=RuntimeError("db error")
-        )
-        session.begin_nested = MagicMock(
-            return_value=nested_cm
-        )
+        session.flush = AsyncMock(side_effect=RuntimeError("db error"))
+        session.begin_nested = MagicMock(return_value=nested_cm)
 
         with pytest.raises(RuntimeError, match="db error"):
-            await create_case(
-                session, "Test", None, _USER_ID
-            )
+            await create_case(session, "Test", None, _USER_ID)
 
         session.commit.assert_not_awaited()
 
@@ -199,18 +178,14 @@ class TestCreateOrgSavepoint:
     async def test_uses_savepoint(self) -> None:
         """create_org wraps writes in begin_nested."""
         session = _mock_session()
-        await create_org(
-            session, "NLG Portland", None, _USER_ID
-        )
+        await create_org(session, "NLG Portland", None, _USER_ID)
         session.begin_nested.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_adds_org_and_membership(self) -> None:
         """both org and membership are added."""
         session = _mock_session()
-        result = await create_org(
-            session, "NLG Portland", "chapter", _USER_ID
-        )
+        result = await create_org(session, "NLG Portland", "chapter", _USER_ID)
         assert isinstance(result, Organization)
         assert session.add.call_count == 2
         second_add = session.add.call_args_list[1][0][0]
@@ -237,9 +212,7 @@ class TestCreateClusterSavepoint:
         session = _mock_session()
         aids = [str(uuid4()), str(uuid4()), str(uuid4())]
         phashes = {a: "" for a in aids}
-        result = await create_cluster(
-            session, _CASE_ID, aids, phashes
-        )
+        result = await create_cluster(session, _CASE_ID, aids, phashes)
         assert isinstance(result, DuplicateCluster)
         # 1 cluster + 3 members = 4 add calls
         assert session.add.call_count == 4
@@ -346,9 +319,7 @@ class TestCreateAssetWithCustodySavepoint:
         """if custody write fails, exception propagates."""
         session = _mock_session()
         mock_create.return_value = _mock_asset()
-        mock_custody.side_effect = RuntimeError(
-            "custody write failed"
-        )
+        mock_custody.side_effect = RuntimeError("custody write failed")
 
         with pytest.raises(RuntimeError, match="custody"):
             await create_asset_with_custody(
