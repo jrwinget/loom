@@ -1,7 +1,30 @@
-import logging
-from typing import Any
+"""temporal activities for the transcription pipeline.
 
+uses shared engine/session and delegates to transcription
+service. ai dependencies (faster-whisper, pyannote) are
+optional and degrade gracefully.
+"""
+
+import logging
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy import select
 from temporalio import activity
+
+from loom.models.asset import Asset
+from loom.services.storage import ORIGINALS_BUCKET, StorageService
+from loom.services.transcription import (
+    align_transcript_with_speakers,
+    diarize_audio,
+    store_transcript_segments,
+    transcribe_audio,
+)
+from loom.workflows.shared import get_db_session, get_minio_client
 
 logger = logging.getLogger(__name__)
 
@@ -10,19 +33,74 @@ logger = logging.getLogger(__name__)
 async def extract_audio(asset_id: str) -> str:
     """download asset from minio, extract audio track.
 
-    if asset is already audio, returns its path directly.
-    currently a stub that returns a placeholder path.
+    if asset is already audio, downloads and returns path.
+    if video, extracts audio via ffmpeg to wav. idempotent:
+    re-running produces the same output.
     """
     logger.info("extracting audio for asset %s", asset_id)
-    # TODO: full implementation
-    # 1. fetch asset record from db
-    # 2. download from minio to temp file
-    # 3. check mime_type; if audio/*, return path directly
-    # 4. if video/*, run ffmpeg to extract audio:
-    #    subprocess.run(["ffmpeg", "-i", input, "-vn",
-    #      "-acodec", "pcm_s16le", "-ar", "16000", output])
-    # 5. return temp audio path
-    return f"/tmp/loom/{asset_id}/audio.wav"  # noqa: S108
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(Asset).where(Asset.id == UUID(asset_id))
+        )
+        asset = result.scalar_one_or_none()
+        if asset is None:
+            msg = f"asset {asset_id} not found"
+            raise ValueError(msg)
+
+        storage = StorageService(get_minio_client())
+
+        # use a persistent temp dir (cleaned up by
+        # store_transcript or os on reboot)
+        tmp_dir = tempfile.mkdtemp(prefix="loom_audio_")
+        suffix = Path(asset.original_filename).suffix
+        src = str(Path(tmp_dir) / f"original{suffix}")
+        storage.download_file(
+            ORIGINALS_BUCKET,
+            asset.storage_key,
+            src,
+        )
+
+        # if already audio, return as-is
+        if asset.media_type == "audio":
+            logger.info(
+                "asset %s is audio; using directly",
+                asset_id,
+            )
+            return src
+
+        # extract audio from video via ffmpeg
+        ffmpeg = shutil.which("ffmpeg")
+        if ffmpeg is None:
+            msg = "ffmpeg is not installed; cannot extract audio from video"
+            raise RuntimeError(msg)
+
+        audio_path = str(Path(tmp_dir) / "audio.wav")
+        cmd = [
+            ffmpeg,
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            src,
+            "-vn",
+            "-acodec",
+            "pcm_s16le",
+            "-ar",
+            "16000",
+            audio_path,
+        ]
+        subprocess.run(  # noqa: S603
+            cmd, check=True, capture_output=True
+        )
+
+    logger.info(
+        "audio extracted for asset %s: %s",
+        asset_id,
+        audio_path,
+    )
+    return audio_path
 
 
 @activity.defn
@@ -32,17 +110,24 @@ async def transcribe_asset(
 ) -> list[dict[str, Any]]:
     """run transcription service on extracted audio.
 
-    currently a stub that returns an empty segment list.
+    delegates to transcription service which gracefully
+    degrades if faster-whisper is not installed. idempotent:
+    re-running produces the same segments.
     """
     logger.info(
         "transcribing asset %s from %s",
         asset_id,
         audio_path,
     )
-    # TODO: full implementation
-    # 1. call transcribe_audio(audio_path)
-    # 2. cache segments in workflow state or temp storage
-    return []
+
+    segments = transcribe_audio(audio_path)
+
+    logger.info(
+        "transcribed %d segments for asset %s",
+        len(segments),
+        asset_id,
+    )
+    return segments
 
 
 @activity.defn
@@ -52,29 +137,98 @@ async def diarize_asset(
 ) -> list[dict[str, Any]]:
     """run speaker diarization and align with transcript.
 
-    currently a stub that returns an empty list.
+    delegates to transcription service which gracefully
+    degrades if pyannote is not installed. idempotent.
     """
     logger.info(
         "diarizing asset %s from %s",
         asset_id,
         audio_path,
     )
-    # TODO: full implementation
-    # 1. call diarize_audio(audio_path)
-    # 2. fetch existing transcript segments
-    # 3. call align_transcript_with_speakers
-    # 4. update segments with speaker labels
-    return []
+
+    diarization = diarize_audio(audio_path)
+
+    logger.info(
+        "diarization found %d speaker turns for asset %s",
+        len(diarization),
+        asset_id,
+    )
+    return diarization
 
 
 @activity.defn
 async def store_transcript(asset_id: str) -> None:
-    """store transcript segments in db and create derivative.
+    """run transcription, diarize, align, and store in db.
 
-    currently a stub.
+    this activity is self-contained: it re-downloads,
+    transcribes, and stores. idempotent: re-running will
+    re-insert segments.
     """
     logger.info("storing transcript for asset %s", asset_id)
-    # TODO: full implementation
-    # 1. fetch cached segments from workflow state
-    # 2. call store_transcript_segments(session, asset_id, segs)
-    # 3. create a Derivative record (type="transcript")
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(Asset).where(Asset.id == UUID(asset_id))
+        )
+        asset = result.scalar_one_or_none()
+        if asset is None:
+            msg = f"asset {asset_id} not found"
+            raise ValueError(msg)
+
+        storage = StorageService(get_minio_client())
+
+        with tempfile.TemporaryDirectory(prefix="loom_transcript_") as tmp_dir:
+            suffix = Path(asset.original_filename).suffix
+            src = str(Path(tmp_dir) / f"original{suffix}")
+            storage.download_file(
+                ORIGINALS_BUCKET,
+                asset.storage_key,
+                src,
+            )
+
+            # extract audio if video
+            if asset.media_type == "video":
+                ffmpeg = shutil.which("ffmpeg")
+                if ffmpeg is None:
+                    logger.warning(
+                        "ffmpeg unavailable; cannot "
+                        "extract audio for transcript"
+                    )
+                    return
+                audio_path = str(Path(tmp_dir) / "audio.wav")
+                subprocess.run(  # noqa: S603
+                    [
+                        ffmpeg,
+                        "-y",
+                        "-hide_banner",
+                        "-loglevel",
+                        "error",
+                        "-i",
+                        src,
+                        "-vn",
+                        "-acodec",
+                        "pcm_s16le",
+                        "-ar",
+                        "16000",
+                        audio_path,
+                    ],
+                    check=True,
+                    capture_output=True,
+                )
+            else:
+                audio_path = src
+
+            segments = transcribe_audio(audio_path)
+            diarization = diarize_audio(audio_path)
+
+            if diarization:
+                segments = align_transcript_with_speakers(segments, diarization)
+
+        records = await store_transcript_segments(session, asset_id, segments)
+        await session.commit()
+
+    logger.info(
+        "stored %d transcript segments for asset %s",
+        len(records),
+        asset_id,
+    )

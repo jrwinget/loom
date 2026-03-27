@@ -1,5 +1,5 @@
 import hashlib
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
 _CHUNK_SIZE = 65536  # 64kb
@@ -26,6 +26,20 @@ def compute_hashes_from_file(
                 break
             sha256.update(chunk)
             sha512.update(chunk)
+
+    return sha256.hexdigest(), sha512.hexdigest()
+
+
+def compute_hashes_from_iterator(
+    chunks: Iterator[bytes],
+) -> tuple[str, str]:
+    """compute hashes from a synchronous chunk iterator."""
+    sha256 = hashlib.sha256()
+    sha512 = hashlib.sha512()
+
+    for chunk in chunks:
+        sha256.update(chunk)
+        sha512.update(chunk)
 
     return sha256.hexdigest(), sha512.hexdigest()
 

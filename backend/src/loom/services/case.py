@@ -16,22 +16,27 @@ async def create_case(
     description: str | None,
     user_id: str,
 ) -> Case:
-    """create a case and add the creator as owner."""
-    case = Case(
-        name=name,
-        description=description,
-        created_by=user_id,
-    )
-    session.add(case)
-    await session.flush()
+    """create a case and add the creator as owner.
 
-    membership = CaseMembership(
-        case_id=case.id,
-        user_id=user_id,
-        role="owner",
-        granted_by=user_id,
-    )
-    session.add(membership)
+    uses a savepoint so that case + membership are atomic;
+    a failure adding the membership rolls back the case too.
+    """
+    async with session.begin_nested():
+        case = Case(
+            name=name,
+            description=description,
+            created_by=user_id,
+        )
+        session.add(case)
+        await session.flush()
+
+        membership = CaseMembership(
+            case_id=case.id,
+            user_id=user_id,
+            role="owner",
+            granted_by=user_id,
+        )
+        session.add(membership)
     await session.commit()
     await session.refresh(case)
     return case

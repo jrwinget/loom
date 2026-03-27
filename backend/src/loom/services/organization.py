@@ -17,20 +17,24 @@ async def create_org(
     description: str | None,
     user_id: str,
 ) -> Organization:
-    """create an organization and add creator as admin."""
-    org = Organization(
-        name=name,
-        description=description,
-    )
-    session.add(org)
-    await session.flush()
+    """create an organization and add creator as admin.
 
-    membership = OrganizationMembership(
-        org_id=org.id,
-        user_id=UUID(user_id),
-        role="admin",
-    )
-    session.add(membership)
+    uses a savepoint so that org + membership are atomic.
+    """
+    async with session.begin_nested():
+        org = Organization(
+            name=name,
+            description=description,
+        )
+        session.add(org)
+        await session.flush()
+
+        membership = OrganizationMembership(
+            org_id=org.id,
+            user_id=UUID(user_id),
+            role="admin",
+        )
+        session.add(membership)
     await session.commit()
     await session.refresh(org)
     return org

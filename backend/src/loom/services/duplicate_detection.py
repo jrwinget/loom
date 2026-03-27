@@ -252,36 +252,40 @@ async def create_cluster(
     asset_ids: list[str],
     phashes: dict[str, str],
 ) -> DuplicateCluster:
-    """create a duplicate cluster with members."""
-    cluster = DuplicateCluster(
-        case_id=UUID(case_id),
-        status="pending",
-    )
-    session.add(cluster)
-    await session.flush()
+    """create a duplicate cluster with members.
 
-    # compute distances relative to first member's phash
-    ref_phash = ""
-    for aid in asset_ids:
-        if phashes.get(aid):
-            ref_phash = phashes[aid]
-            break
-
-    for i, aid in enumerate(asset_ids):
-        ph = phashes.get(aid, "")
-        dist = (
-            float(hamming_distance(ref_phash, ph)) if ref_phash and ph else None
+    uses a savepoint so cluster + all members are atomic.
+    """
+    async with session.begin_nested():
+        cluster = DuplicateCluster(
+            case_id=UUID(case_id),
+            status="pending",
         )
-        member = DuplicateClusterMember(
-            cluster_id=cluster.id,
-            asset_id=UUID(aid),
-            phash=ph or None,
-            distance=dist,
-            is_primary=(i == 0),
-        )
-        session.add(member)
+        session.add(cluster)
+        await session.flush()
 
-    await session.flush()
+        # compute distances relative to first member's phash
+        ref_phash = ""
+        for aid in asset_ids:
+            if phashes.get(aid):
+                ref_phash = phashes[aid]
+                break
+
+        for i, aid in enumerate(asset_ids):
+            ph = phashes.get(aid, "")
+            dist = (
+                float(hamming_distance(ref_phash, ph))
+                if ref_phash and ph
+                else None
+            )
+            member = DuplicateClusterMember(
+                cluster_id=cluster.id,
+                asset_id=UUID(aid),
+                phash=ph or None,
+                distance=dist,
+                is_primary=(i == 0),
+            )
+            session.add(member)
     return cluster
 
 

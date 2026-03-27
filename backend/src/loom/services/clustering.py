@@ -218,36 +218,42 @@ async def propose_clusters(
         # build a descriptive title from asset filenames
         asset_ids = {item["asset_id"] for item in cluster_items}
         names = [
-            asset_map.get(aid, "unknown") for aid in sorted(asset_ids, key=str)
+            asset_map.get(aid, "unknown")
+            for aid in sorted(asset_ids, key=str)
         ]
         title = f"Cross-source event: {', '.join(names[:3])}"
         if len(names) > 3:
             title += f" +{len(names) - 3} more"
 
-        cluster = EventCluster(
-            case_id=UUID(case_id),
-            status="proposed",
-            proposed_title=title,
-            proposed_description=None,
-            time_window_start=time_start,
-            time_window_end=time_end,
-        )
-        session.add(cluster)
-        await session.flush()
-
-        for item in cluster_items:
-            ci = EventClusterItem(
-                cluster_id=cluster.id,
-                asset_id=item["asset_id"],
-                content_type=item["content_type"],
-                content_id=item["content_id"],
-                absolute_time_start=item["absolute_time_start"],
-                absolute_time_end=item.get("absolute_time_end"),
-                text_preview=item["text_preview"],
+        # savepoint: each cluster + items is atomic
+        async with session.begin_nested():
+            cluster = EventCluster(
+                case_id=UUID(case_id),
+                status="proposed",
+                proposed_title=title,
+                proposed_description=None,
+                time_window_start=time_start,
+                time_window_end=time_end,
             )
-            session.add(ci)
+            session.add(cluster)
+            await session.flush()
 
-        await session.flush()
+            for item in cluster_items:
+                ci = EventClusterItem(
+                    cluster_id=cluster.id,
+                    asset_id=item["asset_id"],
+                    content_type=item["content_type"],
+                    content_id=item["content_id"],
+                    absolute_time_start=item[
+                        "absolute_time_start"
+                    ],
+                    absolute_time_end=item.get(
+                        "absolute_time_end"
+                    ),
+                    text_preview=item["text_preview"],
+                )
+                session.add(ci)
+
         persisted.append(cluster)
 
     await session.commit()
@@ -269,26 +275,31 @@ async def accept_cluster(
     description: str | None,
     user_id: str,
 ) -> EventCluster:
-    """accept a cluster, creating a timeline event."""
+    """accept a cluster, creating a timeline event.
+
+    uses a savepoint so event creation + cluster update
+    are atomic.
+    """
     cluster = await _load_cluster(session, cluster_id, case_id)
 
-    # create timeline event from cluster data
-    event = TimelineEvent(
-        case_id=UUID(case_id),
-        title=title,
-        description=description,
-        event_time_start=cluster.time_window_start,
-        event_time_end=cluster.time_window_end,
-        time_precision="approximate",
-        status="draft",
-        created_by=UUID(user_id),
-    )
-    session.add(event)
-    await session.flush()
+    async with session.begin_nested():
+        # create timeline event from cluster data
+        event = TimelineEvent(
+            case_id=UUID(case_id),
+            title=title,
+            description=description,
+            event_time_start=cluster.time_window_start,
+            event_time_end=cluster.time_window_end,
+            time_precision="approximate",
+            status="draft",
+            created_by=UUID(user_id),
+        )
+        session.add(event)
+        await session.flush()
 
-    cluster.event_id = event.id
-    cluster.status = "accepted"
-    cluster.reviewed_by = UUID(user_id)
+        cluster.event_id = event.id
+        cluster.status = "accepted"
+        cluster.reviewed_by = UUID(user_id)
     await session.commit()
     await session.refresh(cluster)
 
@@ -326,33 +337,35 @@ async def merge_clusters(
 
     primary = clusters[0]
 
-    for other in clusters[1:]:
-        # move items to primary cluster
+    async with session.begin_nested():
+        for other in clusters[1:]:
+            # move items to primary cluster
+            items_result = await session.execute(
+                select(EventClusterItem).where(
+                    EventClusterItem.cluster_id == other.id,
+                )
+            )
+            for item in items_result.scalars().all():
+                item.cluster_id = primary.id
+
+            other.status = "merged"
+            other.reviewed_by = UUID(user_id)
+
+        # recalculate time window
         items_result = await session.execute(
             select(EventClusterItem).where(
-                EventClusterItem.cluster_id == other.id,
+                EventClusterItem.cluster_id == primary.id,
             )
         )
-        for item in items_result.scalars().all():
-            item.cluster_id = primary.id
-
-        other.status = "merged"
-        other.reviewed_by = UUID(user_id)
-
-    # recalculate time window
-    items_result = await session.execute(
-        select(EventClusterItem).where(
-            EventClusterItem.cluster_id == primary.id,
-        )
-    )
-    all_items = list(items_result.scalars().all())
-    if all_items:
-        primary.time_window_start = min(
-            i.absolute_time_start for i in all_items
-        )
-        primary.time_window_end = max(
-            i.absolute_time_end or i.absolute_time_start for i in all_items
-        )
+        all_items = list(items_result.scalars().all())
+        if all_items:
+            primary.time_window_start = min(
+                i.absolute_time_start for i in all_items
+            )
+            primary.time_window_end = max(
+                i.absolute_time_end or i.absolute_time_start
+                for i in all_items
+            )
 
     await session.commit()
 
@@ -394,34 +407,38 @@ async def split_cluster(
     starts = [i.absolute_time_start for i in items_to_move]
     ends = [i.absolute_time_end or i.absolute_time_start for i in items_to_move]
 
-    new_cluster = EventCluster(
-        case_id=UUID(case_id),
-        status="proposed",
-        proposed_title=f"Split from: {original.proposed_title}",
-        proposed_description=None,
-        time_window_start=min(starts),
-        time_window_end=max(ends),
-    )
-    session.add(new_cluster)
-    await session.flush()
+    async with session.begin_nested():
+        new_cluster = EventCluster(
+            case_id=UUID(case_id),
+            status="proposed",
+            proposed_title=(
+                f"Split from: {original.proposed_title}"
+            ),
+            proposed_description=None,
+            time_window_start=min(starts),
+            time_window_end=max(ends),
+        )
+        session.add(new_cluster)
+        await session.flush()
 
-    for item in items_to_move:
-        item.cluster_id = new_cluster.id
+        for item in items_to_move:
+            item.cluster_id = new_cluster.id
 
-    # recalculate original's time window
-    remaining_result = await session.execute(
-        select(EventClusterItem).where(
-            EventClusterItem.cluster_id == original.id,
+        # recalculate original's time window
+        remaining_result = await session.execute(
+            select(EventClusterItem).where(
+                EventClusterItem.cluster_id == original.id,
+            )
         )
-    )
-    remaining = list(remaining_result.scalars().all())
-    if remaining:
-        original.time_window_start = min(
-            i.absolute_time_start for i in remaining
-        )
-        original.time_window_end = max(
-            i.absolute_time_end or i.absolute_time_start for i in remaining
-        )
+        remaining = list(remaining_result.scalars().all())
+        if remaining:
+            original.time_window_start = min(
+                i.absolute_time_start for i in remaining
+            )
+            original.time_window_end = max(
+                i.absolute_time_end or i.absolute_time_start
+                for i in remaining
+            )
 
     await session.commit()
 

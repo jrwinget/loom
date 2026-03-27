@@ -31,6 +31,13 @@ def _mock_session() -> AsyncMock:
     s.flush = AsyncMock()
     s.refresh = AsyncMock()
     s.delete = AsyncMock()
+
+    # mock begin_nested() as async context manager
+    nested_cm = AsyncMock()
+    nested_cm.__aenter__ = AsyncMock(return_value=None)
+    nested_cm.__aexit__ = AsyncMock(return_value=False)
+    s.begin_nested = MagicMock(return_value=nested_cm)
+
     return s
 
 

@@ -123,3 +123,43 @@ async def record_upload_custody(
     )
     session.add(entry)
     await session.flush()
+
+
+async def create_asset_with_custody(
+    session: AsyncSession,
+    case_id: str,
+    filename: str,
+    storage_key: str,
+    media_type: str,
+    mime_type: str,
+    file_size: int,
+    sha256: str,
+    sha512: str,
+    user_id: str,
+    ip_address: str | None,
+) -> Asset:
+    """create asset + custody entry atomically.
+
+    wraps both writes in a savepoint so an asset cannot
+    exist without its initial custody record.
+    """
+    async with session.begin_nested():
+        asset = await create_asset_record(
+            session,
+            case_id,
+            filename,
+            storage_key,
+            media_type,
+            mime_type,
+            file_size,
+            sha256,
+            sha512,
+            user_id,
+        )
+        await record_upload_custody(
+            session,
+            str(asset.id),
+            user_id,
+            ip_address,
+        )
+    return asset

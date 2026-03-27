@@ -1,8 +1,27 @@
 import io
+from collections.abc import Iterator
 from datetime import timedelta
+from typing import Any
 
 from minio import Minio
 from minio.error import S3Error
+
+
+def _stream_chunks(
+    response: Any,
+    chunk_size: int,
+) -> Iterator[bytes]:
+    """yield chunks from a minio response, then close it."""
+    try:
+        while True:
+            chunk = response.read(chunk_size)
+            if not chunk:
+                break
+            yield chunk
+    finally:
+        response.close()
+        response.release_conn()
+
 
 ORIGINALS_BUCKET = "loom-originals"
 DERIVATIVES_BUCKET = "loom-derivatives"
@@ -93,6 +112,21 @@ class StorageService:
         except S3Error:
             return False
         return True
+
+    def get_object_stream(
+        self,
+        bucket: str,
+        key: str,
+        chunk_size: int = 65536,
+    ) -> tuple[int, "Iterator[bytes]"]:
+        """stream an object from minio in chunks.
+
+        returns (file_size, chunk_iterator). caller must
+        close the response when done.
+        """
+        response = self._client.get_object(bucket, key)
+        size = int(response.headers.get("Content-Length", 0))
+        return size, _stream_chunks(response, chunk_size)
 
     def delete_object(self, bucket: str, key: str) -> None:
         """delete an object from minio."""

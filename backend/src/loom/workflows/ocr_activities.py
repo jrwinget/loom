@@ -1,55 +1,153 @@
-import logging
-from typing import Any
+"""temporal activities for the ocr pipeline.
 
+uses shared engine/session and delegates to ocr service.
+"""
+
+import logging
+import tempfile
+from pathlib import Path
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy import select
 from temporalio import activity
+
+from loom.models.asset import Asset
+from loom.services.ocr import run_ocr_on_asset, store_ocr_regions
+from loom.services.storage import ORIGINALS_BUCKET, StorageService
+from loom.workflows.shared import get_db_session, get_minio_client
 
 logger = logging.getLogger(__name__)
 
 
 @activity.defn
-async def prepare_ocr_input(  # pragma: no cover
+async def prepare_ocr_input(
     asset_id: str,
 ) -> dict[str, Any]:
-    """prepare images for ocr processing.
+    """download asset and prepare for ocr.
 
-    for video assets, extracts key frames. for images,
-    returns the asset path directly. currently a stub.
+    returns a dict with asset_path and media_type for the
+    next activity. idempotent: re-downloading is safe.
     """
     logger.info("preparing ocr input for asset %s", asset_id)
-    # TODO: full implementation
-    # 1. fetch asset from db
-    # 2. download from minio to temp dir
-    # 3. if video, call extract_key_frames
-    # 4. return dict with image paths
-    return {"status": "stub", "asset_id": asset_id}
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(Asset).where(Asset.id == UUID(asset_id))
+        )
+        asset = result.scalar_one_or_none()
+        if asset is None:
+            msg = f"asset {asset_id} not found"
+            raise ValueError(msg)
+
+        storage = StorageService(get_minio_client())
+
+        # download to a persistent temp dir (cleaned up by
+        # store_ocr_results or os on reboot)
+        tmp_dir = tempfile.mkdtemp(prefix="loom_ocr_")
+        suffix = Path(asset.original_filename).suffix
+        dest = str(Path(tmp_dir) / f"asset{suffix}")
+        storage.download_file(
+            ORIGINALS_BUCKET,
+            asset.storage_key,
+            dest,
+        )
+
+    return {
+        "asset_id": asset_id,
+        "asset_path": dest,
+        "media_type": asset.media_type,
+    }
 
 
 @activity.defn
-async def run_ocr(  # pragma: no cover
+async def run_ocr(
     asset_id: str,
 ) -> dict[str, Any]:
-    """run ocr on prepared images.
+    """run ocr on the asset file.
 
-    currently a stub that returns empty results.
+    expects prepare_ocr_input to have been called first.
+    re-downloads if the temp file is missing (idempotent).
+    returns regions list for storage.
     """
     logger.info("running ocr for asset %s", asset_id)
-    # TODO: full implementation
-    # 1. load prepared image paths from previous step
-    # 2. call run_ocr_on_image for each
-    # 3. aggregate results
-    return {"status": "stub", "asset_id": asset_id}
+
+    async with get_db_session() as session:
+        result = await session.execute(
+            select(Asset).where(Asset.id == UUID(asset_id))
+        )
+        asset = result.scalar_one_or_none()
+        if asset is None:
+            msg = f"asset {asset_id} not found"
+            raise ValueError(msg)
+
+        storage = StorageService(get_minio_client())
+
+        with tempfile.TemporaryDirectory(prefix="loom_ocr_run_") as tmp_dir:
+            suffix = Path(asset.original_filename).suffix
+            dest = str(Path(tmp_dir) / f"asset{suffix}")
+            storage.download_file(
+                ORIGINALS_BUCKET,
+                asset.storage_key,
+                dest,
+            )
+
+            regions = run_ocr_on_asset(dest, asset.media_type)
+
+    logger.info(
+        "ocr found %d regions for asset %s",
+        len(regions),
+        asset_id,
+    )
+    return {
+        "asset_id": asset_id,
+        "regions": regions,
+    }
 
 
 @activity.defn
-async def store_ocr_results(  # pragma: no cover
+async def store_ocr_results(
     asset_id: str,
 ) -> dict[str, Any]:
-    """store ocr results in the database.
+    """run ocr and store results in the database.
 
-    currently a stub.
+    idempotent: re-running will re-detect and re-insert.
+    callers should ensure old regions are cleared if needed.
     """
     logger.info("storing ocr results for asset %s", asset_id)
-    # TODO: full implementation
-    # 1. fetch ocr results from previous step
-    # 2. call store_ocr_regions
-    return {"status": "stub", "asset_id": asset_id}
+
+    async with get_db_session() as session:
+        # re-fetch and re-run to be self-contained
+        result = await session.execute(
+            select(Asset).where(Asset.id == UUID(asset_id))
+        )
+        asset = result.scalar_one_or_none()
+        if asset is None:
+            msg = f"asset {asset_id} not found"
+            raise ValueError(msg)
+
+        storage = StorageService(get_minio_client())
+
+        with tempfile.TemporaryDirectory(prefix="loom_ocr_store_") as tmp_dir:
+            suffix = Path(asset.original_filename).suffix
+            dest = str(Path(tmp_dir) / f"asset{suffix}")
+            storage.download_file(
+                ORIGINALS_BUCKET,
+                asset.storage_key,
+                dest,
+            )
+
+            regions = run_ocr_on_asset(dest, asset.media_type)
+
+        records = await store_ocr_regions(session, asset_id, regions)
+        await session.commit()
+
+    logger.info(
+        "stored %d ocr regions for asset %s",
+        len(records),
+        asset_id,
+    )
+    return {
+        "asset_id": asset_id,
+        "regions_stored": len(records),
+    }

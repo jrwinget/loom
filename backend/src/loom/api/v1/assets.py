@@ -33,6 +33,7 @@ from loom.services.case import check_case_access
 from loom.services.hashing import compute_hashes_from_bytes
 from loom.services.ingest import (
     create_asset_record,
+    create_asset_with_custody,
     generate_storage_key,
     record_upload_custody,
     validate_file_type,
@@ -115,24 +116,33 @@ async def upload_asset(
     # compute hashes
     sha256, sha512 = compute_hashes_from_bytes(data)
 
-    # create asset record first to get id
-    asset = await create_asset_record(
-        db,
-        case_id,
-        filename,
-        "",  # placeholder key, updated below
-        media_type,
-        mime_type,
-        len(data),
-        sha256,
-        sha512,
-        user_id,
-    )
+    # create asset + custody atomically in a savepoint
+    ip_address = request.client.host if request.client else None
 
-    # generate storage key and update asset
-    storage_key = generate_storage_key(case_id, str(asset.id), filename)
-    asset.storage_key = storage_key
-    await db.flush()
+    async with db.begin_nested():
+        asset = await create_asset_record(
+            db,
+            case_id,
+            filename,
+            "",  # placeholder key, updated below
+            media_type,
+            mime_type,
+            len(data),
+            sha256,
+            sha512,
+            user_id,
+        )
+
+        # generate storage key and update asset
+        storage_key = generate_storage_key(
+            case_id, str(asset.id), filename
+        )
+        asset.storage_key = storage_key
+        await db.flush()
+
+        await record_upload_custody(
+            db, str(asset.id), user_id, ip_address
+        )
 
     # upload to minio (sync call via executor)
     storage = StorageService(minio_client)
@@ -146,9 +156,6 @@ async def upload_asset(
         mime_type,
     )
 
-    # record chain of custody
-    ip_address = request.client.host if request.client else None
-    await record_upload_custody(db, str(asset.id), user_id, ip_address)
     await db.commit()
     await db.refresh(asset)
 
@@ -283,7 +290,8 @@ async def complete_presigned_upload(
             detail=str(err),
         ) from err
 
-    asset = await create_asset_record(
+    ip_address = request.client.host if request.client else None
+    asset = await create_asset_with_custody(
         db,
         case_id,
         filename,
@@ -294,10 +302,8 @@ async def complete_presigned_upload(
         sha256,
         sha512,
         user_id,
+        ip_address,
     )
-
-    ip_address = request.client.host if request.client else None
-    await record_upload_custody(db, str(asset.id), user_id, ip_address)
     await db.commit()
     await db.refresh(asset)
 
