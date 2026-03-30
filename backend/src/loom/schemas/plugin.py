@@ -1,8 +1,22 @@
+import ipaddress
+import socket
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
+
+_BLOCKED_NETWORKS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+]
 
 PLUGIN_TYPES = ("webhook", "activity", "integration")
 
@@ -71,6 +85,30 @@ class WebhookCreate(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
     events: list[str] = Field(min_length=1)
     secret: str | None = None
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        """reject non-http(s) schemes and private IP ranges."""
+        parsed = urlparse(v)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError("Webhook URL must use http or https scheme")
+        hostname = parsed.hostname
+        if not hostname:
+            raise ValueError("Webhook URL must include a hostname")
+        try:
+            addr_infos = socket.getaddrinfo(hostname, parsed.port or 443)
+        except socket.gaierror as exc:
+            raise ValueError(f"Could not resolve hostname: {hostname}") from exc
+        for info in addr_infos:
+            addr = ipaddress.ip_address(info[4][0])
+            for network in _BLOCKED_NETWORKS:
+                if addr in network:
+                    raise ValueError(
+                        f"Webhook URL resolves to private/reserved "
+                        f"address {addr}"
+                    )
+        return v
 
     @field_validator("events")
     @classmethod
