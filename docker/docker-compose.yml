@@ -1,12 +1,23 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: '1.0'
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-loom}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-loom_dev}
       POSTGRES_DB: ${POSTGRES_DB:-loom}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -15,16 +26,29 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - database
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2024-11-07T00-52-20Z
     command: server /data --console-address ":9001"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: '1.0'
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-loom_minio}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-loom_minio_dev}
     ports:
-      - "${MINIO_API_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+      - "${MINIO_BIND:-127.0.0.1}:${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_BIND:-127.0.0.1}:${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio-data:/data
     healthcheck:
@@ -32,9 +56,21 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - backend
 
   minio-setup:
-    image: minio/mc:latest
+    image: minio/mc:RELEASE.2024-11-07T00-52-20Z
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: '0.25'
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     depends_on:
       minio:
         condition: service_healthy
@@ -43,17 +79,31 @@ services:
       mc alias set loom http://minio:9000
         $${MINIO_ROOT_USER:-loom_minio}
         $${MINIO_ROOT_PASSWORD:-loom_minio_dev};
-      mc mb --ignore-existing loom/loom-originals;
+      mc mb --ignore-existing --with-lock loom/loom-originals;
       mc mb --ignore-existing loom/loom-derivatives;
       mc mb --ignore-existing loom/loom-backups;
       mc anonymous set none loom/loom-originals;
       mc anonymous set none loom/loom-derivatives;
       mc anonymous set none loom/loom-backups;
+      mc retention set --default compliance 365d loom/loom-originals || true;
       exit 0;
       "
+    networks:
+      - backend
 
   temporal:
-    image: temporalio/auto-setup:latest
+    image: temporalio/auto-setup:1.25.2
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: '1.0'
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     environment:
       DB: postgresql
       DB_PORT: 5432
@@ -64,7 +114,7 @@ services:
       TEMPORAL_ADDRESS: temporal:7233
       DEFAULT_NAMESPACE: loom
     ports:
-      - "${TEMPORAL_PORT:-7233}:7233"
+      - "${TEMPORAL_BIND:-127.0.0.1}:${TEMPORAL_PORT:-7233}:7233"
     volumes:
       - ./temporal/dynamicconfig:/etc/temporal/dynamicconfig
     depends_on:
@@ -76,21 +126,48 @@ services:
       timeout: 10s
       retries: 10
       start_period: 30s
+    networks:
+      - backend
+      - database
 
   temporal-ui:
-    image: temporalio/ui:latest
+    image: temporalio/ui:2.34.0
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.5'
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     environment:
       TEMPORAL_ADDRESS: temporal:7233
     ports:
-      - "${TEMPORAL_UI_PORT:-8080}:8080"
+      - "${TEMPORAL_BIND:-127.0.0.1}:${TEMPORAL_UI_PORT:-8080}:8080"
     depends_on:
       temporal:
         condition: service_healthy
+    networks:
+      - backend
 
   backend:
     build:
       context: ../backend
       dockerfile: Dockerfile
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '1.0'
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     environment:
       LOOM_DATABASE_URL: >-
         postgresql+asyncpg://${POSTGRES_USER:-loom}:${POSTGRES_PASSWORD:-loom_dev}@postgres:5432/${POSTGRES_DB:-loom}
@@ -111,11 +188,26 @@ services:
         condition: service_completed_successfully
     profiles:
       - app
+    networks:
+      - frontend
+      - backend
+      - database
 
   worker:
     build:
       context: ../backend
       dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: '2.0'
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     environment:
       LOOM_DATABASE_URL: >-
         postgresql+asyncpg://${POSTGRES_USER:-loom}:${POSTGRES_PASSWORD:-loom_dev}@postgres:5432/${POSTGRES_DB:-loom}
@@ -132,36 +224,79 @@ services:
         condition: service_completed_successfully
     profiles:
       - app
+    networks:
+      - backend
+      - database
 
   frontend:
     build:
       context: ../frontend
       dockerfile: Dockerfile
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.5'
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     ports:
       - "3000:80"
     depends_on:
       - backend
     profiles:
       - app
+    networks:
+      - frontend
 
   nginx:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: '0.5'
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     ports:
       - "${NGINX_PORT:-8888}:80"
+      - "${NGINX_TLS_PORT:-8443}:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${TLS_CERT_DIR:-./nginx/certs}:/etc/nginx/certs:ro
     depends_on:
       - backend
       - frontend
     profiles:
       - production
+    networks:
+      - frontend
+      - backend
 
   backup:
     image: postgres:16-alpine
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.5'
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     entrypoint: >
       /bin/sh -c "
       echo 'loom backup scheduler starting';
-      apk add --no-cache curl;
+      apk add --no-cache curl gnupg;
       curl -sL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc;
       chmod +x /usr/local/bin/mc;
       echo 'running initial backup';
@@ -181,6 +316,7 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-loom_minio}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-loom_minio_dev}
       MINIO_BACKUP_BUCKET: loom-backups
+      BACKUP_GPG_RECIPIENT: ${BACKUP_GPG_RECIPIENT:-}
     volumes:
       - backup-data:/backups
       - ./postgres/backup.sh:/scripts/backup.sh:ro
@@ -191,18 +327,42 @@ services:
         condition: service_completed_successfully
     profiles:
       - backup
+    networks:
+      - backend
+      - database
 
   jaeger:
     image: jaegertracing/all-in-one:1.54
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.5'
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:
-      - "${JAEGER_UI_PORT:-16686}:16686"
-      - "${JAEGER_OTLP_GRPC_PORT:-4317}:4317"
+      - "${JAEGER_BIND:-127.0.0.1}:${JAEGER_UI_PORT:-16686}:16686"
+      - "${JAEGER_BIND:-127.0.0.1}:${JAEGER_OTLP_GRPC_PORT:-4317}:4317"
     profiles:
       - observability
+    networks:
+      - backend
 
 volumes:
   postgres-data:
   minio-data:
   backup-data:
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+  database:
+    driver: bridge
