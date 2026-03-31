@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Any
 from uuid import UUID
 
@@ -279,8 +280,28 @@ async def get_timeline(
         session, case_id, status=status, skip=0, limit=10000
     )
 
+    if not events:
+        return events
+
+    # batch-fetch all evidence in one query instead of n+1
+    event_ids = [event.id for event in events]
+    result = await session.execute(
+        select(TimelineEventEvidence)
+        .where(TimelineEventEvidence.event_id.in_(event_ids))
+        .order_by(TimelineEventEvidence.linked_at.asc())
+    )
+    all_evidence = list(result.scalars().all())
+
+    # group by event_id
+    evidence_by_event: dict[UUID, list[TimelineEventEvidence]] = defaultdict(
+        list
+    )
+    for ev in all_evidence:
+        evidence_by_event[ev.event_id].append(ev)
+
     for event in events:
-        evidence = await get_event_evidence(session, str(event.id))
-        event.evidence = evidence  # type: ignore[attr-defined]
+        event.evidence = evidence_by_event.get(  # type: ignore[attr-defined]
+            event.id, []
+        )
 
     return events
