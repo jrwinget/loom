@@ -21,6 +21,7 @@ from loom.models import (
     TimelineEventEvidence,
     TranscriptSegment,
 )
+from loom.models.plugin import Plugin
 
 
 class TestPoolConfiguration:
@@ -216,3 +217,23 @@ class TestCheckConstraints:
     def test_timeline_event_status_check(self) -> None:
         names = _check_constraint_names(TimelineEvent)
         assert "ck_timeline_events_status" in names
+
+
+class TestFkIndexes:
+    """foreign key columns have indexes for join performance."""
+
+    def test_plugin_created_by_has_index(self) -> None:
+        """plugin.created_by column should have an index."""
+        col = Plugin.__table__.c.created_by
+        assert col.index is True or any(
+            "created_by" in [c.name for c in idx.columns]
+            for idx in Plugin.__table__.indexes
+        )
+
+    def test_export_bundle_created_by_has_index(self) -> None:
+        """export_bundle.created_by column should have an index."""
+        col = ExportBundle.__table__.c.created_by
+        assert col.index is True or any(
+            "created_by" in [c.name for c in idx.columns]
+            for idx in ExportBundle.__table__.indexes
+        )
