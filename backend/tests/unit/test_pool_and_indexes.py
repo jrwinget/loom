@@ -162,8 +162,8 @@ class TestOnDeleteBehavior:
     def test_case_membership_user_cascade(self) -> None:
         assert _fk_ondelete(CaseMembership, "user_id") == "CASCADE"
 
-    def test_custody_asset_restrict(self) -> None:
-        assert _fk_ondelete(ChainOfCustodyEntry, "asset_id") == "RESTRICT"
+    def test_custody_asset_cascade(self) -> None:
+        assert _fk_ondelete(ChainOfCustodyEntry, "asset_id") == "CASCADE"
 
     def test_audit_actor_set_null(self) -> None:
         assert _fk_ondelete(AuditLogEntry, "actor_id") == "SET NULL"
