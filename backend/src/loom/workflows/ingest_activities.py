@@ -87,8 +87,7 @@ async def extract_asset_metadata(
 ) -> dict[str, Any]:
     """download file, extract metadata, store in db.
 
-    idempotent: overwrites metadata_raw and
-    metadata_extracted on each run.
+    idempotent: skips if metadata_raw already populated.
     """
     logger.info("extracting metadata for asset %s", asset_id)
 
@@ -100,6 +99,14 @@ async def extract_asset_metadata(
         if asset is None:
             msg = f"asset {asset_id} not found"
             raise ValueError(msg)
+
+        # idempotency: skip if already extracted
+        if asset.metadata_raw is not None:
+            logger.info(
+                "metadata already extracted for asset %s, skipping",
+                asset_id,
+            )
+            return asset.metadata_raw
 
         storage = StorageService(get_minio_client())
 
@@ -154,6 +161,7 @@ async def generate_asset_proxies(
                 asset.storage_key,
                 src,
             )
+            activity.heartbeat("file downloaded")
 
             case_id = str(asset.case_id)
             base_key = f"{case_id}/{asset_id}"
@@ -169,6 +177,7 @@ async def generate_asset_proxies(
                         base_key,
                     )
                 )
+                activity.heartbeat("video proxies generated")
             elif asset.media_type == "image":
                 derivative_keys.extend(
                     _generate_image_derivatives(
@@ -180,6 +189,7 @@ async def generate_asset_proxies(
                         base_key,
                     )
                 )
+                activity.heartbeat("image proxies generated")
             elif asset.media_type == "audio":
                 derivative_keys.extend(
                     _generate_audio_derivatives(
@@ -191,6 +201,7 @@ async def generate_asset_proxies(
                         base_key,
                     )
                 )
+                activity.heartbeat("audio proxies generated")
 
         await session.commit()
 
@@ -445,6 +456,14 @@ async def mark_asset_complete(asset_id: str) -> None:
         if asset is None:
             msg = f"asset {asset_id} not found"
             raise ValueError(msg)
+
+        # idempotency: skip if already complete
+        if asset.processing_status == "complete":
+            logger.info(
+                "asset %s already complete, skipping",
+                asset_id,
+            )
+            return
 
         asset.processing_status = "complete"
         await session.commit()
