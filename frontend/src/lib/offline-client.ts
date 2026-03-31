@@ -104,7 +104,13 @@ export async function processQueue(): Promise<{
 
     try {
       const { method, path, body } = item.payload;
-      const parsed = body ? JSON.parse(body) : undefined;
+      let parsed: unknown;
+      try {
+        parsed = body ? JSON.parse(body) : undefined;
+      } catch {
+        store.markFailed(item.id, 'corrupted payload');
+        continue;
+      }
 
       switch (method) {
         case 'POST':

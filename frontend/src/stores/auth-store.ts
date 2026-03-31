@@ -25,7 +25,12 @@ export const useAuthStore = create<AuthState>()(
       storage: {
         getItem: (name) => {
           const value = sessionStorage.getItem(name);
-          return value ? JSON.parse(value) : null;
+          try {
+            return value ? JSON.parse(value) : null;
+          } catch {
+            sessionStorage.removeItem(name);
+            return null;
+          }
         },
         setItem: (name, value) =>
           sessionStorage.setItem(
