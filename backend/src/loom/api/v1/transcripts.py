@@ -151,11 +151,12 @@ async def start_transcription_endpoint(
             task_queue="loom-ingest",
         )
     except Exception:
-        # if temporal is unavailable, return the id anyway
-        # so callers can poll later
-        logger.warning(
+        # temporal unavailable; return the id so callers can
+        # poll later
+        logger.error(
             "failed to start transcription workflow for asset %s",
             asset_id,
+            exc_info=True,
         )
 
     return {
