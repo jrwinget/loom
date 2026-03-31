@@ -82,7 +82,10 @@ class AuditMiddleware:
                 payload = decode_token(auth_header.removeprefix("Bearer "))
                 actor_id = UUID(payload["sub"])
             except Exception:
-                await log.adebug("could not extract actor from jwt")
+                await log.ainfo(
+                    "could not extract actor from jwt",
+                    exc_info=True,
+                )
 
         # parse path segments after /api/v1/
         path = request.url.path
@@ -118,7 +121,11 @@ class AuditMiddleware:
                 session.add(entry)
                 await session.commit()
         except Exception:
-            await log.awarning(
-                "failed to write audit log entry",
+            await log.aerror(
+                "failed to write audit log entry — "
+                "compliance risk: entry may be lost",
                 action=action,
+                resource_type=resource_type,
+                resource_id=(str(resource_id) if resource_id else None),
+                exc_info=True,
             )
