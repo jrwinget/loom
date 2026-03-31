@@ -197,7 +197,7 @@ class TestUpdateAnnotation:
         )
         # first execute: select annotation
         scalar_result = MagicMock()
-        scalar_result.scalar_one.return_value = annotation
+        scalar_result.scalar_one_or_none.return_value = annotation
         # second execute: fetch email
         email_result = MagicMock()
         email_result.scalar_one.return_value = "u@t.com"
@@ -225,7 +225,7 @@ class TestUpdateAnnotation:
             created_by=UUID(_USER_ID),
         )
         scalar_result = MagicMock()
-        scalar_result.scalar_one.return_value = annotation
+        scalar_result.scalar_one_or_none.return_value = annotation
         email_result = MagicMock()
         email_result.scalar_one.return_value = "u@t.com"
         session.execute.side_effect = [scalar_result, email_result]
@@ -249,7 +249,7 @@ class TestUpdateAnnotationFieldWhitelist:
             created_by=UUID(_USER_ID),
         )
         scalar_result = MagicMock()
-        scalar_result.scalar_one.return_value = annotation
+        scalar_result.scalar_one_or_none.return_value = annotation
         session.execute.return_value = scalar_result
 
         with pytest.raises(ValueError, match="not updatable"):
@@ -268,7 +268,7 @@ class TestUpdateAnnotationFieldWhitelist:
             created_by=UUID(_USER_ID),
         )
         scalar_result = MagicMock()
-        scalar_result.scalar_one.return_value = annotation
+        scalar_result.scalar_one_or_none.return_value = annotation
         session.execute.return_value = scalar_result
 
         with pytest.raises(ValueError, match="not updatable"):
@@ -287,7 +287,7 @@ class TestUpdateAnnotationFieldWhitelist:
             created_by=UUID(_USER_ID),
         )
         scalar_result = MagicMock()
-        scalar_result.scalar_one.return_value = annotation
+        scalar_result.scalar_one_or_none.return_value = annotation
         session.execute.return_value = scalar_result
 
         with pytest.raises(ValueError, match="not updatable"):
@@ -306,7 +306,7 @@ class TestUpdateAnnotationFieldWhitelist:
             created_by=UUID(_USER_ID),
         )
         scalar_result = MagicMock()
-        scalar_result.scalar_one.return_value = annotation
+        scalar_result.scalar_one_or_none.return_value = annotation
         email_result = MagicMock()
         email_result.scalar_one.return_value = "u@t.com"
         session.execute.side_effect = [scalar_result, email_result]

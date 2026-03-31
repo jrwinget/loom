@@ -56,12 +56,14 @@ class CsrfMiddleware(BaseHTTPMiddleware):
             # set a fresh csrf cookie for the client to read
             if CSRF_COOKIE_NAME not in request.cookies:
                 token = _generate_csrf_token()
+                # secure=true when served over https
+                is_secure = request.url.scheme == "https"
                 response.set_cookie(
                     CSRF_COOKIE_NAME,
                     token,
                     httponly=False,  # js must read it
                     samesite="strict",
-                    secure=False,  # allow http in dev
+                    secure=is_secure,
                     path="/",
                 )
             return response

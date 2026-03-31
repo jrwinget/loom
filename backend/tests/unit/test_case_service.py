@@ -118,7 +118,7 @@ class TestUpdateCase:
         session = _mock_session()
         case = Case(name="Old", description="old", created_by=_USER_ID)
         mock_result = MagicMock()
-        mock_result.scalar_one.return_value = case
+        mock_result.scalar_one_or_none.return_value = case
         session.execute.return_value = mock_result
 
         updated = await update_case(
@@ -135,7 +135,7 @@ class TestUpdateCase:
         session = _mock_session()
         case = Case(name="X", created_by=_USER_ID)
         mock_result = MagicMock()
-        mock_result.scalar_one.return_value = case
+        mock_result.scalar_one_or_none.return_value = case
         session.execute.return_value = mock_result
 
         await update_case(session, _CASE_ID, {"name": "Y"})
@@ -153,7 +153,7 @@ class TestUpdateCaseFieldWhitelist:
         session = _mock_session()
         case = Case(name="X", created_by=_USER_ID)
         mock_result = MagicMock()
-        mock_result.scalar_one.return_value = case
+        mock_result.scalar_one_or_none.return_value = case
         session.execute.return_value = mock_result
 
         with pytest.raises(ValueError, match="not updatable"):
@@ -165,7 +165,7 @@ class TestUpdateCaseFieldWhitelist:
         session = _mock_session()
         case = Case(name="X", created_by=_USER_ID)
         mock_result = MagicMock()
-        mock_result.scalar_one.return_value = case
+        mock_result.scalar_one_or_none.return_value = case
         session.execute.return_value = mock_result
 
         with pytest.raises(ValueError, match="not updatable"):
@@ -179,7 +179,7 @@ class TestUpdateCaseFieldWhitelist:
         session = _mock_session()
         case = Case(name="Old", created_by=_USER_ID)
         mock_result = MagicMock()
-        mock_result.scalar_one.return_value = case
+        mock_result.scalar_one_or_none.return_value = case
         session.execute.return_value = mock_result
 
         updated = await update_case(
@@ -193,7 +193,7 @@ class TestUpdateCaseFieldWhitelist:
         session = _mock_session()
         case = Case(name="X", created_by=_USER_ID)
         mock_result = MagicMock()
-        mock_result.scalar_one.return_value = case
+        mock_result.scalar_one_or_none.return_value = case
         session.execute.return_value = mock_result
 
         data = {f: "val" for f in _UPDATABLE_CASE_FIELDS}

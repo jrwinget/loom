@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class OrgCreate(BaseModel):
@@ -45,6 +45,16 @@ class SharedEvidenceCreate(BaseModel):
     asset_id: str
     access_level: str = "view"
     expires_at: datetime | None = None
+
+    @field_validator("access_level")
+    @classmethod
+    def validate_access_level(cls, v: str) -> str:
+        allowed = {"view", "annotate"}
+        if v not in allowed:
+            raise ValueError(
+                f"access_level must be one of: {', '.join(sorted(allowed))}"
+            )
+        return v
 
 
 class SharedEvidenceResponse(BaseModel):
