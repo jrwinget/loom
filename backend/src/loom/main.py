@@ -74,6 +74,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         logging.critical("configuration error: %s", exc)
         raise
 
+    settings.validate_production_settings()
+
     # database
     engine = create_async_engine(
         settings.database_url,
@@ -144,10 +146,20 @@ def create_app() -> FastAPI:
     # cors
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"] if settings.debug else [],
+        allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=[
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+        ],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Request-Id",
+        ],
     )
 
     # request-id middleware
@@ -156,6 +168,22 @@ def create_app() -> FastAPI:
         request_id = str(uuid.uuid4())
         response: Response = await call_next(request)  # type: ignore[operator]
         response.headers["X-Request-Id"] = request_id
+        return response
+
+    @application.middleware("http")
+    async def add_security_headers(
+        request: Request,
+        call_next: object,
+    ) -> Response:
+        """add standard security headers to all responses."""
+        response: Response = await call_next(request)  # type: ignore[operator]
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "0"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=()"
+        )
         return response
 
     # routes

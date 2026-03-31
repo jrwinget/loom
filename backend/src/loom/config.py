@@ -1,6 +1,9 @@
+import logging
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 _INSECURE_DEFAULT = "change-me-in-production"
 _MIN_SECRET_LENGTH = 32
@@ -19,6 +22,7 @@ class Settings(BaseSettings):
     secret_key: str = _INSECURE_DEFAULT
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+    cors_origins: list[str] = ["http://localhost:3000"]
     debug: bool = False
     log_level: str = "info"
 
@@ -52,6 +56,18 @@ class Settings(BaseSettings):
                 f"{_MIN_SECRET_LENGTH} characters, "
                 f"got {len(self.secret_key)}."
             )
+
+    def validate_production_settings(self) -> None:
+        """warn when default dev credentials are used
+        in non-debug mode."""
+        if self.debug:
+            return
+        if "loom:loom_dev@" in self.database_url:
+            logger.warning("database_url uses default dev credentials")
+        if self.minio_access_key == "loom_minio":
+            logger.warning("minio_access_key uses default dev value")
+        if self.minio_secret_key == "loom_minio_dev":  # noqa: S105
+            logger.warning("minio_secret_key uses default dev value")
 
 
 @lru_cache
