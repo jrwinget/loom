@@ -13,6 +13,7 @@ const SHELL_URLS = [
 // api paths to cache for offline viewing
 const CACHEABLE_API = [
   '/api/v1/cases',
+  '/api/v1/health',
 ];
 
 self.addEventListener('install', (event) => {
@@ -49,12 +50,12 @@ self.addEventListener('fetch', (event) => {
 
   // api requests: network-first, fallback to cache
   if (url.pathname.startsWith('/api/v1/')) {
+    // cache case list, individual cases, and case-scoped
+    // read-only resources for offline access
     const shouldCache = CACHEABLE_API.some(
-      (p) =>
-        url.pathname === p
-        || url.pathname.match(
-          /^\/api\/v1\/cases\/[^/]+$/,
-        ),
+      (p) => url.pathname === p,
+    ) || url.pathname.match(
+      /^\/api\/v1\/cases\/[^/]+(\/assets|\/timeline|\/annotations)?$/,
     );
 
     if (shouldCache) {
