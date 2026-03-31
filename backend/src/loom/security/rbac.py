@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -5,6 +6,8 @@ from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
 
 from loom.security.auth import decode_token
+
+logger = logging.getLogger(__name__)
 
 
 async def _extract_token(request: Request) -> dict[str, Any]:
@@ -43,10 +46,15 @@ async def _extract_token(request: Request) -> dict[str, Any]:
                         )
         except HTTPException:
             raise
-        except Exception:  # noqa: S110
-            # if db is unavailable, allow the request through
-            # rather than blocking all authenticated requests
-            pass
+        except Exception:
+            logger.error(
+                "token revocation check failed",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Service temporarily unavailable",
+            ) from None
 
     return payload
 
