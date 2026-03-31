@@ -23,7 +23,7 @@ repos:
     rev: v8.57.0
     hooks:
       - id: eslint
-        files: ^frontend/src/.*\.[ts,tsx]$
+        files: ^frontend/src/.*\.(ts|tsx)$
         types: [file]
         additional_dependencies:
           - eslint@8.57.0

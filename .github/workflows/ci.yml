@@ -321,7 +321,7 @@ jobs:
       - test-frontend
       - test-migrations
       - security-scan
-    if: always() && !cancelled() && needs.test-backend.result == 'success' && needs.test-frontend.result == 'success' && needs.test-migrations.result == 'success'
+    if: always() && !cancelled() && needs.test-backend.result == 'success' && needs.test-frontend.result == 'success' && needs.test-migrations.result == 'success' && needs.security-scan.result == 'success'
     steps:
       - uses: actions/checkout@v4
 
