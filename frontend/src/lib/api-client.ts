@@ -2,8 +2,9 @@ import { useAuthStore } from '@/stores/auth-store';
 import type { ApiError } from '@/types';
 
 const BASE_URL = '/api/v1';
+const DEFAULT_TIMEOUT_MS = 30_000;
 
-class ApiClientError extends Error {
+export class ApiClientError extends Error {
   status: number;
   detail: string;
 
@@ -15,7 +16,10 @@ class ApiClientError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
   const token = useAuthStore.getState().token;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -26,10 +30,30 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    DEFAULT_TIMEOUT_MS,
+  );
+
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (
+      err instanceof DOMException &&
+      err.name === 'AbortError'
+    ) {
+      throw new ApiClientError(408, 'Request timed out');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (response.status === 401) {
     useAuthStore.getState().clearAuth();
@@ -55,7 +79,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const apiClient = {
-  get: <T>(path: string): Promise<T> => request<T>(path, { method: 'GET' }),
+  get: <T>(path: string): Promise<T> =>
+    request<T>(path, { method: 'GET' }),
 
   post: <T>(path: string, body?: unknown): Promise<T> =>
     request<T>(path, {

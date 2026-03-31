@@ -25,6 +25,16 @@ const queryClient = new QueryClient({
   },
 });
 
+// wrap route elements in individual error boundaries so a
+// page crash doesn't take down the entire app
+function RouteGuard({
+  children,
+}: {
+  children: React.ReactElement;
+}): React.ReactElement {
+  return <ErrorBoundary>{children}</ErrorBoundary>;
+}
+
 function NotFound(): React.ReactElement {
   return (
     <div className="flex h-full items-center justify-center">
@@ -43,26 +53,26 @@ export function App(): React.ReactElement {
         <ErrorBoundary>
           <Routes>
             <Route element={<Shell />}>
-              <Route index element={<Dashboard />} />
-              <Route path="organizations" element={<OrganizationsPage />} />
-              <Route path="cases" element={<CaseListPage />} />
-              <Route path="cases/:caseId" element={<CaseDetailPage />} />
-              <Route path="cases/:caseId/assets" element={<AssetsPage />} />
-              <Route path="cases/:caseId/timeline" element={<TimelinePage />} />
+              <Route index element={<RouteGuard><Dashboard /></RouteGuard>} />
+              <Route path="organizations" element={<RouteGuard><OrganizationsPage /></RouteGuard>} />
+              <Route path="cases" element={<RouteGuard><CaseListPage /></RouteGuard>} />
+              <Route path="cases/:caseId" element={<RouteGuard><CaseDetailPage /></RouteGuard>} />
+              <Route path="cases/:caseId/assets" element={<RouteGuard><AssetsPage /></RouteGuard>} />
+              <Route path="cases/:caseId/timeline" element={<RouteGuard><TimelinePage /></RouteGuard>} />
               <Route
                 path="cases/:caseId/conflicts"
-                element={<ConflictsPage />}
+                element={<RouteGuard><ConflictsPage /></RouteGuard>}
               />
-              <Route path="cases/:caseId/clusters" element={<ClustersPage />} />
-              <Route path="cases/:caseId/map" element={<MapPage />} />
-              <Route path="cases/:caseId/export" element={<ExportPage />} />
+              <Route path="cases/:caseId/clusters" element={<RouteGuard><ClustersPage /></RouteGuard>} />
+              <Route path="cases/:caseId/map" element={<RouteGuard><MapPage /></RouteGuard>} />
+              <Route path="cases/:caseId/export" element={<RouteGuard><ExportPage /></RouteGuard>} />
               <Route
                 path="cases/:caseId/review/:assetId"
-                element={<ReviewPage />}
+                element={<RouteGuard><ReviewPage /></RouteGuard>}
               />
               <Route
                 path="settings/plugins"
-                element={<PluginsSettingsPage />}
+                element={<RouteGuard><PluginsSettingsPage /></RouteGuard>}
               />
               <Route path="*" element={<NotFound />} />
             </Route>
