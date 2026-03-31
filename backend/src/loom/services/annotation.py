@@ -108,12 +108,16 @@ async def update_annotation(
     session: AsyncSession,
     annotation_id: str,
     data: dict[str, Any],
+    case_id: str | None = None,
 ) -> Annotation:
     """update annotation fields."""
-    result = await session.execute(
-        select(Annotation).where(Annotation.id == UUID(annotation_id))
-    )
-    annotation = result.scalar_one()
+    query = select(Annotation).where(Annotation.id == UUID(annotation_id))
+    if case_id is not None:
+        query = query.where(Annotation.case_id == UUID(case_id))
+    result = await session.execute(query)
+    annotation = result.scalar_one_or_none()
+    if annotation is None:
+        raise ValueError("annotation not found")
 
     for key, value in data.items():
         if value is not None:
