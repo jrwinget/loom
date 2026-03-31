@@ -1,4 +1,5 @@
 import asyncio
+import tempfile
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -32,7 +33,10 @@ from loom.services.asset import get_asset as get_asset_svc
 from loom.services.asset import list_assets as list_assets_svc
 from loom.services.asset import restore_asset, soft_delete_asset
 from loom.services.case import check_case_access
-from loom.services.hashing import compute_hashes_from_bytes
+from loom.services.hashing import (
+    compute_hashes_from_bytes,
+    compute_hashes_from_file,
+)
 from loom.services.ingest import (
     create_asset_record,
     create_asset_with_custody,
@@ -95,13 +99,22 @@ async def upload_asset(
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id, "editor")
 
-    # read file bytes
-    data = await file.read()
-    if len(data) > _MAX_UPLOAD_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="file exceeds 100mb limit",
-        )
+    # stream file in chunks to avoid loading entire file in memory
+    chunk_size = 64 * 1024  # 64kb
+    chunks: list[bytes] = []
+    total_size = 0
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > _MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="file exceeds 100mb limit",
+            )
+        chunks.append(chunk)
+    data = b"".join(chunks)
 
     filename = file.filename or "unnamed"
 
@@ -255,29 +268,34 @@ async def complete_presigned_upload(
     storage_key, filename = exists
 
     # download and compute hashes
-    import tempfile
     from pathlib import Path
 
-    from loom.services.hashing import compute_hashes_from_file
+    data_head = b""
+    file_size = 0
+    sha256 = ""
+    sha512 = ""
+    tmp_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp_path = tmp.name
 
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        tmp_path = tmp.name
+        await loop.run_in_executor(
+            None,
+            storage.download_file,
+            ORIGINALS_BUCKET,
+            storage_key,
+            tmp_path,
+        )
 
-    await loop.run_in_executor(
-        None,
-        storage.download_file,
-        ORIGINALS_BUCKET,
-        storage_key,
-        tmp_path,
-    )
+        path = Path(tmp_path)
+        file_size = path.stat().st_size
+        sha256, sha512 = compute_hashes_from_file(path)
 
-    path = Path(tmp_path)
-    file_size = path.stat().st_size
-    sha256, sha512 = compute_hashes_from_file(path)
-
-    # read a small chunk for type detection
-    data_head = path.read_bytes()[:8192]
-    path.unlink()
+        # read a small chunk for type detection
+        data_head = path.read_bytes()[:8192]
+    finally:
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
 
     try:
         mime_type, media_type = validate_file_type(data_head, filename)
