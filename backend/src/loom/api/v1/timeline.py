@@ -361,6 +361,8 @@ async def unlink_evidence_endpoint(
 async def get_timeline_endpoint(
     case_id: str,
     event_status: str | None = Query(None, alias="status"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
@@ -368,7 +370,7 @@ async def get_timeline_endpoint(
         get_db_session
     ),
 ) -> TimelineResponse:
-    """get full timeline view for a case."""
+    """get paginated timeline view for a case."""
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
 
@@ -379,7 +381,13 @@ async def get_timeline_endpoint(
             detail="insufficient case access",
         )
 
-    events = await get_timeline(db, case_id, status=event_status)
+    events = await get_timeline(
+        db,
+        case_id,
+        status=event_status,
+        skip=skip,
+        limit=limit,
+    )
     items = [
         TimelineEventDetailResponse(
             id=e.id,

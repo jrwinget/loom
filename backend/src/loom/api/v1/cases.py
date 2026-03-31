@@ -63,7 +63,7 @@ async def create_case_endpoint(
 @router.get("", response_model=CaseListResponse)
 async def list_cases_endpoint(
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=200),
     token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),

@@ -274,10 +274,12 @@ async def get_timeline(
     session: AsyncSession,
     case_id: str,
     status: str | None = None,
+    skip: int = 0,
+    limit: int = 200,
 ) -> list[TimelineEvent]:
-    """full timeline with events and their evidence links."""
+    """timeline with events and their evidence links."""
     events, _ = await list_events(
-        session, case_id, status=status, skip=0, limit=10000
+        session, case_id, status=status, skip=skip, limit=limit
     )
 
     if not events:
