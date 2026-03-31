@@ -11,6 +11,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pre-commit:
+    name: Pre-commit Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: pre-commit/action@v3.0.1
+
   lint-backend:
     name: Lint Backend
     runs-on: ubuntu-latest
@@ -229,7 +239,6 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     needs: [lint-backend, lint-frontend]
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -265,7 +274,6 @@ jobs:
       - name: Run pip-audit on backend
         working-directory: backend
         run: uv run pip-audit --strict --desc
-        continue-on-error: true
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -274,7 +282,6 @@ jobs:
       - name: Run pnpm audit on frontend
         working-directory: frontend
         run: pnpm audit --prod
-        continue-on-error: true
 
       - name: Build Docker images for scanning
         run: |
@@ -287,7 +294,7 @@ jobs:
         with:
           image-ref: loom-backend:scan
           format: table
-          exit-code: 0
+          exit-code: 1
           severity: CRITICAL,HIGH
 
       - name: Trivy scan - worker
@@ -295,7 +302,7 @@ jobs:
         with:
           image-ref: loom-worker:scan
           format: table
-          exit-code: 0
+          exit-code: 1
           severity: CRITICAL,HIGH
 
       - name: Trivy scan - frontend
@@ -303,7 +310,7 @@ jobs:
         with:
           image-ref: loom-frontend:scan
           format: table
-          exit-code: 0
+          exit-code: 1
           severity: CRITICAL,HIGH
 
   build:
