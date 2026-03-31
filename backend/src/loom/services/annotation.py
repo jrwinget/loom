@@ -92,6 +92,18 @@ async def get_annotation(
     return annotation  # type: ignore[no-any-return]
 
 
+_UPDATABLE_ANNOTATION_FIELDS: frozenset[str] = frozenset(
+    {
+        "content",
+        "type",
+        "time_start",
+        "time_end",
+        "frame_number",
+        "spatial_region",
+    }
+)
+
+
 async def update_annotation(
     session: AsyncSession,
     annotation_id: str,
@@ -105,6 +117,8 @@ async def update_annotation(
 
     for key, value in data.items():
         if value is not None:
+            if key not in _UPDATABLE_ANNOTATION_FIELDS:
+                raise ValueError(f"field '{key}' is not updatable")
             setattr(annotation, key, value)
 
     await session.commit()

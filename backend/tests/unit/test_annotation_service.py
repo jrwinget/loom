@@ -7,6 +7,7 @@ import pytest
 
 from loom.models.annotation import Annotation
 from loom.services.annotation import (
+    _UPDATABLE_ANNOTATION_FIELDS,
     create_annotation,
     delete_annotation,
     get_annotation,
@@ -231,6 +232,94 @@ class TestUpdateAnnotation:
 
         await update_annotation(session, _ANNO_ID, {"content": "y"})
         session.refresh.assert_awaited_once_with(annotation)
+
+
+# ── update_annotation field whitelist ─────────────────────
+
+
+class TestUpdateAnnotationFieldWhitelist:
+    @pytest.mark.asyncio
+    async def test_rejects_non_updatable_field(self) -> None:
+        """setattr rejects fields not in whitelist."""
+        session = _mock_session()
+        annotation = Annotation(
+            case_id=UUID(_CASE_ID),
+            type="note",
+            content="x",
+            created_by=UUID(_USER_ID),
+        )
+        scalar_result = MagicMock()
+        scalar_result.scalar_one.return_value = annotation
+        session.execute.return_value = scalar_result
+
+        with pytest.raises(ValueError, match="not updatable"):
+            await update_annotation(
+                session, _ANNO_ID, {"id": "evil"}
+            )
+
+    @pytest.mark.asyncio
+    async def test_rejects_created_by(self) -> None:
+        """cannot overwrite created_by via update."""
+        session = _mock_session()
+        annotation = Annotation(
+            case_id=UUID(_CASE_ID),
+            type="note",
+            content="x",
+            created_by=UUID(_USER_ID),
+        )
+        scalar_result = MagicMock()
+        scalar_result.scalar_one.return_value = annotation
+        session.execute.return_value = scalar_result
+
+        with pytest.raises(ValueError, match="not updatable"):
+            await update_annotation(
+                session, _ANNO_ID, {"created_by": "evil"}
+            )
+
+    @pytest.mark.asyncio
+    async def test_rejects_case_id(self) -> None:
+        """cannot change case_id via update."""
+        session = _mock_session()
+        annotation = Annotation(
+            case_id=UUID(_CASE_ID),
+            type="note",
+            content="x",
+            created_by=UUID(_USER_ID),
+        )
+        scalar_result = MagicMock()
+        scalar_result.scalar_one.return_value = annotation
+        session.execute.return_value = scalar_result
+
+        with pytest.raises(ValueError, match="not updatable"):
+            await update_annotation(
+                session, _ANNO_ID, {"case_id": str(uuid4())}
+            )
+
+    @pytest.mark.asyncio
+    async def test_allows_content_update(self) -> None:
+        """content is in the whitelist and should be accepted."""
+        session = _mock_session()
+        annotation = Annotation(
+            case_id=UUID(_CASE_ID),
+            type="note",
+            content="old",
+            created_by=UUID(_USER_ID),
+        )
+        scalar_result = MagicMock()
+        scalar_result.scalar_one.return_value = annotation
+        email_result = MagicMock()
+        email_result.scalar_one.return_value = "u@t.com"
+        session.execute.side_effect = [scalar_result, email_result]
+
+        updated = await update_annotation(
+            session, _ANNO_ID, {"content": "new"}
+        )
+        assert updated.content == "new"
+
+    @pytest.mark.asyncio
+    async def test_whitelist_is_frozen(self) -> None:
+        """whitelist must be a frozenset to prevent mutation."""
+        assert isinstance(_UPDATABLE_ANNOTATION_FIELDS, frozenset)
 
 
 # ── delete_annotation ──────────────────────────────────────

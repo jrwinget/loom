@@ -108,6 +108,15 @@ async def get_case(
     return result.scalar_one_or_none()
 
 
+_UPDATABLE_CASE_FIELDS: frozenset[str] = frozenset(
+    {
+        "name",
+        "description",
+        "status",
+    }
+)
+
+
 async def update_case(
     session: AsyncSession,
     case_id: str,
@@ -119,6 +128,8 @@ async def update_case(
 
     for key, value in data.items():
         if value is not None:
+            if key not in _UPDATABLE_CASE_FIELDS:
+                raise ValueError(f"field '{key}' is not updatable")
             setattr(case, key, value)
 
     await session.commit()

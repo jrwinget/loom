@@ -167,6 +167,22 @@ async def get_event(
     return event  # type: ignore[no-any-return]
 
 
+_UPDATABLE_EVENT_FIELDS: frozenset[str] = frozenset(
+    {
+        "title",
+        "description",
+        "event_time_start",
+        "event_time_end",
+        "time_precision",
+        "location_description",
+        "location_lat",
+        "location_lon",
+        "location_confidence",
+        "status",
+    }
+)
+
+
 async def update_event(
     session: AsyncSession,
     event_id: str,
@@ -180,6 +196,8 @@ async def update_event(
 
     for key, value in data.items():
         if value is not None:
+            if key not in _UPDATABLE_EVENT_FIELDS:
+                raise ValueError(f"field '{key}' is not updatable")
             setattr(event, key, value)
 
     await session.commit()
