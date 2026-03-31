@@ -3,6 +3,15 @@ import type { ApiError } from '@/types';
 
 const BASE_URL = '/api/v1';
 const DEFAULT_TIMEOUT_MS = 30_000;
+const CSRF_COOKIE_NAME = 'loom_csrf';
+const CSRF_HEADER_NAME = 'X-CSRF-Token';
+
+function getCsrfToken(): string | null {
+  const match = document.cookie
+    .split('; ')
+    .find((c) => c.startsWith(`${CSRF_COOKIE_NAME}=`));
+  return match ? match.split('=')[1] : null;
+}
 
 export class ApiClientError extends Error {
   status: number;
@@ -28,6 +37,15 @@ async function request<T>(
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  // attach csrf token for state-changing requests
+  const method = (options.method ?? 'GET').toUpperCase();
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers[CSRF_HEADER_NAME] = csrfToken;
+    }
   }
 
   const controller = new AbortController();

@@ -18,6 +18,7 @@ from loom.api.router import api_router
 from loom.config import get_settings
 from loom.observability import setup_db_telemetry, setup_telemetry
 from loom.security.audit import AuditMiddleware
+from loom.security.csrf import CSRF_HEADER_NAME, CsrfMiddleware
 from loom.security.rate_limit import limiter
 
 
@@ -159,6 +160,7 @@ def create_app() -> FastAPI:
             "Authorization",
             "Content-Type",
             "X-Request-Id",
+            CSRF_HEADER_NAME,
         ],
     )
 
@@ -188,6 +190,9 @@ def create_app() -> FastAPI:
 
     # routes
     application.include_router(api_router, prefix="/api/v1")
+
+    # csrf protection (double-submit cookie)
+    application.add_middleware(CsrfMiddleware)
 
     # audit middleware
     application.add_middleware(AuditMiddleware)
