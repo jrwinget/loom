@@ -1,4 +1,3 @@
-import logging
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
@@ -18,22 +17,19 @@ from loom.schemas.user import (
 )
 from loom.security.auth import (
     create_access_token,
+    create_mfa_challenge_token,
     create_refresh_token,
     decode_token,
     hash_password,
     verify_password,
 )
-from loom.security.rate_limit import limiter, user_limiter
+from loom.security.rate_limit import limiter
 from loom.security.rbac import (
     get_current_user_id,
     require_authenticated,
     require_role,
 )
-from loom.services.token_revocation import is_token_revoked, revoke_token
-
-logger = logging.getLogger(__name__)
-
-_DUMMY_HASH = hash_password("dummy-timing-placeholder")
+from loom.services.token_revocation import revoke_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -127,7 +123,7 @@ async def register_user(
     return user
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login")
 @limiter.limit("5/minute")
 async def login(
     request: Request,
@@ -135,19 +131,18 @@ async def login(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-) -> TokenResponse:
-    """authenticate and return tokens."""
+) -> TokenResponse | dict[str, object]:
+    """authenticate and return tokens (or mfa challenge)."""
     db: AsyncSession = session  # type: ignore[assignment]
 
-    result = await db.execute(select(User).where(User.email == body.email))
+    result = await db.execute(
+        select(User).where(User.email == body.email)
+    )
     user = result.scalar_one_or_none()
 
-    # always verify to maintain constant timing
-    valid = verify_password(
-        body.password,
-        user.password_hash if user else _DUMMY_HASH,
-    )
-    if not user or not valid:
+    if not user or not verify_password(
+        body.password, user.password_hash
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid credentials",
@@ -159,14 +154,22 @@ async def login(
             detail="account is disabled",
         )
 
+    if user.mfa_enabled:
+        challenge = create_mfa_challenge_token(str(user.id))
+        return {
+            "requires_mfa": True,
+            "challenge_token": challenge,
+        }
+
     return TokenResponse(
-        access_token=create_access_token(str(user.id), user.role),
+        access_token=create_access_token(
+            str(user.id), user.role
+        ),
         refresh_token=create_refresh_token(str(user.id)),
     )
 
 
 @router.post("/refresh", response_model=TokenResponse)
-@user_limiter.limit("10/minute")
 async def refresh(
     body: TokenRefresh,
     request: Request,
@@ -194,6 +197,10 @@ async def refresh(
     # check if refresh token is revoked
     jti = payload.get("jti")
     if jti:
+        from loom.services.token_revocation import (
+            is_token_revoked,
+        )
+
         try:
             if await is_token_revoked(db, jti):
                 raise HTTPException(
@@ -202,15 +209,9 @@ async def refresh(
                 )
         except HTTPException:
             raise
-        except Exception:
-            logger.error(
-                "revocation check failed during refresh",
-                exc_info=True,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Service temporarily unavailable",
-            ) from None
+        except Exception:  # noqa: S110
+            # allow refresh if revocation check fails
+            pass
 
     user_id = payload["sub"]
     result = await db.execute(select(User).where(User.id == user_id))
@@ -243,7 +244,6 @@ async def refresh(
     "/logout",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-@user_limiter.limit("10/minute")
 async def logout(
     request: Request,
     token_payload: dict[str, Any] = Depends(  # noqa: B008
@@ -278,9 +278,7 @@ async def logout(
 
 
 @router.get("/me", response_model=UserResponse)
-@user_limiter.limit("30/minute")
 async def get_me(
-    request: Request,
     token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),

@@ -83,4 +83,7 @@ export const queryKeys = {
   users: {
     me: ['users', 'me'] as const,
   },
+  mfa: {
+    status: ['mfa', 'status'] as const,
+  },
 } as const;

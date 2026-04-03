@@ -1,4 +1,4 @@
-from sqlalchemy import String
+from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from loom.models.base import Base, TimestampMixin, UUIDMixin
@@ -28,6 +28,13 @@ class User(UUIDMixin, TimestampMixin, Base):
     )
     mfa_secret: Mapped[str | None] = mapped_column(
         String,
+        nullable=True,
+    )
+    mfa_enabled: Mapped[bool] = mapped_column(
+        default=False,
+    )
+    recovery_codes: Mapped[str | None] = mapped_column(
+        Text,
         nullable=True,
     )
     is_active: Mapped[bool] = mapped_column(

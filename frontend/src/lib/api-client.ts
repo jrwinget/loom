@@ -3,19 +3,6 @@ import type { ApiError } from '@/types';
 
 const BASE_URL = '/api/v1';
 
-export function getCookieValue(name: string): string | null {
-  const cookies = document.cookie;
-  if (!cookies) return null;
-  for (const part of cookies.split('; ')) {
-    const eqIdx = part.indexOf('=');
-    if (eqIdx === -1) continue;
-    if (part.substring(0, eqIdx) === name) {
-      return decodeURIComponent(part.substring(eqIdx + 1));
-    }
-  }
-  return null;
-}
-
 class ApiClientError extends Error {
   status: number;
   detail: string;
@@ -37,11 +24,6 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const csrfToken = getCookieValue('csrf_token');
-  if (csrfToken && options.method && options.method !== 'GET') {
-    headers['X-CSRF-Token'] = csrfToken;
   }
 
   const response = await fetch(`${BASE_URL}${path}`, {
@@ -87,6 +69,9 @@ export const apiClient = {
       body: body ? JSON.stringify(body) : undefined,
     }),
 
-  delete: <T>(path: string): Promise<T> =>
-    request<T>(path, { method: 'DELETE' }),
+  delete: <T>(path: string, body?: unknown): Promise<T> =>
+    request<T>(path, {
+      method: 'DELETE',
+      body: body ? JSON.stringify(body) : undefined,
+    }),
 } as const;

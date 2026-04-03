@@ -28,6 +28,8 @@ dependencies = [
     "av>=12.0.0",
     "uuid7>=0.1.0",
     "jinja2>=3.1.0",
+    "pyotp>=2.9.0",
+    "qrcode[pil]>=7.4.0",
 ]
 
 [project.optional-dependencies]
@@ -115,7 +117,7 @@ warn_unused_configs = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["minio.*", "temporalio.*", "av.*", "pytesseract.*", "PIL.*", "scenedetect.*", "uuid_extensions.*", "faster_whisper.*", "pyannote.*", "weasyprint.*", "jinja2.*", "c2pa.*", "slowapi.*", "opentelemetry.*"]
+module = ["minio.*", "temporalio.*", "av.*", "pytesseract.*", "PIL.*", "scenedetect.*", "uuid_extensions.*", "faster_whisper.*", "pyannote.*", "weasyprint.*", "jinja2.*", "c2pa.*", "slowapi.*", "opentelemetry.*", "pyotp.*", "qrcode.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
