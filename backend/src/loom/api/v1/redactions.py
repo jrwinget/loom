@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID
@@ -185,31 +184,29 @@ async def apply_asset_redaction(
             detail="redaction not found",
         )
 
-    image_bytes: bytes | None = None
-    if redaction.redaction_type in ("blur", "black_box", "pixelate"):
-        result = await db.execute(
-            select(Asset).where(Asset.id == UUID(asset_id))
+    # look up the asset to get the correct storage key
+    result = await db.execute(
+        select(Asset).where(Asset.id == UUID(asset_id))
+    )
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="asset not found",
         )
-        asset = result.scalar_one_or_none()
-        if not asset:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="asset not found",
-            )
 
+    # fetch file bytes from minio using asset.storage_key
+    image_bytes: bytes | None = None
+    rtype = redaction.redaction_type
+    if rtype in ("blur", "black_box", "pixelate"):
         storage = StorageService(minio_client)
-        loop = asyncio.get_running_loop()
-        size, chunks = await loop.run_in_executor(
-            None,
-            storage.get_object_stream,
-            ORIGINALS_BUCKET,
-            asset.storage_key,
+        size, chunks = storage.get_object_stream(
+            ORIGINALS_BUCKET, asset.storage_key
         )
         image_bytes = b"".join(chunks)
 
     updated = await apply_redaction(
-        db, redaction, image_bytes=image_bytes,
-        storage=StorageService(minio_client),
+        db, redaction, image_bytes=image_bytes
     )
     await db.commit()
     await db.refresh(updated)

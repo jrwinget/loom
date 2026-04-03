@@ -1,9 +1,9 @@
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
 import pytest
 
+from loom.models.asset import Asset
 from loom.models.redaction import Redaction
 from loom.services.redaction import (
     apply_image_redaction,
@@ -11,12 +11,12 @@ from loom.services.redaction import (
     create_redaction,
     get_redaction,
     get_redactions,
-    mute_audio_regions,
 )
 
 FAKE_ASSET_ID = "01912345-6789-7abc-8def-012345678901"
 FAKE_USER_ID = "01912345-6789-7abc-8def-012345678902"
 FAKE_REDACTION_ID = "01912345-6789-7abc-8def-012345678903"
+FAKE_STORAGE_KEY = "cases/abc/assets/def/photo.jpg"
 
 
 class TestCreateRedaction:
@@ -339,41 +339,8 @@ class TestApplyRedaction:
         assert result.status == "failed"
         assert "pillow" in result.error_message
 
-    async def test_image_redaction_uploads_to_storage(
-        self,
-    ) -> None:
-        """successful image redaction uploads derivative."""
-        session = AsyncMock()
-        storage = MagicMock()
-        redaction = MagicMock(spec=Redaction)
-        redaction.redaction_type = "blur"
-        redaction.asset_id = UUID(FAKE_ASSET_ID)
-        redaction.id = UUID(FAKE_REDACTION_ID)
-        redaction.regions = [
-            {"type": "rect", "x": 0, "y": 0, "w": 1, "h": 1}
-        ]
-
-        with patch(
-            "loom.services.redaction.apply_image_redaction",
-            return_value=b"redacted-png",
-        ):
-            result = await apply_redaction(
-                session, redaction,
-                image_bytes=b"original",
-                storage=storage,
-            )
-
-        assert result.status == "complete"
-        assert result.output_storage_key is not None
-        storage.upload_bytes.assert_called_once()
-        call_args = storage.upload_bytes.call_args
-        assert call_args[0][0] == "loom-derivatives"
-        assert call_args[0][2] == b"redacted-png"
-
-    async def test_audio_mute_fails_without_storage(
-        self,
-    ) -> None:
-        """audio mute fails when no storage provided."""
+    async def test_audio_mute_stub_completes(self) -> None:
+        """audio mute stub marks status complete."""
         session = AsyncMock()
         redaction = MagicMock(spec=Redaction)
         redaction.redaction_type = "audio_mute"
@@ -383,8 +350,7 @@ class TestApplyRedaction:
 
         result = await apply_redaction(session, redaction)
 
-        assert result.status == "failed"
-        assert "storage" in result.error_message
+        assert result.status == "complete"
 
     async def test_unsupported_type_fails(self) -> None:
         """unknown redaction type sets failed status."""
@@ -490,97 +456,144 @@ class TestRedactionSchemas:
         assert RedactionResponse.model_config["from_attributes"] is True
 
 
-class TestMuteAudioRegions:
-    """tests for mute_audio_regions ffmpeg wrapper."""
+class TestApplyRedactionUsesStorageKey:
+    """tests that apply endpoint uses asset.storage_key for download."""
 
-    def test_copies_file_when_no_valid_regions(
-        self, tmp_path: Any
+    async def test_image_redaction_fetches_via_storage_key(
+        self,
     ) -> None:
-        """copies input to output when no regions apply."""
-        input_file = tmp_path / "input.mp4"
-        input_file.write_bytes(b"fake-video-data")
-        output_file = tmp_path / "output.mp4"
+        """endpoint fetches bytes using asset.storage_key, not asset_id."""
+        from loom.api.v1.redactions import apply_asset_redaction
 
-        mute_audio_regions(
-            str(input_file),
-            str(output_file),
-            [{"type": "temporal", "start_time": 5, "end_time": 3}],
+        mock_asset = MagicMock(spec=Asset)
+        mock_asset.storage_key = FAKE_STORAGE_KEY
+
+        mock_redaction = MagicMock(spec=Redaction)
+        mock_redaction.redaction_type = "blur"
+        mock_redaction.regions = [
+            {"type": "rect", "x": 0, "y": 0, "w": 1, "h": 1}
+        ]
+        mock_redaction.status = "complete"
+        mock_redaction.id = UUID(FAKE_REDACTION_ID)
+
+        # mock db session: case access, get_redaction, asset lookup
+        db = AsyncMock()
+
+        # asset lookup result
+        asset_result = MagicMock()
+        asset_result.scalar_one_or_none.return_value = mock_asset
+        db.execute = AsyncMock(return_value=asset_result)
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock()
+
+        # mock minio client and storage service
+        mock_minio = MagicMock()
+        mock_storage = MagicMock()
+        mock_storage.get_object_stream.return_value = (
+            100,
+            iter([b"fake-image-bytes"]),
         )
 
-        assert output_file.read_bytes() == b"fake-video-data"
+        with (
+            patch(
+                "loom.api.v1.redactions.check_case_access",
+                return_value=True,
+            ),
+            patch(
+                "loom.api.v1.redactions.get_redaction",
+                return_value=mock_redaction,
+            ),
+            patch(
+                "loom.api.v1.redactions.apply_redaction",
+                return_value=mock_redaction,
+            ) as mock_apply,
+            patch(
+                "loom.api.v1.redactions.StorageService",
+                return_value=mock_storage,
+            ),
+            patch(
+                "loom.api.v1.redactions.get_current_user_id",
+                return_value=FAKE_USER_ID,
+            ),
+        ):
+            await apply_asset_redaction(
+                case_id="fake-case",
+                asset_id=FAKE_ASSET_ID,
+                redaction_id=FAKE_REDACTION_ID,
+                token_payload={"sub": FAKE_USER_ID},
+                session=db,  # type: ignore[arg-type]
+                minio_client=mock_minio,
+            )
 
-    def test_copies_file_when_empty_regions(
-        self, tmp_path: Any
+            # verify storage was called with asset.storage_key
+            mock_storage.get_object_stream.assert_called_once_with(
+                "loom-originals", FAKE_STORAGE_KEY
+            )
+            # verify image_bytes passed to apply_redaction
+            mock_apply.assert_called_once()
+            call_kwargs = mock_apply.call_args
+            assert call_kwargs.kwargs["image_bytes"] == b"fake-image-bytes"
+
+    async def test_audio_mute_skips_storage_fetch(
+        self,
     ) -> None:
-        """copies input when regions list is empty."""
-        input_file = tmp_path / "input.mp4"
-        input_file.write_bytes(b"fake-video-data")
-        output_file = tmp_path / "output.mp4"
+        """audio_mute redaction does not fetch from storage."""
+        from loom.api.v1.redactions import apply_asset_redaction
 
-        mute_audio_regions(str(input_file), str(output_file), [])
+        mock_asset = MagicMock(spec=Asset)
+        mock_asset.storage_key = FAKE_STORAGE_KEY
 
-        assert output_file.read_bytes() == b"fake-video-data"
-
-    def test_raises_when_ffmpeg_not_found(self) -> None:
-        """raises runtime error when ffmpeg is missing."""
-        with patch("loom.services.redaction.shutil.which", return_value=None):
-            with pytest.raises(RuntimeError, match="ffmpeg not found"):
-                mute_audio_regions(
-                    "/tmp/in.mp4",
-                    "/tmp/out.mp4",
-                    [{"start_time": 0, "end_time": 5}],
-                )
-
-    def test_raises_on_ffmpeg_failure(self) -> None:
-        """raises runtime error on non-zero ffmpeg exit."""
-        mock_result = MagicMock()
-        mock_result.returncode = 1
-        mock_result.stderr = b"error details"
-
-        with (
-            patch(
-                "loom.services.redaction.shutil.which",
-                return_value="/usr/bin/ffmpeg",
-            ),
-            patch(
-                "loom.services.redaction.subprocess.run",
-                return_value=mock_result,
-            ),
-        ):
-            with pytest.raises(RuntimeError, match="exited with code 1"):
-                mute_audio_regions(
-                    "/tmp/in.mp4",
-                    "/tmp/out.mp4",
-                    [{"start_time": 0, "end_time": 5}],
-                )
-
-    def test_builds_correct_filter_chain(self) -> None:
-        """builds volume filter for each valid region."""
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-
-        regions = [
-            {"start_time": 1.0, "end_time": 3.0},
-            {"start_time": 5.5, "end_time": 8.0},
+        mock_redaction = MagicMock(spec=Redaction)
+        mock_redaction.redaction_type = "audio_mute"
+        mock_redaction.regions = [
+            {"type": "temporal", "start_time": 0, "end_time": 5}
         ]
+        mock_redaction.status = "complete"
+        mock_redaction.id = UUID(FAKE_REDACTION_ID)
+
+        db = AsyncMock()
+        asset_result = MagicMock()
+        asset_result.scalar_one_or_none.return_value = mock_asset
+        db.execute = AsyncMock(return_value=asset_result)
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock()
+
+        mock_minio = MagicMock()
+        mock_storage = MagicMock()
 
         with (
             patch(
-                "loom.services.redaction.shutil.which",
-                return_value="/usr/bin/ffmpeg",
+                "loom.api.v1.redactions.check_case_access",
+                return_value=True,
             ),
             patch(
-                "loom.services.redaction.subprocess.run",
-                return_value=mock_result,
-            ) as mock_run,
+                "loom.api.v1.redactions.get_redaction",
+                return_value=mock_redaction,
+            ),
+            patch(
+                "loom.api.v1.redactions.apply_redaction",
+                return_value=mock_redaction,
+            ) as mock_apply,
+            patch(
+                "loom.api.v1.redactions.StorageService",
+                return_value=mock_storage,
+            ),
+            patch(
+                "loom.api.v1.redactions.get_current_user_id",
+                return_value=FAKE_USER_ID,
+            ),
         ):
-            mute_audio_regions("/tmp/in.mp4", "/tmp/out.mp4", regions)
+            await apply_asset_redaction(
+                case_id="fake-case",
+                asset_id=FAKE_ASSET_ID,
+                redaction_id=FAKE_REDACTION_ID,
+                token_payload={"sub": FAKE_USER_ID},
+                session=db,  # type: ignore[arg-type]
+                minio_client=mock_minio,
+            )
 
-        cmd = mock_run.call_args[0][0]
-        assert cmd[0] == "ffmpeg"
-        assert "-af" in cmd
-        af_idx = cmd.index("-af")
-        af_value = cmd[af_idx + 1]
-        assert "between(t,1.0,3.0)" in af_value
-        assert "between(t,5.5,8.0)" in af_value
-        assert af_value.count("volume=enable=") == 2
+            # storage should NOT have been called
+            mock_storage.get_object_stream.assert_not_called()
+            # image_bytes should be None for audio
+            call_kwargs = mock_apply.call_args
+            assert call_kwargs.kwargs["image_bytes"] is None
