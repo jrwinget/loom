@@ -1,131 +1,108 @@
 import { useState } from 'react';
-import { useMfaSetup, useMfaVerify } from '@/hooks/use-mfa';
+import { useAuthStore } from '@/stores/auth-store';
+
+interface MfaSetupData {
+  provisioning_uri: string;
+  qr_code_base64: string;
+}
 
 export function MfaSetup() {
+  const token = useAuthStore((s) => s.token);
+  const [data, setData] = useState<MfaSetupData | null>(null);
   const [code, setCode] = useState('');
-  const [recoveryCodes, setRecoveryCodes] = useState<
-    string[] | null
-  >(null);
+  const [verified, setVerified] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const setup = useMfaSetup();
-  const verify = useMfaVerify();
-
-  const provisioningUri = setup.data?.provisioning_uri;
-
-  const handleSetup = () => {
-    setup.mutate(undefined);
-  };
-
-  const handleVerify = () => {
-    verify.mutate(
-      { code },
-      {
-        onSuccess: (data) => {
-          setRecoveryCodes(data.recovery_codes);
-          setCode('');
+  async function handleSetup() {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/v1/mfa/setup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-      },
-    );
-  };
+      });
+      if (!res.ok) {
+        const body = (await res.json()) as { detail?: string };
+        throw new Error(body.detail ?? res.statusText);
+      }
+      setData((await res.json()) as MfaSetupData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'setup failed');
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  if (recoveryCodes) {
+  async function handleVerify() {
+    setError('');
+    try {
+      const res = await fetch('/api/v1/mfa/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ code }),
+      });
+      if (!res.ok) {
+        const body = (await res.json()) as { detail?: string };
+        throw new Error(body.detail ?? res.statusText);
+      }
+      const result = (await res.json()) as { success: boolean };
+      if (result.success) {
+        setVerified(true);
+      } else {
+        setError('invalid code, try again');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'verification failed');
+    }
+  }
+
+  if (verified) {
+    return <p>MFA enabled successfully.</p>;
+  }
+
+  if (!data) {
     return (
-      <div className="mfa-setup">
-        <h3>MFA Enabled</h3>
-        <p>
-          Save these recovery codes in a safe place. Each
-          code can only be used once.
-        </p>
-        <ul className="recovery-codes">
-          {recoveryCodes.map((c) => (
-            <li key={c}>
-              <code>{c}</code>
-            </li>
-          ))}
-        </ul>
-        <p>
-          <strong>
-            These codes will not be shown again.
-          </strong>
-        </p>
+      <div>
+        <button onClick={handleSetup} disabled={loading}>
+          {loading ? 'Setting up...' : 'Enable MFA'}
+        </button>
+        {error && <p role="alert">{error}</p>}
       </div>
     );
   }
 
   return (
-    <div className="mfa-setup">
-      <h3>Set Up Two-Factor Authentication</h3>
-
-      {!provisioningUri ? (
-        <button
-          onClick={handleSetup}
-          disabled={setup.isPending}
-          type="button"
-        >
-          {setup.isPending
-            ? 'Generating...'
-            : 'Generate QR Code'}
+    <div>
+      <p>Scan this QR code with your authenticator app:</p>
+      <img
+        src={`data:image/png;base64,${data.qr_code_base64}`}
+        alt="TOTP QR code"
+        width={200}
+        height={200}
+      />
+      <div>
+        <label htmlFor="mfa-code">Verification code:</label>
+        <input
+          id="mfa-code"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={6}
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+        />
+        <button onClick={handleVerify} disabled={code.length < 6}>
+          Verify
         </button>
-      ) : (
-        <div>
-          <p>
-            Scan this QR code with your authenticator app:
-          </p>
-          <img
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(provisioningUri)}`}
-            alt="TOTP QR Code"
-            width={200}
-            height={200}
-          />
-          <p>
-            Or enter this key manually:{' '}
-            <code>
-              {new URL(provisioningUri).searchParams.get(
-                'secret',
-              )}
-            </code>
-          </p>
-
-          <div>
-            <label htmlFor="totp-code">
-              Enter the 6-digit code from your app:
-            </label>
-            <input
-              id="totp-code"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              autoComplete="one-time-code"
-            />
-            <button
-              onClick={handleVerify}
-              disabled={
-                verify.isPending || code.length !== 6
-              }
-              type="button"
-            >
-              {verify.isPending
-                ? 'Verifying...'
-                : 'Verify & Enable'}
-            </button>
-          </div>
-
-          {verify.isError && (
-            <p className="error">
-              Invalid code. Please try again.
-            </p>
-          )}
-        </div>
-      )}
-
-      {setup.isError && (
-        <p className="error">
-          Failed to set up MFA. Please try again.
-        </p>
-      )}
+      </div>
+      {error && <p role="alert">{error}</p>}
     </div>
   );
 }

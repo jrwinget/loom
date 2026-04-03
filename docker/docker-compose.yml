@@ -192,6 +192,15 @@ services:
     profiles:
       - backup
 
+  grafana:
+    image: grafana/grafana:11-alpine
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme}
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    profiles:
+      - observability
+
   jaeger:
     image: jaegertracing/all-in-one:1.54
     environment:
@@ -202,41 +211,7 @@ services:
     profiles:
       - observability
 
-  prometheus:
-    image: prom/prometheus:latest
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
-      - prometheus-data:/prometheus
-    ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.retention.time=15d"
-    profiles:
-      - observability
-
-  grafana:
-    image: grafana/grafana:latest
-    environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
-    volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - grafana-data:/var/lib/grafana
-    ports:
-      - "${GRAFANA_PORT:-3001}:3000"
-    depends_on:
-      - prometheus
-    profiles:
-      - observability
-
 volumes:
   postgres-data:
   minio-data:
   backup-data:
-  prometheus-data:
-  grafana-data:

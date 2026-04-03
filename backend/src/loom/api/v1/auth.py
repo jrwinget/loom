@@ -24,6 +24,7 @@ from loom.security.auth import (
     hash_password,
     verify_password,
 )
+from loom.metrics import auth_failures
 from loom.security.rate_limit import limiter
 from loom.security.rbac import (
     get_current_user_id,
@@ -147,6 +148,7 @@ async def login(
     if not user or not verify_password(
         body.password, user.password_hash
     ):
+        auth_failures.labels(reason="wrong_password").inc()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid credentials",
