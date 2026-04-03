@@ -8,7 +8,7 @@ from loom.config import Settings
 
 # fixed test values
 _USER_ID = UUID("01912345-6789-7abc-8def-0123456789ab")
-_SECRET = "test-secret-key-that-is-long-enough-for-validation"  # noqa: S105
+_SECRET = "test-secret-key-that-is-long-enough-for-validation"
 
 
 @pytest.fixture(autouse=True)

@@ -51,4 +51,4 @@ def test_valid_password_accepted():
         display_name="Test",
         password="ValidPass123",
     )
-    assert user.password == "ValidPass123"  # noqa: S105
+    assert user.password == "ValidPass123"

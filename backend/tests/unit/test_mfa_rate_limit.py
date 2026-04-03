@@ -11,7 +11,7 @@ from loom.security.auth import hash_password
 
 _USER_ID = UUID("01912345-6789-7abc-8def-0123456789ab")
 _USER_EMAIL = "mfa@example.com"
-_USER_PASSWORD = "securepassword123"  # noqa: S105
+_USER_PASSWORD = "securepassword123"
 _USER_HASH = hash_password(_USER_PASSWORD)
 
 

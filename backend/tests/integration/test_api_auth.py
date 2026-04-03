@@ -18,7 +18,7 @@ from loom.security.auth import (
 _USER_ID = UUID("01912345-6789-7abc-8def-0123456789ab")
 _USER_EMAIL = "admin@example.com"
 _USER_DISPLAY = "Admin User"
-_USER_PASSWORD = "securepassword123"  # noqa: S105
+_USER_PASSWORD = "securepassword123"
 _USER_HASH = hash_password(_USER_PASSWORD)
 
 
@@ -209,7 +209,7 @@ async def test_login_correct_credentials(
     data = resp.json()
     assert "access_token" in data
     assert "refresh_token" in data
-    assert data["token_type"] == "bearer"  # noqa: S105
+    assert data["token_type"] == "bearer"
 
 
 async def test_login_wrong_password(

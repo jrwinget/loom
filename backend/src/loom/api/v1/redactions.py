@@ -200,7 +200,7 @@ async def apply_asset_redaction(
     rtype = redaction.redaction_type
     if rtype in ("blur", "black_box", "pixelate"):
         storage = StorageService(minio_client)
-        size, chunks = storage.get_object_stream(
+        _size, chunks = storage.get_object_stream(
             ORIGINALS_BUCKET, asset.storage_key
         )
         image_bytes = b"".join(chunks)

@@ -162,6 +162,18 @@ def create_app() -> FastAPI:
     # routes
     application.include_router(api_router, prefix="/api/v1")
 
+    # prometheus metrics
+    try:
+        from prometheus_fastapi_instrumentator import Instrumentator
+
+        Instrumentator().instrument(application).expose(
+            application,
+            include_in_schema=False,
+            should_gzip=False,
+        )
+    except ImportError:
+        pass
+
     # csrf double-submit validation
     application.add_middleware(CSRFMiddleware)
 

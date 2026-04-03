@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { getCookieValue } from '@/lib/api-client';
+import { getCsrfToken } from '@/lib/api-client';
 
-describe('getCookieValue', () => {
+describe('getCsrfToken', () => {
   function withCookie(cookie: string, fn: () => void) {
     Object.defineProperty(document, 'cookie', {
       value: cookie,
@@ -21,37 +21,37 @@ describe('getCookieValue', () => {
 
   it('returns null when no cookies are set', () => {
     withCookie('', () => {
-      expect(getCookieValue('csrf_token')).toBeNull();
+      expect(getCsrfToken()).toBeNull();
     });
   });
 
-  it('returns the value for an existing cookie', () => {
+  it('returns the value for the csrf_token cookie', () => {
     withCookie('csrf_token=abc123; session=xyz', () => {
-      expect(getCookieValue('csrf_token')).toBe('abc123');
+      expect(getCsrfToken()).toBe('abc123');
     });
   });
 
   it('handles base64 values with embedded equals signs', () => {
-    withCookie('csrf_token=YWJj=def==; other=val', () => {
-      expect(getCookieValue('csrf_token')).toBe('YWJj=def==');
+    withCookie('csrf_token=YWJj%3Ddef%3D%3D; other=val', () => {
+      expect(getCsrfToken()).toBe('YWJj=def==');
     });
   });
 
-  it('returns null for a missing cookie name', () => {
+  it('returns null when csrf_token is missing', () => {
     withCookie('session=xyz; theme=dark', () => {
-      expect(getCookieValue('csrf_token')).toBeNull();
+      expect(getCsrfToken()).toBeNull();
     });
   });
 
   it('does not match partial cookie names', () => {
     withCookie('my_csrf_token=bad; csrf_token=good', () => {
-      expect(getCookieValue('csrf_token')).toBe('good');
+      expect(getCsrfToken()).toBe('good');
     });
   });
 
   it('decodes uri-encoded values', () => {
     withCookie('csrf_token=hello%20world', () => {
-      expect(getCookieValue('csrf_token')).toBe('hello world');
+      expect(getCsrfToken()).toBe('hello world');
     });
   });
 });

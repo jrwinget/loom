@@ -31,7 +31,7 @@ class TestGetMinioClient:
         settings = MagicMock()
         settings.minio_endpoint = "localhost:9000"
         settings.minio_access_key = "key"
-        settings.minio_secret_key = "secret"  # noqa: S105
+        settings.minio_secret_key = "secret"
         settings.minio_secure = False
         mock_settings.return_value = settings
 

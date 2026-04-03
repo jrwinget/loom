@@ -192,12 +192,29 @@ services:
     profiles:
       - backup
 
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    profiles:
+      - observability
+
   grafana:
     image: grafana/grafana:11-alpine
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
     ports:
       - "${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      - prometheus
     profiles:
       - observability
 
@@ -215,3 +232,5 @@ volumes:
   postgres-data:
   minio-data:
   backup-data:
+  prometheus-data:
+  grafana-data:

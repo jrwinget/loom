@@ -179,7 +179,7 @@ async def search_case(
             facet_subqueries.append(
                 select(
                     literal(ftype).label("facet_type"),
-                    fq.scalar_subquery().label("cnt"),
+                    fq.scalar_subquery().label("cnt"),  # type: ignore[attr-defined]
                 )
             )
         facet_union = union_all(*facet_subqueries).subquery()

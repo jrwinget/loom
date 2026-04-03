@@ -180,7 +180,7 @@ def mute_audio_regions(
         "-c:v", "copy",
         output_path,
     ]
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: S603 — ffmpeg with controlled args
         cmd,
         capture_output=True,
         timeout=300,

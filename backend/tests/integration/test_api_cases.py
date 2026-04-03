@@ -19,7 +19,7 @@ _MEMBERSHIP_ID = UUID("01912345-6789-7abc-8def-012345678901")
 
 _ADMIN_EMAIL = "admin@example.com"
 _USER_EMAIL = "user@example.com"
-_USER_PASSWORD = "securepassword123"  # noqa: S105
+_USER_PASSWORD = "securepassword123"
 _USER_HASH = hash_password(_USER_PASSWORD)
 _NOW = datetime(2025, 1, 1, tzinfo=UTC)
 

@@ -15,7 +15,7 @@ class ApiClientError extends Error {
   }
 }
 
-function getCsrfToken(): string | null {
+export function getCsrfToken(): string | null {
   const match = document.cookie.match(
     /(?:^|;\s*)csrf_token=([^;]*)/,
   );

@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 _ASSET_ID = "01912345-6789-7abc-8def-0123456789ef"
 _EXPORT_ID = "01912345-6789-7abc-8def-0123456789ab"
 _CASE_ID = "01912345-6789-7abc-8def-0123456789ab"
@@ -73,7 +72,7 @@ class TestIngestActivityMetrics:
         )
 
         asset = _make_asset(sha256="aaa", sha512="bbb")
-        ctx, session = _mock_session(asset)
+        ctx, _session = _mock_session(asset)
         mock_session_ctx.return_value = ctx
         mock_hash.return_value = ("aaa", "bbb")
 

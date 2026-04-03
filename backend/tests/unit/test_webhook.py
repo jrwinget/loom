@@ -18,7 +18,7 @@ class TestHmacSignature:
 
     def test_compute_signature(self) -> None:
         """signature matches expected hmac-sha256."""
-        secret = "my-secret"  # noqa: S105
+        secret = "my-secret"
         payload = '{"event": "test"}'
         expected = hmac.new(
             secret.encode(),
@@ -36,7 +36,7 @@ class TestHmacSignature:
 
     def test_different_payloads_differ(self) -> None:
         """different payloads produce different signatures."""
-        secret = "same-secret"  # noqa: S105
+        secret = "same-secret"
         sig1 = compute_signature(secret, '{"a": 1}')
         sig2 = compute_signature(secret, '{"b": 2}')
         assert sig1 != sig2

@@ -15,7 +15,7 @@ from loom.security.auth import (
     decode_token,
 )
 
-_SECRET = "test-secret-key-that-is-long-enough-for-validation"  # noqa: S105
+_SECRET = "test-secret-key-that-is-long-enough-for-validation"
 
 
 @pytest.fixture(autouse=True)

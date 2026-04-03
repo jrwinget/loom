@@ -118,8 +118,8 @@ async def update_annotation(
     await session.commit()
     await session.refresh(annotation)
 
-    annotation.created_by_email = email  # type: ignore[attr-defined]
-    return annotation
+    annotation.created_by_email = email
+    return annotation  # type: ignore[no-any-return]
 
 
 async def delete_annotation(

@@ -1,7 +1,7 @@
 """Add soft delete columns to annotations
 
-Revision ID: 003
-Revises: 002
+Revision ID: 006
+Revises: 005
 Create Date: 2026-04-03
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "003"
-down_revision: Union[str, None] = "002"
+revision: str = "006"
+down_revision: Union[str, None] = "005"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
