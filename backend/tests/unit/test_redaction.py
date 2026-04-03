@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
@@ -10,6 +11,7 @@ from loom.services.redaction import (
     create_redaction,
     get_redaction,
     get_redactions,
+    mute_audio_regions,
 )
 
 FAKE_ASSET_ID = "01912345-6789-7abc-8def-012345678901"
@@ -337,8 +339,41 @@ class TestApplyRedaction:
         assert result.status == "failed"
         assert "pillow" in result.error_message
 
-    async def test_audio_mute_stub_completes(self) -> None:
-        """audio mute stub marks status complete."""
+    async def test_image_redaction_uploads_to_storage(
+        self,
+    ) -> None:
+        """successful image redaction uploads derivative."""
+        session = AsyncMock()
+        storage = MagicMock()
+        redaction = MagicMock(spec=Redaction)
+        redaction.redaction_type = "blur"
+        redaction.asset_id = UUID(FAKE_ASSET_ID)
+        redaction.id = UUID(FAKE_REDACTION_ID)
+        redaction.regions = [
+            {"type": "rect", "x": 0, "y": 0, "w": 1, "h": 1}
+        ]
+
+        with patch(
+            "loom.services.redaction.apply_image_redaction",
+            return_value=b"redacted-png",
+        ):
+            result = await apply_redaction(
+                session, redaction,
+                image_bytes=b"original",
+                storage=storage,
+            )
+
+        assert result.status == "complete"
+        assert result.output_storage_key is not None
+        storage.upload_bytes.assert_called_once()
+        call_args = storage.upload_bytes.call_args
+        assert call_args[0][0] == "loom-derivatives"
+        assert call_args[0][2] == b"redacted-png"
+
+    async def test_audio_mute_fails_without_storage(
+        self,
+    ) -> None:
+        """audio mute fails when no storage provided."""
         session = AsyncMock()
         redaction = MagicMock(spec=Redaction)
         redaction.redaction_type = "audio_mute"
@@ -348,7 +383,8 @@ class TestApplyRedaction:
 
         result = await apply_redaction(session, redaction)
 
-        assert result.status == "complete"
+        assert result.status == "failed"
+        assert "storage" in result.error_message
 
     async def test_unsupported_type_fails(self) -> None:
         """unknown redaction type sets failed status."""
@@ -452,3 +488,99 @@ class TestRedactionSchemas:
         from loom.schemas.redaction import RedactionResponse
 
         assert RedactionResponse.model_config["from_attributes"] is True
+
+
+class TestMuteAudioRegions:
+    """tests for mute_audio_regions ffmpeg wrapper."""
+
+    def test_copies_file_when_no_valid_regions(
+        self, tmp_path: Any
+    ) -> None:
+        """copies input to output when no regions apply."""
+        input_file = tmp_path / "input.mp4"
+        input_file.write_bytes(b"fake-video-data")
+        output_file = tmp_path / "output.mp4"
+
+        mute_audio_regions(
+            str(input_file),
+            str(output_file),
+            [{"type": "temporal", "start_time": 5, "end_time": 3}],
+        )
+
+        assert output_file.read_bytes() == b"fake-video-data"
+
+    def test_copies_file_when_empty_regions(
+        self, tmp_path: Any
+    ) -> None:
+        """copies input when regions list is empty."""
+        input_file = tmp_path / "input.mp4"
+        input_file.write_bytes(b"fake-video-data")
+        output_file = tmp_path / "output.mp4"
+
+        mute_audio_regions(str(input_file), str(output_file), [])
+
+        assert output_file.read_bytes() == b"fake-video-data"
+
+    def test_raises_when_ffmpeg_not_found(self) -> None:
+        """raises runtime error when ffmpeg is missing."""
+        with patch("loom.services.redaction.shutil.which", return_value=None):
+            with pytest.raises(RuntimeError, match="ffmpeg not found"):
+                mute_audio_regions(
+                    "/tmp/in.mp4",
+                    "/tmp/out.mp4",
+                    [{"start_time": 0, "end_time": 5}],
+                )
+
+    def test_raises_on_ffmpeg_failure(self) -> None:
+        """raises runtime error on non-zero ffmpeg exit."""
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = b"error details"
+
+        with (
+            patch(
+                "loom.services.redaction.shutil.which",
+                return_value="/usr/bin/ffmpeg",
+            ),
+            patch(
+                "loom.services.redaction.subprocess.run",
+                return_value=mock_result,
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="exited with code 1"):
+                mute_audio_regions(
+                    "/tmp/in.mp4",
+                    "/tmp/out.mp4",
+                    [{"start_time": 0, "end_time": 5}],
+                )
+
+    def test_builds_correct_filter_chain(self) -> None:
+        """builds volume filter for each valid region."""
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        regions = [
+            {"start_time": 1.0, "end_time": 3.0},
+            {"start_time": 5.5, "end_time": 8.0},
+        ]
+
+        with (
+            patch(
+                "loom.services.redaction.shutil.which",
+                return_value="/usr/bin/ffmpeg",
+            ),
+            patch(
+                "loom.services.redaction.subprocess.run",
+                return_value=mock_result,
+            ) as mock_run,
+        ):
+            mute_audio_regions("/tmp/in.mp4", "/tmp/out.mp4", regions)
+
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == "ffmpeg"
+        assert "-af" in cmd
+        af_idx = cmd.index("-af")
+        af_value = cmd[af_idx + 1]
+        assert "between(t,1.0,3.0)" in af_value
+        assert "between(t,5.5,8.0)" in af_value
+        assert af_value.count("volume=enable=") == 2

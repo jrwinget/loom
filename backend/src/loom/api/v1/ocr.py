@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -10,6 +11,8 @@ from loom.models.ocr import OcrRegion
 from loom.schemas.ocr import OcrRegionResponse, OcrResultResponse
 from loom.security.rbac import get_current_user_id, require_authenticated
 from loom.services.case import check_case_access
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/cases/{case_id}/assets/{asset_id}/ocr",
@@ -113,16 +116,29 @@ async def start_ocr_workflow(
             detail="insufficient case access",
         )
 
-    # TODO: start temporal workflow when worker is running
-    # client = await Client.connect(settings.temporal_host)
-    # handle = await client.start_workflow(
-    #     OcrWorkflow.run,
-    #     asset_id,
-    #     id=f"ocr-{asset_id}",
-    #     task_queue="loom-ingest",
-    # )
+    workflow_id = f"ocr-{asset_id}"
+    try:
+        from temporalio.client import Client
+
+        from loom.config import get_settings
+        from loom.workflows.ocr_workflow import OcrWorkflow
+
+        settings = get_settings()
+        client = await Client.connect(settings.temporal_host)
+        await client.start_workflow(
+            OcrWorkflow.run,
+            asset_id,
+            id=workflow_id,
+            task_queue="loom-ingest",
+        )
+    except Exception:
+        logger.warning(
+            "failed to start ocr workflow for asset %s",
+            asset_id,
+        )
+
     return {
         "status": "accepted",
         "asset_id": asset_id,
-        "workflow_id": f"ocr-{asset_id}",
+        "workflow_id": workflow_id,
     }

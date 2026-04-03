@@ -1,12 +1,15 @@
+import asyncio
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from minio import Minio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from loom.dependencies import get_db_session
+from loom.dependencies import get_db_session, get_minio_client
 from loom.models.scene import Scene
 from loom.schemas.scene import (
     SceneListResponse,
@@ -17,6 +20,9 @@ from loom.security.rbac import (
     require_authenticated,
 )
 from loom.services.case import check_case_access
+from loom.services.storage import DERIVATIVES_BUCKET, StorageService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/cases/{case_id}/assets/{asset_id}/scenes",
@@ -87,6 +93,9 @@ async def get_scene_thumbnail(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
+    minio_client: Minio = Depends(  # noqa: B008
+        get_minio_client
+    ),
 ) -> dict[str, Any]:
     """redirect to presigned thumbnail url (viewer+)."""
     db: AsyncSession = session  # type: ignore[assignment]
@@ -113,8 +122,17 @@ async def get_scene_thumbnail(
             detail="no thumbnail available",
         )
 
-    # TODO: generate presigned url from minio
-    return {"thumbnail_url": scene.thumbnail_key}
+    storage = StorageService(minio_client)
+    loop = asyncio.get_running_loop()
+    url = await loop.run_in_executor(
+        None,
+        storage.get_presigned_download_url,
+        DERIVATIVES_BUCKET,
+        scene.thumbnail_key,
+        900,
+    )
+
+    return {"thumbnail_url": url}
 
 
 @router.post(
@@ -147,17 +165,32 @@ async def start_scene_detection(
             detail="insufficient case access",
         )
 
-    # TODO: start temporal workflow
-    # client = await Client.connect(settings.temporal_host)
-    # await client.start_workflow(
-    #     SceneDetectionWorkflow.run,
-    #     asset_id,
-    #     id=f"scene-detect-{asset_id}",
-    #     task_queue="loom-ingest",
-    # )
+    workflow_id = f"scene-detect-{asset_id}"
+    try:
+        from temporalio.client import Client
+
+        from loom.config import get_settings
+        from loom.workflows.scene_workflow import (
+            SceneDetectionWorkflow,
+        )
+
+        settings = get_settings()
+        client = await Client.connect(settings.temporal_host)
+        await client.start_workflow(
+            SceneDetectionWorkflow.run,
+            asset_id,
+            id=workflow_id,
+            task_queue="loom-ingest",
+        )
+    except Exception:
+        logger.warning(
+            "failed to start scene detection workflow for %s",
+            asset_id,
+        )
 
     return {
         "status": "accepted",
         "asset_id": asset_id,
+        "workflow_id": workflow_id,
         "message": "scene detection started",
     }
