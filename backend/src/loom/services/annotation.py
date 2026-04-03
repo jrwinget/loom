@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -45,6 +46,7 @@ async def list_annotations(
         select(Annotation, User.email)
         .join(User, User.id == Annotation.created_by)
         .where(Annotation.case_id == UUID(case_id))
+        .where(Annotation.deleted_at.is_(None))
     )
 
     if asset_id is not None:
@@ -78,11 +80,12 @@ async def get_annotation(
     session: AsyncSession,
     annotation_id: str,
 ) -> Annotation | None:
-    """get a single annotation by id."""
+    """get a single annotation by id (excludes soft-deleted)."""
     result = await session.execute(
         select(Annotation, User.email)
         .join(User, User.id == Annotation.created_by)
         .where(Annotation.id == UUID(annotation_id))
+        .where(Annotation.deleted_at.is_(None))
     )
     row = result.one_or_none()
     if row is None:
@@ -92,62 +95,50 @@ async def get_annotation(
     return annotation  # type: ignore[no-any-return]
 
 
-_UPDATABLE_ANNOTATION_FIELDS: frozenset[str] = frozenset(
-    {
-        "content",
-        "type",
-        "time_start",
-        "time_end",
-        "frame_number",
-        "spatial_region",
-    }
-)
-
-
 async def update_annotation(
     session: AsyncSession,
     annotation_id: str,
     data: dict[str, Any],
-    case_id: str | None = None,
 ) -> Annotation:
     """update annotation fields."""
-    query = select(Annotation).where(Annotation.id == UUID(annotation_id))
-    if case_id is not None:
-        query = query.where(Annotation.case_id == UUID(case_id))
-    result = await session.execute(query)
-    annotation = result.scalar_one_or_none()
-    if annotation is None:
-        raise ValueError("annotation not found")
+    result = await session.execute(
+        select(Annotation, User.email)
+        .join(User, User.id == Annotation.created_by)
+        .where(Annotation.id == UUID(annotation_id))
+        .where(Annotation.deleted_at.is_(None))
+    )
+    row = result.one()
+    annotation = row[0]
+    email = row[1]
 
     for key, value in data.items():
         if value is not None:
-            if key not in _UPDATABLE_ANNOTATION_FIELDS:
-                raise ValueError(f"field '{key}' is not updatable")
             setattr(annotation, key, value)
 
     await session.commit()
     await session.refresh(annotation)
 
-    # fetch email
-    user_result = await session.execute(
-        select(User.email).where(User.id == annotation.created_by)
-    )
-    annotation.created_by_email = user_result.scalar_one()  # type: ignore[attr-defined]
+    annotation.created_by_email = email  # type: ignore[attr-defined]
     return annotation
 
 
 async def delete_annotation(
     session: AsyncSession,
     annotation_id: str,
+    user_id: str | None = None,
 ) -> bool:
-    """delete an annotation."""
+    """soft-delete an annotation."""
     result = await session.execute(
-        select(Annotation).where(Annotation.id == UUID(annotation_id))
+        select(Annotation)
+        .where(Annotation.id == UUID(annotation_id))
+        .where(Annotation.deleted_at.is_(None))
     )
     annotation = result.scalar_one_or_none()
     if not annotation:
         return False
 
-    await session.delete(annotation)
+    annotation.deleted_at = datetime.now(UTC)
+    if user_id:
+        annotation.deleted_by = UUID(user_id)
     await session.commit()
     return True

@@ -1,6 +1,7 @@
 import asyncio
 import tempfile
 from collections.abc import AsyncIterator
+from pathlib import Path
 from typing import Any
 
 from fastapi import (
@@ -14,6 +15,7 @@ from fastapi import (
 )
 from minio import Minio
 from sqlalchemy.ext.asyncio import AsyncSession
+from uuid_extensions import uuid7
 
 from loom.dependencies import get_db_session, get_minio_client
 from loom.schemas.asset import (
@@ -99,22 +101,13 @@ async def upload_asset(
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id, "editor")
 
-    # stream file in chunks to avoid loading entire file in memory
-    chunk_size = 64 * 1024  # 64kb
-    chunks: list[bytes] = []
-    total_size = 0
-    while True:
-        chunk = await file.read(chunk_size)
-        if not chunk:
-            break
-        total_size += len(chunk)
-        if total_size > _MAX_UPLOAD_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="file exceeds 100mb limit",
-            )
-        chunks.append(chunk)
-    data = b"".join(chunks)
+    # read file bytes
+    data = await file.read()
+    if len(data) > _MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="file exceeds 100mb limit",
+        )
 
     filename = file.filename or "unnamed"
 
@@ -203,9 +196,6 @@ async def get_upload_url(
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id, "editor")
 
-    # use a placeholder asset id for the key
-    from uuid_extensions import uuid7
-
     placeholder_id = str(uuid7())
     storage_key = generate_storage_key(case_id, placeholder_id, body.filename)
 
@@ -267,35 +257,24 @@ async def complete_presigned_upload(
 
     storage_key, filename = exists
 
-    # download and compute hashes
-    from pathlib import Path
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_path = tmp.name
 
-    data_head = b""
-    file_size = 0
-    sha256 = ""
-    sha512 = ""
-    tmp_path: str | None = None
-    try:
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
+    await loop.run_in_executor(
+        None,
+        storage.download_file,
+        ORIGINALS_BUCKET,
+        storage_key,
+        tmp_path,
+    )
 
-        await loop.run_in_executor(
-            None,
-            storage.download_file,
-            ORIGINALS_BUCKET,
-            storage_key,
-            tmp_path,
-        )
+    path = Path(tmp_path)
+    file_size = path.stat().st_size
+    sha256, sha512 = compute_hashes_from_file(path)
 
-        path = Path(tmp_path)
-        file_size = path.stat().st_size
-        sha256, sha512 = compute_hashes_from_file(path)
-
-        # read a small chunk for type detection
-        data_head = path.read_bytes()[:8192]
-    finally:
-        if tmp_path:
-            Path(tmp_path).unlink(missing_ok=True)
+    # read a small chunk for type detection
+    data_head = path.read_bytes()[:8192]
+    path.unlink()
 
     try:
         mime_type, media_type = validate_file_type(data_head, filename)

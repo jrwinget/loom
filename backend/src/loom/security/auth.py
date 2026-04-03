@@ -8,6 +8,8 @@ from argon2.exceptions import VerifyMismatchError
 
 from loom.config import get_settings
 
+JWT_ALGORITHM = "HS256"
+
 _ph = PasswordHasher()
 
 
@@ -37,23 +39,7 @@ def create_access_token(user_id: str, role: str) -> str:
     return jwt.encode(
         payload,
         settings.secret_key,
-        algorithm="HS256",
-    )
-
-
-def create_mfa_challenge_token(user_id: str) -> str:
-    """create a short-lived token for mfa challenge step."""
-    settings = get_settings()
-    payload = {
-        "sub": user_id,
-        "type": "mfa_challenge",
-        "jti": str(uuid4()),
-        "exp": datetime.now(UTC) + timedelta(minutes=5),
-    }
-    return jwt.encode(
-        payload,
-        settings.secret_key,
-        algorithm="HS256",
+        algorithm=JWT_ALGORITHM,
     )
 
 
@@ -70,7 +56,7 @@ def create_refresh_token(user_id: str) -> str:
     return jwt.encode(
         payload,
         settings.secret_key,
-        algorithm="HS256",
+        algorithm=JWT_ALGORITHM,
     )
 
 
@@ -80,5 +66,5 @@ def decode_token(token: str) -> dict[str, Any]:
     return jwt.decode(
         token,
         settings.secret_key,
-        algorithms=["HS256"],
+        algorithms=[JWT_ALGORITHM],
     )

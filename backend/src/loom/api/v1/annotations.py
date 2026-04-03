@@ -2,9 +2,11 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.dependencies import get_db_session
+from loom.models.user import User
 from loom.schemas.annotation import (
     AnnotationCreate,
     AnnotationListResponse,
@@ -57,11 +59,6 @@ async def create_annotation_endpoint(
 
     data = body.model_dump()
     annotation = await create_annotation(db, case_id, data, user_id)
-
-    # fetch creator email
-    from sqlalchemy import select
-
-    from loom.models.user import User
 
     result = await db.execute(
         select(User.email).where(User.id == annotation.created_by)
@@ -272,7 +269,7 @@ async def delete_annotation_endpoint(
             detail="annotation not found",
         )
 
-    deleted = await delete_annotation(db, annotation_id)
+    deleted = await delete_annotation(db, annotation_id, user_id)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

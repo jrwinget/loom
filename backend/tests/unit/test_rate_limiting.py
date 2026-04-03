@@ -11,7 +11,7 @@ from loom.security.auth import hash_password
 
 _USER_ID = UUID("01912345-6789-7abc-8def-0123456789ab")
 _USER_EMAIL = "admin@example.com"
-_USER_PASSWORD = "SecurePassword123"  # noqa: S105
+_USER_PASSWORD = "securepassword123"  # noqa: S105
 _USER_HASH = hash_password(_USER_PASSWORD)
 
 
@@ -44,8 +44,10 @@ class MockSession:
         self._user = user
         self._added: list[object] = []
 
-    async def execute(self, stmt):
+    async def execute(self, stmt, params=None):
         stmt_str = str(stmt)
+        if "pg_advisory" in stmt_str.lower():
+            return MagicMock()
         if "count" in stmt_str.lower():
             result = MagicMock()
             result.scalar_one.return_value = self._user_count
@@ -175,7 +177,7 @@ async def test_register_rate_limit(
                     json={
                         "email": f"user{i}@example.com",
                         "display_name": f"User {i}",
-                        "password": "SecurePassword123",
+                        "password": "securepassword123",
                     },
                 )
                 # 201 for successful registration
@@ -187,7 +189,7 @@ async def test_register_rate_limit(
                 json={
                     "email": "extra@example.com",
                     "display_name": "Extra",
-                    "password": "SecurePassword123",
+                    "password": "securepassword123",
                 },
             )
             assert resp.status_code == 429
