@@ -1,90 +1,72 @@
-"""csrf double-submit cookie middleware.
+import hmac
 
-generates a random token, sets it as a non-httponly cookie,
-and validates that state-changing requests (POST, PUT, PATCH,
-DELETE) include the same token in the X-CSRF-Token header.
-
-safe methods (GET, HEAD, OPTIONS) are exempt and receive
-a fresh cookie on each response.  auth endpoints (login,
-register, refresh) are also exempt since they establish
-the session rather than act within one.
-"""
-
-import secrets
-
-from fastapi import Request, Response
-from starlette.middleware.base import (
-    BaseHTTPMiddleware,
-    RequestResponseEndpoint,
-)
+import structlog
+from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
-CSRF_COOKIE_NAME = "loom_csrf"
-CSRF_HEADER_NAME = "X-CSRF-Token"
-CSRF_TOKEN_LENGTH = 32  # bytes; hex-encoded = 64 chars
+log = structlog.get_logger()
 
-_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+_MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
-# paths exempt from csrf validation — these establish
-# sessions rather than acting within one
-_EXEMPT_PATHS = frozenset(
-    {
-        "/api/v1/auth/login",
-        "/api/v1/auth/register",
-        "/api/v1/auth/refresh",
-        "/api/v1/auth/logout",
-        "/api/v1/health",
-    }
-)
+_EXEMPT_PATHS = {
+    "/api/v1/auth/login",
+    "/api/v1/auth/register",
+    "/api/v1/auth/register-user",
+    "/api/v1/auth/mfa/challenge",
+    "/api/v1/health",
+    "/metrics",
+}
 
 
-def _generate_csrf_token() -> str:
-    """generate a cryptographically random csrf token."""
-    return secrets.token_hex(CSRF_TOKEN_LENGTH)
+class CSRFMiddleware:
+    """double-submit cookie validation for mutating requests."""
 
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-class CsrfMiddleware(BaseHTTPMiddleware):
-    """double-submit cookie csrf protection."""
-
-    async def dispatch(
+    async def __call__(
         self,
-        request: Request,
-        call_next: RequestResponseEndpoint,
-    ) -> Response:
-        if request.method in _SAFE_METHODS:
-            response = await call_next(request)
-            # set a fresh csrf cookie for the client to read
-            if CSRF_COOKIE_NAME not in request.cookies:
-                token = _generate_csrf_token()
-                # secure=true when served over https
-                is_secure = request.url.scheme == "https"
-                response.set_cookie(
-                    CSRF_COOKIE_NAME,
-                    token,
-                    httponly=False,  # js must read it
-                    samesite="strict",
-                    secure=is_secure,
-                    path="/",
-                )
-            return response
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+    ) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        # exempt auth endpoints that establish sessions
+        request = Request(scope, receive, send)
+
+        if request.method not in _MUTATING_METHODS:
+            await self.app(scope, receive, send)
+            return
+
         if request.url.path in _EXEMPT_PATHS:
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
-        # state-changing method: validate csrf token
-        cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
-        header_token = request.headers.get(CSRF_HEADER_NAME)
+        # skip csrf check for requests without a session
+        # cookie (pure jwt/api-key auth)
+        csrf_cookie = request.cookies.get("csrf_token")
+        if csrf_cookie is None:
+            await self.app(scope, receive, send)
+            return
 
-        if (
-            not cookie_token
-            or not header_token
-            or not secrets.compare_digest(cookie_token, header_token)
+        csrf_header = request.headers.get("x-csrf-token", "")
+
+        if not csrf_header or not hmac.compare_digest(
+            csrf_cookie, csrf_header
         ):
-            return JSONResponse(
-                status_code=403,
-                content={"detail": "CSRF token missing or invalid"},
+            await log.awarning(
+                "csrf validation failed",
+                path=request.url.path,
+                method=request.method,
             )
+            response = JSONResponse(
+                status_code=403,
+                content={"detail": "CSRF token mismatch"},
+            )
+            await response(scope, receive, send)
+            return
 
-        response = await call_next(request)
-        return response
+        await self.app(scope, receive, send)

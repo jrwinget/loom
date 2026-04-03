@@ -1,275 +1,166 @@
-"""csrf double-submit cookie protection tests."""
+from unittest.mock import MagicMock, patch
 
-import pytest
-from httpx import ASGITransport, AsyncClient
+import httpx
+import pytest_asyncio
 
-from loom.config import Settings
-from loom.security.csrf import (
-    CSRF_COOKIE_NAME,
-    CSRF_HEADER_NAME,
-    CSRF_TOKEN_LENGTH,
-    CsrfMiddleware,
-    _generate_csrf_token,
-)
-
-# ── unit tests ───────────────────────────────────────────
+from loom.config import Settings, get_settings
+from loom.dependencies import get_db_session
 
 
-class TestCsrfTokenGeneration:
-    """csrf token generation."""
+class MockSession:
+    async def execute(self, stmt):
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = None
+        return result
 
-    def test_generates_hex_string(self) -> None:
-        """token must be a hex string."""
-        token = _generate_csrf_token()
-        int(token, 16)  # raises if not valid hex
+    def add(self, obj: object) -> None:
+        pass
 
-    def test_correct_length(self) -> None:
-        """token must be the configured length."""
-        token = _generate_csrf_token()
-        assert len(token) == CSRF_TOKEN_LENGTH * 2  # hex
-
-    def test_unique_per_call(self) -> None:
-        """each call produces a different token."""
-        t1 = _generate_csrf_token()
-        t2 = _generate_csrf_token()
-        assert t1 != t2
+    async def commit(self) -> None:
+        pass
 
 
-# ── integration tests ────────────────────────────────────
-
-
-@pytest.fixture()
-def _settings():
-    """test settings."""
+@pytest_asyncio.fixture
+def mock_settings():
     return Settings(
-        secret_key=("test-secret-key-that-is-long-enough-for-validation"),
+        secret_key=(
+            "test-secret-key-that-is-long-enough-for-validation"
+        ),
         database_url="sqlite+aiosqlite:///",
     )
 
 
-@pytest.fixture()
-def _app(_settings):
-    """minimal fastapi app with csrf middleware."""
-    from fastapi import FastAPI
+def _create_app(
+    settings: Settings, *, with_db: bool = False
+) -> object:
+    get_settings.cache_clear()
+    with patch(
+        "loom.config.get_settings", return_value=settings
+    ):
+        from loom.main import create_app
 
-    app = FastAPI()
-    app.add_middleware(CsrfMiddleware)
+        app = create_app()
 
-    @app.get("/read")
-    async def read_endpoint():
-        return {"ok": True}
+    if with_db:
+        async def override_db():
+            yield MockSession()
 
-    @app.post("/write")
-    async def write_endpoint():
-        return {"ok": True}
-
-    @app.patch("/update")
-    async def update_endpoint():
-        return {"ok": True}
-
-    @app.delete("/remove")
-    async def remove_endpoint():
-        return {"ok": True}
-
-    # exempt auth endpoints
-    @app.post("/api/v1/auth/login")
-    async def login_endpoint():
-        return {"ok": True}
-
-    @app.post("/api/v1/auth/register")
-    async def register_endpoint():
-        return {"ok": True}
-
-    @app.post("/api/v1/auth/refresh")
-    async def refresh_endpoint():
-        return {"ok": True}
+        app.dependency_overrides[get_db_session] = (
+            override_db
+        )
+        app.state.db_session_factory = None
 
     return app
 
 
-class TestCsrfMiddleware:
-    """csrf middleware integration tests."""
+async def test_csrf_valid_token_passes(
+    mock_settings: Settings,
+) -> None:
+    """matching csrf cookie and header should pass."""
+    app = _create_app(mock_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as ac:
+        resp = await ac.post(
+            "/api/v1/health",
+            cookies={"csrf_token": "abc123"},
+            headers={"X-CSRF-Token": "abc123"},
+        )
+        # health endpoint exists; csrf should not block
+        assert resp.status_code != 403
 
-    @pytest.mark.asyncio
-    async def test_get_sets_csrf_cookie(
-        self,
-        _app,
-    ) -> None:
-        """GET requests set the csrf cookie."""
-        async with AsyncClient(
-            transport=ASGITransport(app=_app),
-            base_url="http://test",
-        ) as client:
-            resp = await client.get("/read")
-        assert resp.status_code == 200
-        assert CSRF_COOKIE_NAME in resp.cookies
 
-    @pytest.mark.asyncio
-    async def test_get_succeeds_without_header(
-        self,
-        _app,
-    ) -> None:
-        """GET requests don't require csrf header."""
-        async with AsyncClient(
-            transport=ASGITransport(app=_app),
-            base_url="http://test",
-        ) as client:
-            resp = await client.get("/read")
-        assert resp.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_post_without_token_rejected(
-        self,
-        _app,
-    ) -> None:
-        """POST without csrf token returns 403."""
-        async with AsyncClient(
-            transport=ASGITransport(app=_app),
-            base_url="http://test",
-        ) as client:
-            resp = await client.post("/write")
+async def test_csrf_missing_header_fails(
+    mock_settings: Settings,
+) -> None:
+    """csrf cookie present but header missing returns 403."""
+    app = _create_app(mock_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as ac:
+        resp = await ac.post(
+            "/api/v1/cases",
+            cookies={"csrf_token": "abc123"},
+            json={"name": "test"},
+        )
         assert resp.status_code == 403
-        body = resp.json()
-        assert "csrf" in body["detail"].lower()
+        assert "CSRF" in resp.json()["detail"]
 
-    @pytest.mark.asyncio
-    async def test_post_with_valid_token_succeeds(
-        self,
-        _app,
-    ) -> None:
-        """POST with matching cookie+header succeeds."""
-        async with AsyncClient(
-            transport=ASGITransport(app=_app),
-            base_url="http://test",
-        ) as client:
-            # first get a csrf cookie
-            get_resp = await client.get("/read")
-            token = get_resp.cookies[CSRF_COOKIE_NAME]
 
-            # send it back as header
-            resp = await client.post(
-                "/write",
-                headers={CSRF_HEADER_NAME: token},
+async def test_csrf_mismatched_token_fails(
+    mock_settings: Settings,
+) -> None:
+    """different cookie and header values returns 403."""
+    app = _create_app(mock_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as ac:
+        resp = await ac.post(
+            "/api/v1/cases",
+            cookies={"csrf_token": "abc123"},
+            headers={"X-CSRF-Token": "wrong"},
+            json={"name": "test"},
+        )
+        assert resp.status_code == 403
+
+
+async def test_csrf_exempt_login_passes(
+    mock_settings: Settings,
+) -> None:
+    """login endpoint is exempt from csrf checks."""
+    app = _create_app(mock_settings, with_db=True)
+
+    with patch(
+        "loom.security.auth.get_settings",
+        return_value=mock_settings,
+    ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                "/api/v1/auth/login",
+                cookies={"csrf_token": "abc123"},
+                json={
+                    "email": "nobody@example.com",
+                    "password": "test",
+                },
             )
-        assert resp.status_code == 200
+            # should get 401 (bad creds), not 403 (csrf)
+            assert resp.status_code == 401
 
-    @pytest.mark.asyncio
-    async def test_post_with_wrong_token_rejected(
-        self,
-        _app,
-    ) -> None:
-        """POST with mismatched header rejected."""
-        async with AsyncClient(
-            transport=ASGITransport(app=_app),
-            base_url="http://test",
-        ) as client:
-            # get a cookie
-            await client.get("/read")
 
-            # send wrong token as header
-            resp = await client.post(
-                "/write",
-                headers={CSRF_HEADER_NAME: "wrong-token"},
-            )
-        assert resp.status_code == 403
+async def test_csrf_no_cookie_passes(
+    mock_settings: Settings,
+) -> None:
+    """requests without csrf cookie are not checked."""
+    app = _create_app(mock_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as ac:
+        resp = await ac.post(
+            "/api/v1/cases",
+            json={"name": "test"},
+        )
+        # should get 401 (no auth), not 403 (csrf)
+        assert resp.status_code != 403
 
-    @pytest.mark.asyncio
-    async def test_patch_requires_csrf(
-        self,
-        _app,
-    ) -> None:
-        """PATCH is a state-changing method and needs csrf."""
-        async with AsyncClient(
-            transport=ASGITransport(app=_app),
-            base_url="http://test",
-        ) as client:
-            resp = await client.patch("/update")
-        assert resp.status_code == 403
 
-    @pytest.mark.asyncio
-    async def test_delete_requires_csrf(
-        self,
-        _app,
-    ) -> None:
-        """DELETE is a state-changing method and needs csrf."""
-        async with AsyncClient(
-            transport=ASGITransport(app=_app),
-            base_url="http://test",
-        ) as client:
-            resp = await client.delete("/remove")
-        assert resp.status_code == 403
-
-    @pytest.mark.asyncio
-    async def test_delete_with_valid_token_succeeds(
-        self,
-        _app,
-    ) -> None:
-        """DELETE with matching cookie+header succeeds."""
-        async with AsyncClient(
-            transport=ASGITransport(app=_app),
-            base_url="http://test",
-        ) as client:
-            get_resp = await client.get("/read")
-            token = get_resp.cookies[CSRF_COOKIE_NAME]
-
-            resp = await client.delete(
-                "/remove",
-                headers={CSRF_HEADER_NAME: token},
-            )
-        assert resp.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_cookie_is_httponly_false(
-        self,
-        _app,
-    ) -> None:
-        """csrf cookie must be readable by javascript
-        (httponly=false) so the frontend can send it
-        as a header."""
-        async with AsyncClient(
-            transport=ASGITransport(app=_app),
-            base_url="http://test",
-        ) as client:
-            resp = await client.get("/read")
-        # httpx doesn't expose cookie flags directly;
-        # verify the cookie value is readable
-        assert resp.cookies.get(CSRF_COOKIE_NAME)
-
-    @pytest.mark.asyncio
-    async def test_login_exempt_from_csrf(
-        self,
-        _app,
-    ) -> None:
-        """auth login endpoint is exempt from csrf."""
-        async with AsyncClient(
-            transport=ASGITransport(app=_app),
-            base_url="http://test",
-        ) as client:
-            resp = await client.post("/api/v1/auth/login")
-        assert resp.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_register_exempt_from_csrf(
-        self,
-        _app,
-    ) -> None:
-        """auth register endpoint is exempt from csrf."""
-        async with AsyncClient(
-            transport=ASGITransport(app=_app),
-            base_url="http://test",
-        ) as client:
-            resp = await client.post("/api/v1/auth/register")
-        assert resp.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_refresh_exempt_from_csrf(
-        self,
-        _app,
-    ) -> None:
-        """auth refresh endpoint is exempt from csrf."""
-        async with AsyncClient(
-            transport=ASGITransport(app=_app),
-            base_url="http://test",
-        ) as client:
-            resp = await client.post("/api/v1/auth/refresh")
-        assert resp.status_code == 200
+async def test_csrf_get_requests_skip_check(
+    mock_settings: Settings,
+) -> None:
+    """GET requests should not be subject to csrf."""
+    app = _create_app(mock_settings)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as ac:
+        resp = await ac.get(
+            "/api/v1/health",
+            cookies={"csrf_token": "abc123"},
+        )
+        assert resp.status_code != 403

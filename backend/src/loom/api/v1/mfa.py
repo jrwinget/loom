@@ -9,6 +9,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Request,
     status,
 )
 from sqlalchemy import select
@@ -30,6 +31,7 @@ from loom.security.auth import (
     create_refresh_token,
     decode_token,
 )
+from loom.security.rate_limit import limiter
 from loom.security.rbac import (
     get_current_user_id,
     require_authenticated,
@@ -174,7 +176,9 @@ async def mfa_verify(
 @router.post(
     "/challenge", response_model=MfaChallengeResponse
 )
+@limiter.limit("5/minute")
 async def mfa_challenge(
+    request: Request,
     body: MfaChallengeRequest,
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session

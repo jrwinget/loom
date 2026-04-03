@@ -4,6 +4,7 @@ from loom.api.v1.annotations import router as annotations_router
 from loom.api.v1.assets import router as assets_router
 from loom.api.v1.audit import router as audit_router
 from loom.api.v1.auth import router as auth_router
+from loom.api.v1.mfa import router as mfa_router
 from loom.api.v1.cases import router as cases_router
 from loom.api.v1.clusters import router as clusters_router
 from loom.api.v1.conflicts import router as conflicts_router
@@ -13,7 +14,6 @@ from loom.api.v1.exports import router as exports_router
 from loom.api.v1.geo import router as geo_router
 from loom.api.v1.health import router as health_router
 from loom.api.v1.integrity import router as integrity_router
-from loom.api.v1.mfa import router as mfa_router
 from loom.api.v1.ocr import router as ocr_router
 from loom.api.v1.organizations import router as organizations_router
 from loom.api.v1.plugins import router as plugins_router

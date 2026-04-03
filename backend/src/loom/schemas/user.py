@@ -21,7 +21,6 @@ class UserResponse(BaseModel):
     display_name: str
     role: str
     is_active: bool
-    mfa_enabled: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -31,6 +30,11 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"  # noqa: S105
+
+
+class MfaRequiredResponse(BaseModel):
+    requires_mfa: bool = True
+    challenge_token: str
 
 
 class TokenRefresh(BaseModel):
