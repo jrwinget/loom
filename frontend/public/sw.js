@@ -13,7 +13,6 @@ const SHELL_URLS = [
 // api paths to cache for offline viewing
 const CACHEABLE_API = [
   '/api/v1/cases',
-  '/api/v1/health',
 ];
 
 self.addEventListener('install', (event) => {
@@ -50,12 +49,12 @@ self.addEventListener('fetch', (event) => {
 
   // api requests: network-first, fallback to cache
   if (url.pathname.startsWith('/api/v1/')) {
-    // cache case list, individual cases, and case-scoped
-    // read-only resources for offline access
     const shouldCache = CACHEABLE_API.some(
-      (p) => url.pathname === p,
-    ) || url.pathname.match(
-      /^\/api\/v1\/cases\/[^/]+(\/assets|\/timeline|\/annotations)?$/,
+      (p) =>
+        url.pathname === p
+        || url.pathname.match(
+          /^\/api\/v1\/cases\/[^/]+$/,
+        ),
     );
 
     if (shouldCache) {
@@ -64,7 +63,9 @@ self.addEventListener('fetch', (event) => {
           .then((response) => {
             const clone = response.clone();
             caches.open(API_CACHE).then((cache) => {
-              cache.put(event.request, clone);
+              cache.put(event.request, clone).catch((err) => {
+                console.warn('sw: api cache put failed', err);
+              });
             });
             return response;
           })
@@ -105,7 +106,9 @@ self.addEventListener('fetch', (event) => {
         return fetch(event.request).then((response) => {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, clone);
+            cache.put(event.request, clone).catch((err) => {
+              console.warn('sw: static cache put failed', err);
+            });
           });
           return response;
         });

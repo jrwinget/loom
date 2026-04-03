@@ -2,18 +2,21 @@ import { useAuthStore } from '@/stores/auth-store';
 import type { ApiError } from '@/types';
 
 const BASE_URL = '/api/v1';
-const DEFAULT_TIMEOUT_MS = 30_000;
-const CSRF_COOKIE_NAME = 'loom_csrf';
-const CSRF_HEADER_NAME = 'X-CSRF-Token';
 
-function getCsrfToken(): string | null {
-  const match = document.cookie
-    .split('; ')
-    .find((c) => c.startsWith(`${CSRF_COOKIE_NAME}=`));
-  return match ? match.split('=')[1] : null;
+export function getCookieValue(name: string): string | null {
+  const cookies = document.cookie;
+  if (!cookies) return null;
+  for (const part of cookies.split('; ')) {
+    const eqIdx = part.indexOf('=');
+    if (eqIdx === -1) continue;
+    if (part.substring(0, eqIdx) === name) {
+      return decodeURIComponent(part.substring(eqIdx + 1));
+    }
+  }
+  return null;
 }
 
-export class ApiClientError extends Error {
+class ApiClientError extends Error {
   status: number;
   detail: string;
 
@@ -25,10 +28,7 @@ export class ApiClientError extends Error {
   }
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = useAuthStore.getState().token;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -39,39 +39,15 @@ async function request<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // attach csrf token for state-changing requests
-  const method = (options.method ?? 'GET').toUpperCase();
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-    const csrfToken = getCsrfToken();
-    if (csrfToken) {
-      headers[CSRF_HEADER_NAME] = csrfToken;
-    }
+  const csrfToken = getCookieValue('csrf_token');
+  if (csrfToken && options.method && options.method !== 'GET') {
+    headers['X-CSRF-Token'] = csrfToken;
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    DEFAULT_TIMEOUT_MS,
-  );
-
-  let response: Response;
-  try {
-    response = await fetch(`${BASE_URL}${path}`, {
-      ...options,
-      headers,
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if (
-      err instanceof DOMException &&
-      err.name === 'AbortError'
-    ) {
-      throw new ApiClientError(408, 'Request timed out');
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeout);
-  }
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers,
+  });
 
   if (response.status === 401) {
     useAuthStore.getState().clearAuth();
@@ -97,8 +73,7 @@ async function request<T>(
 }
 
 export const apiClient = {
-  get: <T>(path: string): Promise<T> =>
-    request<T>(path, { method: 'GET' }),
+  get: <T>(path: string): Promise<T> => request<T>(path, { method: 'GET' }),
 
   post: <T>(path: string, body?: unknown): Promise<T> =>
     request<T>(path, {
