@@ -5,11 +5,13 @@ uses shared engine/session instead of per-call engine creation.
 
 import hashlib
 import logging
+import time
 from typing import Any
 
 from sqlalchemy import select
 from temporalio import activity
 
+from loom.metrics import ingest_workflow_duration
 from loom.models.export_bundle import ExportBundle
 from loom.workflows.shared import get_db_session, get_minio_client
 
@@ -28,42 +30,62 @@ async def build_export(export_id: str) -> str:
     idempotent: re-running overwrites the export artifact
     and resets status.
     """
-    logger.info("building export bundle %s", export_id)
-
-    async with get_db_session() as session:
-        result = await session.execute(
-            select(ExportBundle).where(ExportBundle.id == export_id)
+    start = time.monotonic()
+    try:
+        logger.info(
+            "building export bundle %s", export_id
         )
-        export = result.scalar_one_or_none()
-        if not export:
-            logger.error("export %s not found", export_id)
-            return export_id
 
-        # update status to processing
-        export.status = "processing"
-        await session.commit()
+        async with get_db_session() as session:
+            result = await session.execute(
+                select(ExportBundle).where(
+                    ExportBundle.id == export_id
+                )
+            )
+            export = result.scalar_one_or_none()
+            if not export:
+                logger.error(
+                    "export %s not found", export_id
+                )
+                return export_id
 
-        case_id = str(export.case_id)
-        fmt = export.format
-
-        try:
-            if fmt == "pdf_report":
-                await _build_pdf_report(session, export, case_id)
-            elif fmt == "json_manifest":
-                await _build_json_manifest(session, export, case_id)
-            else:
-                # default: zip bundle
-                await _build_zip_bundle(session, export, case_id)
-
-            export.status = "complete"
+            export.status = "processing"
             await session.commit()
-        except Exception:
-            logger.exception("failed to build export %s", export_id)
-            export.status = "failed"
-            await session.commit()
-            raise
 
-    return export_id
+            case_id = str(export.case_id)
+            fmt = export.format
+
+            try:
+                if fmt == "pdf_report":
+                    await _build_pdf_report(
+                        session, export, case_id
+                    )
+                elif fmt == "json_manifest":
+                    await _build_json_manifest(
+                        session, export, case_id
+                    )
+                else:
+                    await _build_zip_bundle(
+                        session, export, case_id
+                    )
+
+                export.status = "complete"
+                await session.commit()
+            except Exception:
+                logger.exception(
+                    "failed to build export %s",
+                    export_id,
+                )
+                export.status = "failed"
+                await session.commit()
+                raise
+
+        return export_id
+    finally:
+        duration = time.monotonic() - start
+        ingest_workflow_duration.labels(
+            activity="export"
+        ).observe(duration)
 
 
 async def _build_pdf_report(
