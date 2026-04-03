@@ -1,0 +1,41 @@
+groups:
+  - name: loom_alerts
+    rules:
+      - alert: HighErrorRate
+        expr: >
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate (>5% over 5 min)"
+
+      - alert: AuditWriteFailure
+        expr: increase(loom_audit_failures_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Audit log write failures detected"
+
+      - alert: DBPoolExhaustion
+        expr: >
+          (loom_db_pool_checked_out / loom_db_pool_size) > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DB connection pool >80% utilization"
+
+      - alert: IngestWorkflowFailures
+        expr: >
+          increase(loom_ingest_workflow_duration_seconds_count{activity="error"}[15m]) > 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 3 ingest workflow failures in 15 min"

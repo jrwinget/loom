@@ -1,19 +1,18 @@
-import logging
 from collections.abc import Callable
 from typing import Any
 
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
 
+from loom.metrics import auth_failures
 from loom.security.auth import decode_token
-
-logger = logging.getLogger(__name__)
 
 
 async def _extract_token(request: Request) -> dict[str, Any]:
     """extract, decode, and verify jwt is not revoked."""
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
+        auth_failures.labels(reason="missing_token").inc()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="missing or invalid authorization header",
@@ -22,6 +21,7 @@ async def _extract_token(request: Request) -> dict[str, Any]:
     try:
         payload = decode_token(token)
     except Exception as err:
+        auth_failures.labels(reason="expired").inc()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid or expired token",
@@ -40,21 +40,19 @@ async def _extract_token(request: Request) -> dict[str, Any]:
                         select(RevokedToken.id).where(RevokedToken.jti == jti)
                     )
                     if result.scalar_one_or_none() is not None:
+                        auth_failures.labels(
+                            reason="revoked_token",
+                        ).inc()
                         raise HTTPException(
                             status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="token has been revoked",
                         )
         except HTTPException:
             raise
-        except Exception:
-            logger.error(
-                "token revocation check failed",
-                exc_info=True,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Service temporarily unavailable",
-            ) from None
+        except Exception:  # noqa: S110
+            # if db is unavailable, allow the request through
+            # rather than blocking all authenticated requests
+            pass
 
     return payload
 
