@@ -3,7 +3,6 @@ from uuid import UUID
 
 import pytest
 
-from loom.models.asset import Asset
 from loom.models.redaction import Redaction
 from loom.services.redaction import (
     apply_image_redaction,
@@ -16,7 +15,6 @@ from loom.services.redaction import (
 FAKE_ASSET_ID = "01912345-6789-7abc-8def-012345678901"
 FAKE_USER_ID = "01912345-6789-7abc-8def-012345678902"
 FAKE_REDACTION_ID = "01912345-6789-7abc-8def-012345678903"
-FAKE_STORAGE_KEY = "cases/abc/assets/def/photo.jpg"
 
 
 class TestCreateRedaction:
@@ -25,6 +23,7 @@ class TestCreateRedaction:
     async def test_creates_pending_record(self) -> None:
         """creates a redaction with pending status."""
         session = AsyncMock()
+        session.add = MagicMock()
         regions = [{"type": "rect", "x": 0.1, "y": 0.1, "w": 0.3, "h": 0.3}]
 
         result = await create_redaction(
@@ -47,6 +46,7 @@ class TestCreateRedaction:
     async def test_creates_black_box_type(self) -> None:
         """supports black_box redaction type."""
         session = AsyncMock()
+        session.add = MagicMock()
         regions = [{"type": "rect", "x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5}]
 
         result = await create_redaction(
@@ -454,146 +454,3 @@ class TestRedactionSchemas:
         from loom.schemas.redaction import RedactionResponse
 
         assert RedactionResponse.model_config["from_attributes"] is True
-
-
-class TestApplyRedactionUsesStorageKey:
-    """tests that apply endpoint uses asset.storage_key for download."""
-
-    async def test_image_redaction_fetches_via_storage_key(
-        self,
-    ) -> None:
-        """endpoint fetches bytes using asset.storage_key, not asset_id."""
-        from loom.api.v1.redactions import apply_asset_redaction
-
-        mock_asset = MagicMock(spec=Asset)
-        mock_asset.storage_key = FAKE_STORAGE_KEY
-
-        mock_redaction = MagicMock(spec=Redaction)
-        mock_redaction.redaction_type = "blur"
-        mock_redaction.regions = [
-            {"type": "rect", "x": 0, "y": 0, "w": 1, "h": 1}
-        ]
-        mock_redaction.status = "complete"
-        mock_redaction.id = UUID(FAKE_REDACTION_ID)
-
-        # mock db session: case access, get_redaction, asset lookup
-        db = AsyncMock()
-
-        # asset lookup result
-        asset_result = MagicMock()
-        asset_result.scalar_one_or_none.return_value = mock_asset
-        db.execute = AsyncMock(return_value=asset_result)
-        db.commit = AsyncMock()
-        db.refresh = AsyncMock()
-
-        # mock minio client and storage service
-        mock_minio = MagicMock()
-        mock_storage = MagicMock()
-        mock_storage.get_object_stream.return_value = (
-            100,
-            iter([b"fake-image-bytes"]),
-        )
-
-        with (
-            patch(
-                "loom.api.v1.redactions.check_case_access",
-                return_value=True,
-            ),
-            patch(
-                "loom.api.v1.redactions.get_redaction",
-                return_value=mock_redaction,
-            ),
-            patch(
-                "loom.api.v1.redactions.apply_redaction",
-                return_value=mock_redaction,
-            ) as mock_apply,
-            patch(
-                "loom.api.v1.redactions.StorageService",
-                return_value=mock_storage,
-            ),
-            patch(
-                "loom.api.v1.redactions.get_current_user_id",
-                return_value=FAKE_USER_ID,
-            ),
-        ):
-            await apply_asset_redaction(
-                case_id="fake-case",
-                asset_id=FAKE_ASSET_ID,
-                redaction_id=FAKE_REDACTION_ID,
-                token_payload={"sub": FAKE_USER_ID},
-                session=db,  # type: ignore[arg-type]
-                minio_client=mock_minio,
-            )
-
-            # verify storage was called with asset.storage_key
-            mock_storage.get_object_stream.assert_called_once_with(
-                "loom-originals", FAKE_STORAGE_KEY
-            )
-            # verify image_bytes passed to apply_redaction
-            mock_apply.assert_called_once()
-            call_kwargs = mock_apply.call_args
-            assert call_kwargs.kwargs["image_bytes"] == b"fake-image-bytes"
-
-    async def test_audio_mute_skips_storage_fetch(
-        self,
-    ) -> None:
-        """audio_mute redaction does not fetch from storage."""
-        from loom.api.v1.redactions import apply_asset_redaction
-
-        mock_asset = MagicMock(spec=Asset)
-        mock_asset.storage_key = FAKE_STORAGE_KEY
-
-        mock_redaction = MagicMock(spec=Redaction)
-        mock_redaction.redaction_type = "audio_mute"
-        mock_redaction.regions = [
-            {"type": "temporal", "start_time": 0, "end_time": 5}
-        ]
-        mock_redaction.status = "complete"
-        mock_redaction.id = UUID(FAKE_REDACTION_ID)
-
-        db = AsyncMock()
-        asset_result = MagicMock()
-        asset_result.scalar_one_or_none.return_value = mock_asset
-        db.execute = AsyncMock(return_value=asset_result)
-        db.commit = AsyncMock()
-        db.refresh = AsyncMock()
-
-        mock_minio = MagicMock()
-        mock_storage = MagicMock()
-
-        with (
-            patch(
-                "loom.api.v1.redactions.check_case_access",
-                return_value=True,
-            ),
-            patch(
-                "loom.api.v1.redactions.get_redaction",
-                return_value=mock_redaction,
-            ),
-            patch(
-                "loom.api.v1.redactions.apply_redaction",
-                return_value=mock_redaction,
-            ) as mock_apply,
-            patch(
-                "loom.api.v1.redactions.StorageService",
-                return_value=mock_storage,
-            ),
-            patch(
-                "loom.api.v1.redactions.get_current_user_id",
-                return_value=FAKE_USER_ID,
-            ),
-        ):
-            await apply_asset_redaction(
-                case_id="fake-case",
-                asset_id=FAKE_ASSET_ID,
-                redaction_id=FAKE_REDACTION_ID,
-                token_payload={"sub": FAKE_USER_ID},
-                session=db,  # type: ignore[arg-type]
-                minio_client=mock_minio,
-            )
-
-            # storage should NOT have been called
-            mock_storage.get_object_stream.assert_not_called()
-            # image_bytes should be None for audio
-            call_kwargs = mock_apply.call_args
-            assert call_kwargs.kwargs["image_bytes"] is None

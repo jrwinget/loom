@@ -141,6 +141,7 @@ def test_sign_manifest_handles_unsupported_format() -> None:
 async def test_create_provenance_record_stores_correctly() -> None:
     """create_provenance_record persists record with correct fields."""
     session = AsyncMock()
+    session.add = MagicMock()
     manifest = {"claim_generator": CLAIM_GENERATOR}
     actions = [{"action": "uploaded"}]
 
@@ -337,6 +338,7 @@ class TestEmbedProvenanceInExport:
         asset.sha256_hash = "b" * 64
 
         session = AsyncMock()
+        session.add = MagicMock()
         call_count = 0
 
         async def mock_execute(query: object) -> MagicMock:
