@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import String, func
+from sqlalchemy import ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from loom.models.base import Base, UUIDMixin
@@ -19,6 +19,7 @@ class RevokedToken(UUIDMixin, Base):
         index=True,
     )
     user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id"),
         nullable=False,
         index=True,
     )
