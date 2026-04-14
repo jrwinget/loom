@@ -62,6 +62,7 @@ class TestCreateRedaction:
     async def test_creates_audio_mute_type(self) -> None:
         """supports audio_mute redaction type."""
         session = AsyncMock()
+        session.add = MagicMock()
         regions = [{"type": "temporal", "start_time": 1.0, "end_time": 5.0}]
 
         result = await create_redaction(

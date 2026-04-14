@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import httpx
 import pytest
@@ -23,19 +23,19 @@ _SVC = "loom.api.v1.redactions"
 
 
 class _StubSession:
-    async def execute(self, stmt):
+    async def execute(self, stmt):  # type: ignore[no-untyped-def]
         return MagicMock()
 
-    def add(self, obj):
+    def add(self, obj):  # type: ignore[no-untyped-def]
         pass
 
-    async def flush(self):
+    async def flush(self) -> None:
         pass
 
-    async def commit(self):
+    async def commit(self) -> None:
         pass
 
-    async def refresh(self, obj):
+    async def refresh(self, obj) -> None:  # type: ignore[no-untyped-def]
         pass
 
 
@@ -43,27 +43,27 @@ def _create_app(settings: Settings) -> object:
     get_settings.cache_clear()
     with patch("loom.config.get_settings", return_value=settings):
         from loom.main import create_app
+
         application = create_app()
 
-    async def override_db():
+    async def override_db():  # type: ignore[no-untyped-def]
         yield _StubSession()
 
     application.dependency_overrides[get_db_session] = override_db
     application.state.db_session_factory = None
+    application.state.minio_client = MagicMock()
     return application
 
 
 @pytest.fixture
-def mock_settings():
+def mock_settings() -> Settings:
     return Settings(
-        secret_key=(
-            "test-secret-key-that-is-long-enough-for-validation"
-        ),
+        secret_key=("test-secret-key-that-is-long-enough-for-validation"),
         database_url="sqlite+aiosqlite:///",
     )
 
 
-def _auth_header(token: str) -> dict:
+def _auth_header(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -77,7 +77,13 @@ def _make_redaction(
     r.redacted_by = _USER_ID
     r.redaction_type = "blur"
     r.regions = [
-        {"type": "rect", "x": 0.1, "y": 0.1, "w": 0.3, "h": 0.3}
+        {
+            "type": "rect",
+            "x": 0.1,
+            "y": 0.1,
+            "w": 0.3,
+            "h": 0.3,
+        }
     ]
     r.status = status
     r.output_storage_key = None
@@ -116,8 +122,7 @@ async def test_create_redaction(
             base_url="http://testserver",
         ) as ac:
             resp = await ac.post(
-                f"/api/v1/cases/{_CASE_ID}/assets/"
-                f"{_ASSET_ID}/redactions",
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/redactions",
                 json={
                     "redaction_type": "blur",
                     "regions": [
@@ -162,13 +167,17 @@ async def test_create_redaction_forbidden(
             base_url="http://testserver",
         ) as ac:
             resp = await ac.post(
-                f"/api/v1/cases/{_CASE_ID}/assets/"
-                f"{_ASSET_ID}/redactions",
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/redactions",
                 json={
                     "redaction_type": "blur",
                     "regions": [
-                        {"type": "rect", "x": 0.1, "y": 0.1,
-                         "w": 0.3, "h": 0.3}
+                        {
+                            "type": "rect",
+                            "x": 0.1,
+                            "y": 0.1,
+                            "w": 0.3,
+                            "h": 0.3,
+                        }
                     ],
                 },
                 headers=_auth_header(token),
@@ -206,8 +215,7 @@ async def test_list_redactions(
             base_url="http://testserver",
         ) as ac:
             resp = await ac.get(
-                f"/api/v1/cases/{_CASE_ID}/assets/"
-                f"{_ASSET_ID}/redactions",
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/redactions",
                 headers=_auth_header(token),
             )
 
@@ -398,8 +406,7 @@ async def test_create_redaction_invalid_body(
             base_url="http://testserver",
         ) as ac:
             resp = await ac.post(
-                f"/api/v1/cases/{_CASE_ID}/assets/"
-                f"{_ASSET_ID}/redactions",
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/redactions",
                 json={
                     "redaction_type": "blur",
                     "regions": [],
