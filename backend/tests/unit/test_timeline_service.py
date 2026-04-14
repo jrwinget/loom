@@ -451,3 +451,140 @@ class TestGetTimeline:
         events = await get_timeline(session, _CASE_ID)
         assert len(events) == 1
         assert events[0].evidence == [link]
+
+
+# ── get_timeline batch fetch ───────────────────────────────
+
+
+class TestGetTimelineBatchFetch:
+    @pytest.mark.asyncio
+    async def test_empty_events_returns_empty(self) -> None:
+        """no events means no evidence query needed."""
+        session = _mock_session()
+        # list_events: count=0, empty rows
+        count_result = MagicMock()
+        count_result.scalar_one.return_value = 0
+        data_result = MagicMock()
+        data_result.all.return_value = []
+        session.execute.side_effect = [count_result, data_result]
+
+        result = await get_timeline(session, _CASE_ID)
+        assert result == []
+        # only 2 execute calls (count + data for list_events)
+        assert session.execute.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_batch_fetches_evidence(self) -> None:
+        """evidence fetched in single query, not per-event."""
+        session = _mock_session()
+        events = []
+        rows = []
+        for i in range(3):
+            e = TimelineEvent(
+                case_id=UUID(_CASE_ID),
+                title=f"E{i}",
+                event_time_start=_NOW,
+                created_by=UUID(_USER_ID),
+            )
+            e.id = uuid4()
+            events.append(e)
+            row = MagicMock()
+            vals = [e, 0, 0, 0]
+            row.__getitem__ = (
+                lambda self, i, v=vals: v[i]
+            )
+            rows.append(row)
+
+        # evidence for event 0 and event 2 only
+        ev0 = TimelineEventEvidence(
+            event_id=events[0].id,
+            relationship="supports",
+            linked_by=UUID(_USER_ID),
+        )
+        ev2 = TimelineEventEvidence(
+            event_id=events[2].id,
+            relationship="contradicts",
+            linked_by=UUID(_USER_ID),
+        )
+
+        count_result = MagicMock()
+        count_result.scalar_one.return_value = 3
+        data_result = MagicMock()
+        data_result.all.return_value = rows
+
+        # batch evidence query
+        ev_result = MagicMock()
+        ev_scalars = MagicMock()
+        ev_scalars.all.return_value = [ev0, ev2]
+        ev_result.scalars.return_value = ev_scalars
+
+        session.execute.side_effect = [
+            count_result,
+            data_result,
+            ev_result,
+        ]
+
+        result = await get_timeline(session, _CASE_ID)
+        # exactly 3 execute calls: count, data, batch evidence
+        assert session.execute.await_count == 3
+        assert len(result) == 3
+
+    @pytest.mark.asyncio
+    async def test_evidence_grouped_by_event(self) -> None:
+        """each event gets only its own evidence."""
+        session = _mock_session()
+        e1 = TimelineEvent(
+            case_id=UUID(_CASE_ID),
+            title="E1",
+            event_time_start=_NOW,
+            created_by=UUID(_USER_ID),
+        )
+        e1.id = uuid4()
+        e2 = TimelineEvent(
+            case_id=UUID(_CASE_ID),
+            title="E2",
+            event_time_start=_NOW,
+            created_by=UUID(_USER_ID),
+        )
+        e2.id = uuid4()
+
+        ev1 = TimelineEventEvidence(
+            event_id=e1.id,
+            relationship="supports",
+            linked_by=UUID(_USER_ID),
+        )
+        ev2a = TimelineEventEvidence(
+            event_id=e2.id,
+            relationship="contradicts",
+            linked_by=UUID(_USER_ID),
+        )
+        ev2b = TimelineEventEvidence(
+            event_id=e2.id,
+            relationship="context",
+            linked_by=UUID(_USER_ID),
+        )
+
+        row1 = MagicMock()
+        row1.__getitem__ = lambda self, i: [e1, 1, 1, 0][i]
+        row2 = MagicMock()
+        row2.__getitem__ = lambda self, i: [e2, 2, 0, 1][i]
+
+        count_result = MagicMock()
+        count_result.scalar_one.return_value = 2
+        data_result = MagicMock()
+        data_result.all.return_value = [row1, row2]
+
+        ev_result = MagicMock()
+        ev_scalars = MagicMock()
+        ev_scalars.all.return_value = [ev1, ev2a, ev2b]
+        ev_result.scalars.return_value = ev_scalars
+
+        session.execute.side_effect = [
+            count_result,
+            data_result,
+            ev_result,
+        ]
+
+        result = await get_timeline(session, _CASE_ID)
+        assert result[0].evidence == [ev1]
+        assert result[1].evidence == [ev2a, ev2b]

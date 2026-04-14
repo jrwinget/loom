@@ -1,19 +1,27 @@
 """redaction service — applies blur/pixelate/black_box to images.
 
-video and audio redaction are stubbed for future implementation.
+video and audio redaction use ffmpeg subprocess for muting.
 pillow is an optional dependency; the service degrades gracefully
 when it is not installed.
 """
 
+from __future__ import annotations
+
 import io
 import logging
-from typing import Any
+import shutil
+import subprocess
+import tempfile
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.redaction import Redaction
+
+if TYPE_CHECKING:
+    from loom.services.storage import StorageService
 
 logger = logging.getLogger(__name__)
 
@@ -138,16 +146,67 @@ def apply_image_redaction(
     return buf.getvalue()
 
 
+def mute_audio_regions(
+    input_path: str,
+    output_path: str,
+    regions: list[dict[str, Any]],
+) -> None:
+    """mute time regions in an audio/video file using ffmpeg.
+
+    each region must have start_time and end_time (seconds).
+    builds an af filter chain that sets volume=0 for each region.
+    """
+    filters: list[str] = []
+    for r in regions:
+        start = r.get("start_time", 0)
+        end = r.get("end_time", 0)
+        if end > start:
+            filters.append(
+                f"volume=enable='between(t,{start},{end})':volume=0"
+            )
+
+    if not filters:
+        shutil.copy2(input_path, output_path)
+        return
+
+    if not shutil.which("ffmpeg"):
+        raise RuntimeError("ffmpeg not found on PATH")
+
+    af = ",".join(filters)
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", input_path,
+        "-af", af,
+        "-c:v", "copy",
+        output_path,
+    ]
+    result = subprocess.run(  # noqa: S603 — ffmpeg with controlled args
+        cmd,
+        capture_output=True,
+        timeout=300,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"ffmpeg exited with code {result.returncode}: "
+            f"{result.stderr.decode(errors='replace')[:500]}"
+        )
+
+
 async def apply_redaction(
     session: AsyncSession,
     redaction: Redaction,
     image_bytes: bytes | None = None,
+    storage: StorageService | None = None,
 ) -> Redaction:
     """execute redaction processing.
 
-    for images: applies pillow-based redaction.
-    for video/audio: stubs that mark complete (TODO).
+    for images: applies pillow-based redaction then uploads
+    the derivative to minio.
+    for audio: mutes time regions via ffmpeg.
     """
+    from loom.services.storage import DERIVATIVES_BUCKET
+
     redaction.status = "processing"
     await session.flush()
 
@@ -169,18 +228,69 @@ async def apply_redaction(
         )
         if result is None:
             redaction.status = "failed"
-            redaction.error_message = "pillow not installed — cannot process"
+            redaction.error_message = (
+                "pillow not installed — cannot process"
+            )
             await session.flush()
             return redaction
 
-        # TODO: upload result bytes to minio derivatives bucket
-        # and set output_storage_key
+        output_key = (
+            f"redactions/{redaction.asset_id}/"
+            f"{redaction.id}.png"
+        )
+        if storage is not None:
+            storage.upload_bytes(
+                DERIVATIVES_BUCKET,
+                output_key,
+                result,
+                "image/png",
+            )
+        redaction.output_storage_key = output_key
         redaction.status = "complete"
         await session.flush()
         return redaction
 
     if rtype == "audio_mute":
-        # TODO: implement ffmpeg-based audio mute
+        if storage is None:
+            redaction.status = "failed"
+            redaction.error_message = (
+                "storage service required for audio mute"
+            )
+            await session.flush()
+            return redaction
+
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                input_path = f"{tmpdir}/input"
+                output_path = f"{tmpdir}/output.mp4"
+
+                storage.download_file(
+                    "loom-originals",
+                    f"{redaction.asset_id}",
+                    input_path,
+                )
+                mute_audio_regions(
+                    input_path,
+                    output_path,
+                    redaction.regions,
+                )
+                output_key = (
+                    f"redactions/{redaction.asset_id}/"
+                    f"{redaction.id}.mp4"
+                )
+                storage.upload_file(
+                    DERIVATIVES_BUCKET,
+                    output_key,
+                    output_path,
+                    "video/mp4",
+                )
+                redaction.output_storage_key = output_key
+        except Exception as exc:
+            redaction.status = "failed"
+            redaction.error_message = str(exc)[:500]
+            await session.flush()
+            return redaction
+
         redaction.status = "complete"
         await session.flush()
         return redaction

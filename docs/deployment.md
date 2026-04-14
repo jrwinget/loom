@@ -31,6 +31,9 @@ Key variables:
 - `LOOM_MINIO_ACCESS_KEY` / `LOOM_MINIO_SECRET_KEY`
 - `LOOM_TEMPORAL_HOST` — Temporal server address
 - `LOOM_SECRET_KEY` — JWT signing key (change in production)
+- `LOOM_CORS_ORIGINS` — allowed CORS origins as JSON list
+  (e.g. `'["https://app.example.com"]'`); defaults to
+  `["http://localhost:3000"]` for development
 
 ## Docker Compose
 
@@ -46,11 +49,17 @@ docker compose -f docker/docker-compose.yml down
 ## Production Considerations
 
 - Use a strong, random `LOOM_SECRET_KEY` (minimum 32 bytes)
+- Set `LOOM_CORS_ORIGINS` to your actual frontend domain(s)
 - Enable TLS on all services
 - Use external PostgreSQL with backups
 - Configure MinIO with replication and encryption at rest
 - Set `LOOM_MINIO_SECURE=true` for HTTPS
-- Run Temporal with a production database backend
+- Replace `temporalio/auto-setup` with `temporalio/server` and
+  run proper schema migrations
 - Set up log aggregation (OpenTelemetry → Grafana stack)
 - Enable MFA for all user accounts
 - Configure backup retention for MinIO object lock
+- All Docker images are pinned to specific versions for
+  reproducible deployments
+- Health checks are configured on all application containers
+- See [runbook.md](runbook.md) for operational procedures

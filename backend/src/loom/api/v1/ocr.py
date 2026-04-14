@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -10,6 +11,9 @@ from loom.models.ocr import OcrRegion
 from loom.schemas.ocr import OcrRegionResponse, OcrResultResponse
 from loom.security.rbac import get_current_user_id, require_authenticated
 from loom.services.case import check_case_access
+from loom.services.search import _ilike_pattern
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/cases/{case_id}/assets/{asset_id}/ocr",
@@ -46,7 +50,7 @@ async def get_ocr_regions(
     query = select(OcrRegion).where(OcrRegion.asset_id == asset_id)
 
     if text is not None:
-        query = query.where(OcrRegion.text.ilike(f"%{text}%"))
+        query = query.where(OcrRegion.text.ilike(_ilike_pattern(text)))
     if min_confidence is not None:
         query = query.where(OcrRegion.confidence >= min_confidence)
     if frame_start is not None:
@@ -113,16 +117,34 @@ async def start_ocr_workflow(
             detail="insufficient case access",
         )
 
-    # TODO: start temporal workflow when worker is running
-    # client = await Client.connect(settings.temporal_host)
-    # handle = await client.start_workflow(
-    #     OcrWorkflow.run,
-    #     asset_id,
-    #     id=f"ocr-{asset_id}",
-    #     task_queue="loom-ingest",
-    # )
+    workflow_id = f"ocr-{asset_id}"
+    try:
+        from temporalio.client import Client
+
+        from loom.config import get_settings
+        from loom.workflows.ocr_workflow import OcrWorkflow
+
+        settings = get_settings()
+        client = await Client.connect(settings.temporal_host)
+        await client.start_workflow(
+            OcrWorkflow.run,
+            asset_id,
+            id=workflow_id,
+            task_queue="loom-ingest",
+        )
+    except Exception:
+        logger.error(
+            "failed to start ocr workflow for %s",
+            asset_id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="workflow service unavailable",
+        ) from None
+
     return {
         "status": "accepted",
         "asset_id": asset_id,
-        "workflow_id": f"ocr-{asset_id}",
+        "workflow_id": workflow_id,
     }

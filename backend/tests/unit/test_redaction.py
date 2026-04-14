@@ -23,6 +23,7 @@ class TestCreateRedaction:
     async def test_creates_pending_record(self) -> None:
         """creates a redaction with pending status."""
         session = AsyncMock()
+        session.add = MagicMock()
         regions = [{"type": "rect", "x": 0.1, "y": 0.1, "w": 0.3, "h": 0.3}]
 
         result = await create_redaction(
@@ -45,6 +46,7 @@ class TestCreateRedaction:
     async def test_creates_black_box_type(self) -> None:
         """supports black_box redaction type."""
         session = AsyncMock()
+        session.add = MagicMock()
         regions = [{"type": "rect", "x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5}]
 
         result = await create_redaction(
@@ -60,6 +62,7 @@ class TestCreateRedaction:
     async def test_creates_audio_mute_type(self) -> None:
         """supports audio_mute redaction type."""
         session = AsyncMock()
+        session.add = MagicMock()
         regions = [{"type": "temporal", "start_time": 1.0, "end_time": 5.0}]
 
         result = await create_redaction(

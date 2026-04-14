@@ -1,10 +1,11 @@
 # local development overrides
+# binds internal services to all interfaces for host access
 services:
   postgres:
     ports:
-      - "5432:5432"
+      - "0.0.0.0:5432:5432"
 
   minio:
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "0.0.0.0:9000:9000"
+      - "0.0.0.0:9001:9001"

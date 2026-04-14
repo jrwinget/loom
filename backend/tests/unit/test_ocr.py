@@ -179,3 +179,44 @@ class TestStoreOcrRegions:
         assert result == []
         session.add.assert_not_called()
         session.flush.assert_awaited_once()
+
+
+class TestOcrIlikeEscaping:
+    """tests that ocr text search escapes ILIKE wildcards."""
+
+    def test_ilike_pattern_escapes_percent(self) -> None:
+        """literal % in search text is escaped."""
+        from loom.services.search import _ilike_pattern
+
+        result = _ilike_pattern("100%")
+        assert result == "%100\\%%"
+        # should not match arbitrary text after "100"
+        assert "%" not in result.strip("%") or "\\%" in result
+
+    def test_ilike_pattern_escapes_underscore(self) -> None:
+        """literal _ in search text is escaped."""
+        from loom.services.search import _ilike_pattern
+
+        result = _ilike_pattern("a_b")
+        assert result == "%a\\_b%"
+
+    def test_ilike_pattern_escapes_backslash(self) -> None:
+        """literal backslash in search text is escaped."""
+        from loom.services.search import _ilike_pattern
+
+        result = _ilike_pattern("a\\b")
+        assert result == "%a\\\\b%"
+
+    def test_ilike_pattern_combined_wildcards(self) -> None:
+        """multiple wildcards are all escaped."""
+        from loom.services.search import _ilike_pattern
+
+        result = _ilike_pattern("50%_off\\deal")
+        assert result == "%50\\%\\_off\\\\deal%"
+
+    def test_ilike_pattern_no_wildcards_unchanged(self) -> None:
+        """plain text passes through with only wrapping %."""
+        from loom.services.search import _ilike_pattern
+
+        result = _ilike_pattern("hello world")
+        assert result == "%hello world%"

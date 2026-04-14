@@ -7,8 +7,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.dependencies import get_db_session
+from loom.metrics import auth_failures
 from loom.models.user import User
 from loom.schemas.user import (
+    MfaRequiredResponse,
     TokenRefresh,
     TokenResponse,
     UserCreate,
@@ -17,6 +19,7 @@ from loom.schemas.user import (
 )
 from loom.security.auth import (
     create_access_token,
+    create_mfa_challenge_token,
     create_refresh_token,
     decode_token,
     hash_password,
@@ -47,7 +50,7 @@ async def register(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-) -> User:
+) -> UserResponse:
     """register a new user."""
     db: AsyncSession = session  # type: ignore[assignment]
 
@@ -80,7 +83,14 @@ async def register(
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    return user
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        display_name=user.display_name,
+        role=user.role,
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )
 
 
 @router.post(
@@ -98,7 +108,7 @@ async def register_user(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-) -> User:
+) -> UserResponse:
     """register a new user (admin only)."""
     db: AsyncSession = session  # type: ignore[assignment]
 
@@ -119,10 +129,20 @@ async def register_user(
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    return user
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        display_name=user.display_name,
+        role=user.role,
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login",
+    response_model=TokenResponse | MfaRequiredResponse,
+)
 @limiter.limit("5/minute")
 async def login(
     request: Request,
@@ -130,14 +150,27 @@ async def login(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-) -> TokenResponse:
-    """authenticate and return tokens."""
+) -> TokenResponse | MfaRequiredResponse:
+    """authenticate and return tokens, or mfa challenge."""
     db: AsyncSession = session  # type: ignore[assignment]
 
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(body.password, user.password_hash):
+    # constant-time: always call verify_password even if user
+    # is not found, to prevent timing-based enumeration
+    _dummy_hash = (
+        "$argon2id$v=19$m=65536,t=3,p=4$"
+        "AAAAAAAAAAAAAAAAAAAAAA$"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    )
+    password_valid = verify_password(
+        body.password,
+        user.password_hash if user else _dummy_hash,
+    )
+
+    if not user or not password_valid:
+        auth_failures.labels(reason="wrong_password").inc()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid credentials",
@@ -147,6 +180,11 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="account is disabled",
+        )
+
+    if user.mfa_enabled:
+        return MfaRequiredResponse(
+            challenge_token=create_mfa_challenge_token(str(user.id)),
         )
 
     return TokenResponse(
@@ -271,7 +309,7 @@ async def get_me(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-) -> User:
+) -> UserResponse:
     """return the current authenticated user."""
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
@@ -284,4 +322,11 @@ async def get_me(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="user not found",
         )
-    return user
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        display_name=user.display_name,
+        role=user.role,
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )

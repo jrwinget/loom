@@ -23,29 +23,18 @@ def _ilike_pattern(query: str) -> str:
     return f"%{escaped}%"
 
 
-async def search_case(
-    session: AsyncSession,
-    case_id: str,
-    query: str,
-    result_types: list[str] | None = None,
-    skip: int = 0,
-    limit: int = 50,
-) -> dict[str, Any]:
-    """search across multiple tables in a case.
-
-    uses postgresql full-text search when available,
-    falls back to ilike for sqlite compatibility.
-    """
-    case_uuid = UUID(case_id)
-    allowed = set(result_types) & VALID_TYPES if result_types else VALID_TYPES
-
-    subqueries = []
+def _build_type_queries(
+    case_uuid: UUID,
+    pattern: str,
+    allowed: set[str],
+) -> tuple[list[Any], dict[str, Executable]]:
+    """build per-type subqueries and facet count queries."""
+    subqueries: list[Any] = []
     facet_queries: dict[str, Executable] = {}
 
-    pattern = _ilike_pattern(query)
+    asset_case_filter = select(Asset.id).where(Asset.case_id == case_uuid)
 
     if "transcripts" in allowed:
-        # join to asset to filter by case_id
         sq = select(
             literal("transcript").label("type"),
             cast(TranscriptSegment.id, String).label("id"),
@@ -55,9 +44,7 @@ async def search_case(
             TranscriptSegment.speaker_label.label("speaker"),
             TranscriptSegment.start_time.label("start_time"),
         ).where(
-            TranscriptSegment.asset_id.in_(
-                select(Asset.id).where(Asset.case_id == case_uuid)
-            ),
+            TranscriptSegment.asset_id.in_(asset_case_filter),
             TranscriptSegment.text.ilike(pattern),
         )
         subqueries.append(
@@ -72,9 +59,7 @@ async def search_case(
         facet_queries["transcripts"] = select(func.count()).select_from(
             select(TranscriptSegment.id)
             .where(
-                TranscriptSegment.asset_id.in_(
-                    select(Asset.id).where(Asset.case_id == case_uuid)
-                ),
+                TranscriptSegment.asset_id.in_(asset_case_filter),
                 TranscriptSegment.text.ilike(pattern),
             )
             .subquery()
@@ -88,18 +73,14 @@ async def search_case(
             cast(OcrRegion.asset_id, String).label("asset_id"),
             literal(0.0).label("relevance_score"),
         ).where(
-            OcrRegion.asset_id.in_(
-                select(Asset.id).where(Asset.case_id == case_uuid)
-            ),
+            OcrRegion.asset_id.in_(asset_case_filter),
             OcrRegion.text.ilike(pattern),
         )
         subqueries.append(sq_ocr)
         facet_queries["ocr"] = select(func.count()).select_from(
             select(OcrRegion.id)
             .where(
-                OcrRegion.asset_id.in_(
-                    select(Asset.id).where(Asset.case_id == case_uuid)
-                ),
+                OcrRegion.asset_id.in_(asset_case_filter),
                 OcrRegion.text.ilike(pattern),
             )
             .subquery()
@@ -127,28 +108,22 @@ async def search_case(
         )
 
     if "events" in allowed:
+        evt_match = TimelineEvent.title.ilike(
+            pattern
+        ) | TimelineEvent.description.ilike(pattern)
         sq_evt = select(
             literal("event").label("type"),
             cast(TimelineEvent.id, String).label("id"),
             TimelineEvent.title.label("text"),
             literal(None).label("asset_id"),
             literal(0.0).label("relevance_score"),
-        ).where(
-            TimelineEvent.case_id == case_uuid,
-            (
-                TimelineEvent.title.ilike(pattern)
-                | TimelineEvent.description.ilike(pattern)
-            ),
-        )
+        ).where(TimelineEvent.case_id == case_uuid, evt_match)
         subqueries.append(sq_evt)
         facet_queries["events"] = select(func.count()).select_from(
             select(TimelineEvent.id)
             .where(
                 TimelineEvent.case_id == case_uuid,
-                (
-                    TimelineEvent.title.ilike(pattern)
-                    | TimelineEvent.description.ilike(pattern)
-                ),
+                evt_match,
             )
             .subquery()
         )
@@ -174,14 +149,48 @@ async def search_case(
             .subquery()
         )
 
-    # build facets
-    facets: dict[str, int] = {}
-    for ftype in VALID_TYPES:
-        if ftype in facet_queries:
-            result = await session.execute(facet_queries[ftype])
-            facets[ftype] = result.scalar_one()
-        else:
-            facets[ftype] = 0
+    return subqueries, facet_queries
+
+
+async def search_case(
+    session: AsyncSession,
+    case_id: str,
+    query: str,
+    result_types: list[str] | None = None,
+    skip: int = 0,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """search across multiple tables in a case.
+
+    uses postgresql full-text search when available,
+    falls back to ilike for sqlite compatibility.
+    """
+    case_uuid = UUID(case_id)
+    allowed = set(result_types) & VALID_TYPES if result_types else VALID_TYPES
+    pattern = _ilike_pattern(query)
+
+    subqueries, facet_queries = _build_type_queries(case_uuid, pattern, allowed)
+
+    # build facets — single query using union all
+    facets: dict[str, int] = {ftype: 0 for ftype in VALID_TYPES}
+    if facet_queries:
+        facet_subqueries = []
+        for ftype, fq in facet_queries.items():
+            facet_subqueries.append(
+                select(
+                    literal(ftype).label("facet_type"),
+                    fq.scalar_subquery().label("cnt"),  # type: ignore[attr-defined]
+                )
+            )
+        facet_union = union_all(*facet_subqueries).subquery()
+        facet_result = await session.execute(
+            select(
+                facet_union.c.facet_type,
+                facet_union.c.cnt,
+            )
+        )
+        for row in facet_result.all():
+            facets[row.facet_type] = row.cnt
 
     total = sum(facets.values())
 

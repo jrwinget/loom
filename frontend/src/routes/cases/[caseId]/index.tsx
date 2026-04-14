@@ -2,20 +2,47 @@ import * as Tabs from '@radix-ui/react-tabs';
 import { useParams } from 'react-router-dom';
 import { QueryError } from '@/components/layout/query-error';
 import { useCase, useCaseMembers } from '@/hooks/use-case';
+import { useCaseAudit } from '@/hooks/use-audit';
+import type { AuditEntry } from '@/hooks/use-audit';
 
 const statusColors: Record<string, string> = {
   active:
-    'bg-green-100 text-green-800 dark:bg-green-900 ' + 'dark:text-green-200',
+    'bg-green-100 text-green-800 dark:bg-green-900 ' +
+    'dark:text-green-200',
   archived:
-    'bg-gray-100 text-gray-800 dark:bg-gray-900 ' + 'dark:text-gray-200',
+    'bg-gray-100 text-gray-800 dark:bg-gray-900 ' +
+    'dark:text-gray-200',
   exported:
-    'bg-blue-100 text-blue-800 dark:bg-blue-900 ' + 'dark:text-blue-200',
+    'bg-blue-100 text-blue-800 dark:bg-blue-900 ' +
+    'dark:text-blue-200',
 };
+
+function formatAuditTimestamp(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function describeAuditEntry(entry: AuditEntry): string {
+  const action = entry.action.replace(/_/g, ' ');
+  const resource = entry.resource_type.replace(/_/g, ' ');
+  return `${action} on ${resource}`;
+}
 
 export function CaseDetailPage(): React.ReactElement {
   const { caseId } = useParams<{ caseId: string }>();
-  const { data: caseData, isLoading, isError, refetch } = useCase(caseId ?? '');
-  const { data: members } = useCaseMembers(caseId ?? '');
+  const safeId = caseId ?? '';
+  const {
+    data: caseData,
+    isLoading,
+    isError,
+    refetch,
+  } = useCase(safeId);
+  const { data: members } = useCaseMembers(safeId);
+  const { data: auditData } = useCaseAudit(safeId);
 
   if (isError) {
     return (
@@ -42,11 +69,13 @@ export function CaseDetailPage(): React.ReactElement {
     );
   }
 
-  const colorClass = statusColors[caseData.status] ?? statusColors['archived'];
+  const colorClass =
+    statusColors[caseData.status] ?? statusColors['archived'];
+
+  const recentActivity = auditData?.items ?? [];
 
   return (
     <div className="space-y-6">
-      {/* case header */}
       <div>
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold text-foreground">
@@ -54,7 +83,11 @@ export function CaseDetailPage(): React.ReactElement {
           </h1>
           <span
             data-testid="status-badge"
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}
+            className={
+              'inline-flex items-center rounded-full ' +
+              'px-2 py-0.5 text-xs font-medium ' +
+              colorClass
+            }
           >
             {caseData.status}
           </span>
@@ -66,58 +99,115 @@ export function CaseDetailPage(): React.ReactElement {
         )}
       </div>
 
-      {/* tabs */}
       <Tabs.Root defaultValue="overview">
         <Tabs.List className="flex gap-1 border-b border-border">
           <Tabs.Trigger
             value="overview"
-            className="px-3 py-2 text-sm text-muted-foreground data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-foreground"
+            className={
+              'px-3 py-2 text-sm text-muted-foreground ' +
+              'data-[state=active]:border-b-2 ' +
+              'data-[state=active]:border-primary ' +
+              'data-[state=active]:text-foreground'
+            }
           >
             Overview
           </Tabs.Trigger>
           <Tabs.Trigger
             value="members"
-            className="px-3 py-2 text-sm text-muted-foreground data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-foreground"
+            className={
+              'px-3 py-2 text-sm text-muted-foreground ' +
+              'data-[state=active]:border-b-2 ' +
+              'data-[state=active]:border-primary ' +
+              'data-[state=active]:text-foreground'
+            }
           >
             Members
           </Tabs.Trigger>
         </Tabs.List>
 
-        {/* overview tab */}
         <Tabs.Content value="overview" className="pt-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="bg-card rounded-lg border border-border p-4">
-              <p className="text-xs text-muted-foreground">Assets</p>
+          <div
+            className={
+              'grid grid-cols-1 gap-4 sm:grid-cols-3'
+            }
+          >
+            <div
+              className={
+                'bg-card rounded-lg border border-border p-4'
+              }
+            >
+              <p className="text-xs text-muted-foreground">
+                Assets
+              </p>
               <p className="text-2xl font-semibold text-foreground">
                 {caseData.assetCount}
               </p>
             </div>
-            <div className="bg-card rounded-lg border border-border p-4">
-              <p className="text-xs text-muted-foreground">Events</p>
+            <div
+              className={
+                'bg-card rounded-lg border border-border p-4'
+              }
+            >
+              <p className="text-xs text-muted-foreground">
+                Events
+              </p>
               <p className="text-2xl font-semibold text-foreground">
                 {caseData.eventCount}
               </p>
             </div>
-            <div className="bg-card rounded-lg border border-border p-4">
-              <p className="text-xs text-muted-foreground">Members</p>
+            <div
+              className={
+                'bg-card rounded-lg border border-border p-4'
+              }
+            >
+              <p className="text-xs text-muted-foreground">
+                Members
+              </p>
               <p className="text-2xl font-semibold text-foreground">
                 {members?.length ?? 0}
               </p>
             </div>
           </div>
 
-          {/* recent activity placeholder */}
           <div className="mt-6">
             <h2 className="text-sm font-medium text-foreground">
               Recent Activity
             </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              No recent activity to display.
-            </p>
+            {recentActivity.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                No recent activity to display.
+              </p>
+            ) : (
+              <ul
+                data-testid="activity-feed"
+                className="mt-2 space-y-3"
+              >
+                {recentActivity.map((entry) => (
+                  <li
+                    key={entry.id}
+                    className="flex items-start gap-3"
+                  >
+                    <div
+                      className={
+                        'mt-1.5 h-2 w-2 flex-shrink-0 ' +
+                        'rounded-full bg-primary'
+                      }
+                    />
+                    <div>
+                      <p className="text-sm text-foreground">
+                        {describeAuditEntry(entry)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatAuditTimestamp(entry.timestamp)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </Tabs.Content>
 
-        {/* members tab */}
         <Tabs.Content value="members" className="pt-4">
           {!members || members.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -128,15 +218,23 @@ export function CaseDetailPage(): React.ReactElement {
               {members.map((m) => (
                 <li
                   key={m.id}
-                  className="flex items-center justify-between py-3"
+                  className={
+                    'flex items-center justify-between py-3'
+                  }
                 >
                   <div>
                     <p className="text-sm font-medium text-foreground">
                       {m.displayName}
                     </p>
-                    <p className="text-xs text-muted-foreground">{m.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {m.email}
+                    </p>
                   </div>
-                  <span className="text-xs font-medium text-muted-foreground">
+                  <span
+                    className={
+                      'text-xs font-medium text-muted-foreground'
+                    }
+                  >
                     {m.role}
                   </span>
                 </li>

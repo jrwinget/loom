@@ -23,7 +23,7 @@ class Plugin(UUIDMixin, TimestampMixin, Base):
     )
     config: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_by: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id"), nullable=False
+        ForeignKey("users.id"), nullable=False, index=True
     )
 
     webhooks: Mapped[list["Webhook"]] = relationship(

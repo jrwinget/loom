@@ -2,6 +2,8 @@ import tempfile
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
+import pytest
+
 from loom.services.scene_detection import (
     detect_scenes,
     generate_scene_thumbnails,
@@ -177,9 +179,11 @@ class TestGenerateSceneThumbnails:
 class TestStoreScenes:
     """tests for store_scenes."""
 
+    @pytest.mark.asyncio
     async def test_creates_records(self) -> None:
         """bulk inserts scene records into session."""
         session = AsyncMock()
+        session.add = MagicMock()
         scenes = [
             {
                 "scene_number": 1,
@@ -209,16 +213,20 @@ class TestStoreScenes:
         assert result[1].scene_number == 2
         assert result[0].asset_id == UUID(asset_id)
 
+    @pytest.mark.asyncio
     async def test_empty_scenes_returns_empty(self) -> None:
         """no scenes to insert returns empty list."""
         session = AsyncMock()
+        session.add = MagicMock()
         result = await store_scenes(session, "some-id", [])
         assert result == []
         assert session.add.call_count == 0
 
+    @pytest.mark.asyncio
     async def test_thumbnail_key_stored(self) -> None:
         """thumbnail_key is persisted when provided."""
         session = AsyncMock()
+        session.add = MagicMock()
         scenes = [
             {
                 "scene_number": 1,

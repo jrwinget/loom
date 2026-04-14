@@ -12,7 +12,7 @@ from loom.security.auth import create_access_token, hash_password
 
 _USER_ID = UUID("01912345-6789-7abc-8def-0123456789ab")
 _USER_EMAIL = "admin@example.com"
-_USER_PASSWORD = "securepassword123"  # noqa: S105
+_USER_PASSWORD = "securepassword123"
 _USER_HASH = hash_password(_USER_PASSWORD)
 
 

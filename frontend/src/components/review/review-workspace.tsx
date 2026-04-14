@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
 import { AssetViewer } from '@/components/asset/asset-viewer';
 import { TranscriptPanel } from './transcript-panel';
@@ -67,10 +67,10 @@ export function ReviewWorkspace(
 
   // install timeupdate listener on mount
   // (uses interval since asset-viewer owns the element)
-  useState(() => {
+  useEffect(() => {
     const interval = setInterval(handleTimeUpdate, 250);
     return () => clearInterval(interval);
-  });
+  }, [handleTimeUpdate]);
 
   // keyboard: tab cycles panels
   useKeyboardShortcut(

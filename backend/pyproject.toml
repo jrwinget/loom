@@ -28,6 +28,10 @@ dependencies = [
     "av>=12.0.0",
     "uuid7>=0.1.0",
     "jinja2>=3.1.0",
+    "prometheus-fastapi-instrumentator>=7.0.0",
+    "prometheus-client>=0.20.0",
+    "pyotp>=2.9.0,<3",
+    "qrcode[pil]>=7.4.0,<8",
 ]
 
 [project.optional-dependencies]
@@ -105,7 +109,7 @@ max-complexity = 10
 known-first-party = ["loom"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "S106"]
+"tests/**/*.py" = ["S101", "S105", "S106"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -115,7 +119,7 @@ warn_unused_configs = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["minio.*", "temporalio.*", "av.*", "pytesseract.*", "PIL.*", "scenedetect.*", "uuid_extensions.*", "faster_whisper.*", "pyannote.*", "weasyprint.*", "jinja2.*", "c2pa.*", "slowapi.*", "opentelemetry.*"]
+module = ["minio.*", "temporalio.*", "av.*", "pytesseract.*", "PIL.*", "scenedetect.*", "uuid_extensions.*", "faster_whisper.*", "pyannote.*", "weasyprint.*", "jinja2.*", "c2pa.*", "slowapi.*", "opentelemetry.*", "prometheus_client.*", "prometheus_fastapi_instrumentator.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]

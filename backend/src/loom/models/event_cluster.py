@@ -13,7 +13,7 @@ class EventCluster(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "event_clusters"
 
     case_id: Mapped[UUID] = mapped_column(
-        ForeignKey("cases.id"),
+        ForeignKey("cases.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -37,11 +37,11 @@ class EventCluster(UUIDMixin, TimestampMixin, Base):
         nullable=False,
     )
     event_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("timeline_events.id"),
+        ForeignKey("timeline_events.id", ondelete="SET NULL"),
         nullable=True,
     )
     reviewed_by: Mapped[UUID | None] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
 
@@ -52,12 +52,12 @@ class EventClusterItem(UUIDMixin, Base):
     __tablename__ = "event_cluster_items"
 
     cluster_id: Mapped[UUID] = mapped_column(
-        ForeignKey("event_clusters.id"),
+        ForeignKey("event_clusters.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     asset_id: Mapped[UUID] = mapped_column(
-        ForeignKey("assets.id"),
+        ForeignKey("assets.id", ondelete="CASCADE"),
         nullable=False,
     )
     content_type: Mapped[str] = mapped_column(

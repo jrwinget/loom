@@ -4,6 +4,7 @@ from loom.api.v1.annotations import router as annotations_router
 from loom.api.v1.assets import router as assets_router
 from loom.api.v1.audit import router as audit_router
 from loom.api.v1.auth import router as auth_router
+from loom.api.v1.mfa import router as mfa_router
 from loom.api.v1.cases import router as cases_router
 from loom.api.v1.clusters import router as clusters_router
 from loom.api.v1.conflicts import router as conflicts_router
@@ -29,6 +30,7 @@ api_router = APIRouter()
 api_router.include_router(health_router, tags=["health"])
 api_router.include_router(audit_router)
 api_router.include_router(auth_router)
+api_router.include_router(mfa_router)
 api_router.include_router(cases_router)
 api_router.include_router(assets_router)
 api_router.include_router(annotations_router)

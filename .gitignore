@@ -1,4 +1,4 @@
-# python
+ # python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -61,7 +61,10 @@ docker/data/
 docker/minio-data/
 docker/postgres-data/
 docker/temporal-data/
+docker/nginx/certs/
 
 # misc
 *.log
 tmp/
+.claude/
+CLAUDE.md

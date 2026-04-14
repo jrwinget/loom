@@ -80,7 +80,17 @@ export const queryKeys = {
     deliveries: (pluginId: string, webhookId: string) =>
       ['plugins', pluginId, 'webhooks', webhookId, 'deliveries'] as const,
   },
+  audit: {
+    byCase: (caseId: string) => ['audit', caseId] as const,
+  },
+  custody: {
+    byAsset: (caseId: string, assetId: string) =>
+      ['custody', caseId, assetId] as const,
+  },
   users: {
     me: ['users', 'me'] as const,
+  },
+  mfa: {
+    status: ['mfa', 'status'] as const,
   },
 } as const;

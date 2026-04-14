@@ -60,7 +60,11 @@ export function useUploadAsset(
 
         xhr.addEventListener('load', () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(JSON.parse(xhr.responseText) as Asset);
+            try {
+              resolve(JSON.parse(xhr.responseText) as Asset);
+            } catch {
+              reject(new Error('Invalid response from server'));
+            }
           } else {
             reject(new Error(`Upload failed: ${xhr.statusText}`));
           }

@@ -150,12 +150,19 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # request-id middleware
+    # request-id + security headers middleware
     @application.middleware("http")
     async def add_request_id(request: Request, call_next: object) -> Response:
         request_id = str(uuid.uuid4())
         response: Response = await call_next(request)  # type: ignore[operator]
         response.headers["X-Request-Id"] = request_id
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "0"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=()"
+        )
         return response
 
     # routes

@@ -141,6 +141,76 @@ function VideoViewer(props: { src: string }): React.ReactElement {
   );
 }
 
+function AudioWaveform(props: {
+  audioRef: React.RefObject<HTMLAudioElement | null>;
+  currentTime: number;
+  duration: number;
+}): React.ReactElement {
+  const { audioRef, currentTime, duration } = props;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const barsRef = useRef<number[]>([]);
+
+  // generate deterministic waveform bars on mount
+  useEffect(() => {
+    const barCount = 80;
+    const bars: number[] = [];
+    for (let i = 0; i < barCount; i++) {
+      // simple pseudo-random pattern using sin
+      bars.push(0.2 + 0.8 * Math.abs(Math.sin(i * 0.7)));
+    }
+    barsRef.current = bars;
+  }, []);
+
+  // draw waveform on each time update
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const bars = barsRef.current;
+    const barCount = bars.length;
+    const barWidth = w / barCount;
+    const progress = duration > 0 ? currentTime / duration : 0;
+
+    ctx.clearRect(0, 0, w, h);
+
+    for (let i = 0; i < barCount; i++) {
+      const barHeight = bars[i] * h * 0.8;
+      const x = i * barWidth;
+      const y = (h - barHeight) / 2;
+      const played = i / barCount < progress;
+
+      ctx.fillStyle = played
+        ? 'hsl(221.2, 83.2%, 53.3%)'
+        : 'hsl(215.4, 16.3%, 46.9%)';
+      ctx.fillRect(x + 1, y, barWidth - 2, barHeight);
+    }
+  }, [currentTime, duration]);
+
+  const handleClick = (e: React.MouseEvent): void => {
+    const canvas = canvasRef.current;
+    const audio = audioRef.current;
+    if (!canvas || !audio || !duration) return;
+    const rect = canvas.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    audio.currentTime = ratio * duration;
+  };
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={640}
+      height={96}
+      data-testid="audio-waveform"
+      className="h-24 w-full cursor-pointer rounded bg-muted"
+      onClick={handleClick}
+    />
+  );
+}
+
 function AudioViewer(props: { src: string }): React.ReactElement {
   const { src } = props;
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -185,12 +255,12 @@ function AudioViewer(props: { src: string }): React.ReactElement {
     <div data-testid="audio-viewer">
       <audio ref={audioRef} src={src} />
 
-      {/* waveform placeholder */}
-      <div className="flex h-24 items-center justify-center rounded bg-muted text-sm text-muted-foreground">
-        Audio waveform placeholder
-      </div>
+      <AudioWaveform
+        audioRef={audioRef}
+        currentTime={currentTime}
+        duration={duration}
+      />
 
-      {/* timestamp */}
       <div
         className="mt-2 font-mono text-sm text-foreground"
         data-testid="timestamp-display"
@@ -202,7 +272,10 @@ function AudioViewer(props: { src: string }): React.ReactElement {
         type="button"
         onClick={togglePlay}
         data-testid="play-pause"
-        className="mt-2 rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground"
+        className={
+          'mt-2 rounded bg-primary px-3 py-1 text-xs ' +
+          'font-medium text-primary-foreground'
+        }
       >
         {playing ? 'Pause' : 'Play'}
       </button>

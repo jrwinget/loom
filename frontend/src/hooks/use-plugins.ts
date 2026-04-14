@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
+import { useToastStore } from '@/stores/toast-store';
 import type {
   CreatePluginPayload,
   CreateWebhookPayload,
@@ -40,6 +41,12 @@ export function useCreatePlugin(): ReturnType<
         queryKey: queryKeys.plugins.all,
       });
     },
+    onError: () => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: 'Failed to create plugin',
+      });
+    },
   });
 }
 
@@ -59,6 +66,12 @@ export function useUpdatePlugin(
         queryKey: queryKeys.plugins.detail(id),
       });
     },
+    onError: () => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: 'Failed to update plugin',
+      });
+    },
   });
 }
 
@@ -73,6 +86,12 @@ export function useDeletePlugin(): ReturnType<
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.plugins.all,
+      });
+    },
+    onError: () => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: 'Failed to delete plugin',
       });
     },
   });
@@ -100,6 +119,12 @@ export function useCreateWebhook(
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.plugins.webhooks(pluginId),
+      });
+    },
+    onError: () => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: 'Failed to create webhook',
       });
     },
   });

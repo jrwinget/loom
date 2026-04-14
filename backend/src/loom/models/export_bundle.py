@@ -47,6 +47,7 @@ class ExportBundle(UUIDMixin, Base):
     created_by: Mapped[UUID] = mapped_column(
         ForeignKey("users.id"),
         nullable=False,
+        index=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now(),
