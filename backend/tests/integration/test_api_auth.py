@@ -38,6 +38,7 @@ def _make_user(
     user.role = role
     user.is_active = is_active
     user.password_hash = _USER_HASH
+    user.mfa_enabled = False
     user.created_at = datetime(2025, 1, 1, tzinfo=UTC)
     user.updated_at = datetime(2025, 1, 1, tzinfo=UTC)
     return user

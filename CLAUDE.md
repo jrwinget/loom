@@ -149,7 +149,9 @@ cases → timeline_events → timeline_event_evidence
   (supports/contradicts/context)
 cases → export_bundles
 assets → transcript_segments, ocr_regions, scenes
+assets → redactions (blur/pixelate/mute derivatives)
 cases → duplicate_clusters → duplicate_cluster_members
+users → revoked_tokens (JWT invalidation)
 audit_log (append-only, all mutations)
 ```
 
@@ -184,14 +186,17 @@ all settings and defaults. Key groups:
 - Storage: `minio_endpoint`, `minio_access_key`, `minio_secure`
 - Auth: `secret_key`, `access_token_expire_minutes` (15),
   `refresh_token_expire_days` (7)
+- CORS: `cors_origins` (list of allowed origins, defaults to
+  `["http://localhost:3000"]`)
 - Observability: `otel_enabled`, `otel_service_name`
 
 ### Migrations
 
 Alembic migrations in `backend/alembic/versions/` use
 sequential numbering: `NNN_description.py` (e.g.,
-`001_initial_schema.py`). CI runs a full round-trip test:
-upgrade head → downgrade base → upgrade head.
+`001_initial_schema.py`). Current head: `003`. CI runs a
+full round-trip test: upgrade head → downgrade base →
+upgrade head.
 
 ## CI Pipeline
 
