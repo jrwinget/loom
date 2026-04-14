@@ -17,7 +17,7 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2024-11-07T00-52-20Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-loom_minio}
@@ -34,7 +34,7 @@ services:
       retries: 5
 
   minio-setup:
-    image: minio/mc:latest
+    image: minio/mc:RELEASE.2024-11-07T00-31-49Z
     depends_on:
       minio:
         condition: service_healthy
@@ -52,8 +52,11 @@ services:
       exit 0;
       "
 
+  # NOTE: auto-setup is for development only.
+  # production deployments should use temporalio/server
+  # with proper schema migrations.
   temporal:
-    image: temporalio/auto-setup:latest
+    image: temporalio/auto-setup:1.25.2
     environment:
       DB: postgresql
       DB_PORT: 5432
@@ -78,7 +81,7 @@ services:
       start_period: 30s
 
   temporal-ui:
-    image: temporalio/ui:latest
+    image: temporalio/ui:2.34.0
     environment:
       TEMPORAL_ADDRESS: temporal:7233
     ports:
@@ -102,6 +105,12 @@ services:
       LOOM_SECRET_KEY: ${LOOM_SECRET_KEY:?Set LOOM_SECRET_KEY in .env}
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     depends_on:
       postgres:
         condition: service_healthy
@@ -125,6 +134,11 @@ services:
       LOOM_MINIO_SECURE: "false"
       LOOM_TEMPORAL_HOST: temporal:7233
       LOOM_SECRET_KEY: ${LOOM_SECRET_KEY:?Set LOOM_SECRET_KEY in .env}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     depends_on:
       temporal:
         condition: service_healthy
@@ -139,13 +153,18 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     depends_on:
       - backend
     profiles:
       - app
 
   nginx:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     ports:
       - "${NGINX_PORT:-8888}:80"
     volumes:
