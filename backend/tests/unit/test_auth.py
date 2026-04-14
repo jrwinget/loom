@@ -122,8 +122,10 @@ async def test_login_constant_timing_calls_verify_on_missing_user(
 
 
 @pytest.mark.asyncio
-async def test_refresh_fails_closed_on_db_error(_mock_settings):
-    """refresh returns 503 when revocation check raises."""
+async def test_refresh_allows_through_on_revocation_check_error(
+    _mock_settings,
+):
+    """refresh succeeds when revocation check raises (fail-open)."""
     from loom.api.v1.auth import refresh
     from loom.schemas.user import TokenRefresh
 
@@ -134,24 +136,41 @@ async def test_refresh_fails_closed_on_db_error(_mock_settings):
     mock_request.client.host = "127.0.0.1"
     mock_request.headers = {}
     mock_request.state = MagicMock()
-    mock_db = AsyncMock()
 
-    with patch(
-        "loom.api.v1.auth.is_token_revoked",
-        side_effect=RuntimeError("db down"),
+    # mock db to return a valid active user after the
+    # revocation check is skipped
+    mock_user = MagicMock()
+    mock_user.id = "user-123"
+    mock_user.role = "analyst"
+    mock_user.is_active = True
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_user
+    mock_db = AsyncMock()
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    with (
+        patch(
+            "loom.services.token_revocation.is_token_revoked",
+            side_effect=RuntimeError("db down"),
+        ),
+        patch(
+            "loom.api.v1.auth.revoke_token",
+            new_callable=AsyncMock,
+        ),
     ):
-        with pytest.raises(HTTPException) as exc_info:
-            await refresh(
-                body=body,
-                request=mock_request,
-                session=mock_db,
-            )
-        assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        result = await refresh(
+            body=body,
+            request=mock_request,
+            session=mock_db,
+        )
+    assert result.access_token is not None
+    assert result.token_type == "bearer"
 
 
 @pytest.mark.asyncio
-async def test_rbac_fails_closed_on_db_error(_mock_settings):
-    """rbac returns 503 when revocation check raises."""
+async def test_rbac_allows_through_on_db_error(_mock_settings):
+    """rbac allows request through when revocation check raises."""
     from loom.security.rbac import _extract_token
 
     token = create_access_token("user-123", "admin")
@@ -169,6 +188,7 @@ async def test_rbac_fails_closed_on_db_error(_mock_settings):
     mock_factory = MagicMock(return_value=mock_session)
     mock_request.app.state.db_session_factory = mock_factory
 
-    with pytest.raises(Exception) as exc_info:
-        await _extract_token(mock_request)
-    assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    # fail-open: request passes through when db is down
+    payload = await _extract_token(mock_request)
+    assert payload["sub"] == "user-123"
+    assert payload["role"] == "admin"

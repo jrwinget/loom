@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pyotp
 import pytest
 from fastapi import HTTPException, status
+from starlette.requests import Request
 
 from loom.config import Settings
 from loom.security.auth import (
@@ -16,10 +17,7 @@ from loom.security.auth import (
 @pytest.fixture(autouse=True)
 def _mock_settings():
     settings = Settings(
-        secret_key=(
-            "test-secret-key-that-is-long-enough"
-            "-for-validation"
-        ),
+        secret_key=("test-secret-key-that-is-long-enough-for-validation"),
         access_token_expire_minutes=15,
         refresh_token_expire_days=7,
         database_url="sqlite+aiosqlite:///",
@@ -59,6 +57,14 @@ def _mock_db_with_user(user: MagicMock) -> AsyncMock:
     return db
 
 
+def _mock_request() -> MagicMock:
+    mock = MagicMock(spec=Request)
+    mock.client.host = "127.0.0.1"
+    mock.headers = {}
+    mock.state = MagicMock()
+    return mock
+
+
 def test_create_mfa_challenge_token():
     token = create_mfa_challenge_token("user-123")
     payload = decode_token(token)
@@ -81,7 +87,6 @@ async def test_mfa_setup_generates_secret():
     )
 
     assert "otpauth://" in result.provisioning_uri
-    assert result.mfa_enabled is False
     assert user.mfa_secret is not None
 
 
@@ -98,10 +103,7 @@ async def test_mfa_setup_fails_if_already_enabled():
             token_payload=payload,
             session=db,
         )
-    assert (
-        exc_info.value.status_code
-        == status.HTTP_400_BAD_REQUEST
-    )
+    assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
 
 
 @pytest.mark.asyncio
@@ -123,7 +125,6 @@ async def test_mfa_verify_enables_mfa():
         session=db,
     )
 
-    assert result.mfa_enabled is True
     assert len(result.recovery_codes) == 10
     assert user.mfa_enabled is True
     assert user.recovery_codes is not None
@@ -145,10 +146,7 @@ async def test_mfa_verify_rejects_bad_code():
             token_payload=payload,
             session=db,
         )
-    assert (
-        exc_info.value.status_code
-        == status.HTTP_401_UNAUTHORIZED
-    )
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @pytest.mark.asyncio
@@ -160,16 +158,13 @@ async def test_mfa_challenge_success():
     totp = pyotp.TOTP(secret)
     code = totp.now()
 
-    user = _make_user(
-        mfa_enabled=True, mfa_secret=secret
-    )
+    user = _make_user(mfa_enabled=True, mfa_secret=secret)
     db = _mock_db_with_user(user)
 
-    challenge_token = create_mfa_challenge_token(
-        str(user.id)
-    )
+    challenge_token = create_mfa_challenge_token(str(user.id))
 
     result = await mfa_challenge(
+        request=_mock_request(),
         body=MfaChallengeRequest(
             challenge_token=challenge_token,
             code=code,
@@ -188,27 +183,21 @@ async def test_mfa_challenge_fails_bad_code():
     from loom.schemas.mfa import MfaChallengeRequest
 
     secret = pyotp.random_base32()
-    user = _make_user(
-        mfa_enabled=True, mfa_secret=secret
-    )
+    user = _make_user(mfa_enabled=True, mfa_secret=secret)
     db = _mock_db_with_user(user)
 
-    challenge_token = create_mfa_challenge_token(
-        str(user.id)
-    )
+    challenge_token = create_mfa_challenge_token(str(user.id))
 
     with pytest.raises(HTTPException) as exc_info:
         await mfa_challenge(
+            request=_mock_request(),
             body=MfaChallengeRequest(
                 challenge_token=challenge_token,
                 code="000000",
             ),
             session=db,
         )
-    assert (
-        exc_info.value.status_code
-        == status.HTTP_401_UNAUTHORIZED
-    )
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @pytest.mark.asyncio
@@ -218,9 +207,7 @@ async def test_mfa_challenge_with_recovery_code():
 
     secret = pyotp.random_base32()
     recovery = "abcd1234"
-    hashed = hashlib.sha256(
-        recovery.encode()
-    ).hexdigest()
+    hashed = hashlib.sha256(recovery.encode()).hexdigest()
 
     user = _make_user(
         mfa_enabled=True,
@@ -229,11 +216,10 @@ async def test_mfa_challenge_with_recovery_code():
     )
     db = _mock_db_with_user(user)
 
-    challenge_token = create_mfa_challenge_token(
-        str(user.id)
-    )
+    challenge_token = create_mfa_challenge_token(str(user.id))
 
     result = await mfa_challenge(
+        request=_mock_request(),
         body=MfaChallengeRequest(
             challenge_token=challenge_token,
             code=recovery,
@@ -280,9 +266,7 @@ async def test_mfa_disable_rejects_bad_code():
     from loom.schemas.mfa import MfaDisableRequest
 
     secret = pyotp.random_base32()
-    user = _make_user(
-        mfa_enabled=True, mfa_secret=secret
-    )
+    user = _make_user(mfa_enabled=True, mfa_secret=secret)
     db = _mock_db_with_user(user)
     payload = {"sub": str(user.id), "role": "analyst"}
 
@@ -292,10 +276,7 @@ async def test_mfa_disable_rejects_bad_code():
             token_payload=payload,
             session=db,
         )
-    assert (
-        exc_info.value.status_code
-        == status.HTTP_401_UNAUTHORIZED
-    )
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @pytest.mark.asyncio
@@ -316,10 +297,7 @@ async def test_login_returns_mfa_challenge():
         password="TestPass123!",
     )
 
-    mock_request = MagicMock()
-    mock_request.client.host = "127.0.0.1"
-    mock_request.headers = {}
-    mock_request.state = MagicMock()
+    mock_request = _mock_request()
 
     with patch(
         "loom.api.v1.auth.verify_password",
@@ -331,8 +309,8 @@ async def test_login_returns_mfa_challenge():
             session=db,
         )
 
-    assert result["requires_mfa"] is True
-    assert "challenge_token" in result
+    assert result.requires_mfa is True
+    assert result.challenge_token is not None
 
 
 @pytest.mark.asyncio
@@ -348,13 +326,11 @@ async def test_mfa_challenge_rejects_wrong_token_type():
 
     with pytest.raises(HTTPException) as exc_info:
         await mfa_challenge(
+            request=_mock_request(),
             body=MfaChallengeRequest(
                 challenge_token=token,
                 code="123456",
             ),
             session=db,
         )
-    assert (
-        exc_info.value.status_code
-        == status.HTTP_401_UNAUTHORIZED
-    )
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED

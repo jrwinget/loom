@@ -157,7 +157,19 @@ async def login(
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(body.password, user.password_hash):
+    # constant-time: always call verify_password even if user
+    # is not found, to prevent timing-based enumeration
+    _dummy_hash = (
+        "$argon2id$v=19$m=65536,t=3,p=4$"
+        "AAAAAAAAAAAAAAAAAAAAAA$"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    )
+    password_valid = verify_password(
+        body.password,
+        user.password_hash if user else _dummy_hash,
+    )
+
+    if not user or not password_valid:
         auth_failures.labels(reason="wrong_password").inc()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

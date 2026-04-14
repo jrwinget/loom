@@ -44,22 +44,10 @@ def _mock_session(asset: MagicMock) -> tuple[MagicMock, AsyncMock]:
 class TestIngestActivityMetrics:
     """verify ingest activities observe the histogram."""
 
-    @patch(
-        "loom.workflows.ingest_activities"
-        ".ingest_workflow_duration"
-    )
-    @patch(
-        "loom.workflows.ingest_activities"
-        ".get_minio_client"
-    )
-    @patch(
-        "loom.workflows.ingest_activities"
-        ".get_db_session"
-    )
-    @patch(
-        "loom.workflows.ingest_activities"
-        ".compute_hashes_from_file"
-    )
+    @patch("loom.workflows.ingest_activities.ingest_workflow_duration")
+    @patch("loom.workflows.ingest_activities.get_minio_client")
+    @patch("loom.workflows.ingest_activities.get_db_session")
+    @patch("loom.workflows.ingest_activities.compute_hashes_from_file")
     async def test_verify_hash_observes_metric(
         self,
         mock_hash: MagicMock,
@@ -77,39 +65,24 @@ class TestIngestActivityMetrics:
         mock_hash.return_value = ("aaa", "bbb")
 
         with (
-            patch(
-                "loom.workflows.ingest_activities"
-                ".StorageService"
-            ),
-            patch(
-                "loom.workflows.ingest_activities.tempfile"
-            ) as mock_tmp,
+            patch("loom.workflows.ingest_activities.StorageService"),
+            patch("loom.workflows.ingest_activities.tempfile") as mock_tmp,
         ):
             mock_tmp.TemporaryDirectory.return_value.__enter__ = (
                 MagicMock(return_value="/tmp/test")  # noqa: S108
             )
-            mock_tmp.TemporaryDirectory.return_value.__exit__ = (
-                MagicMock(return_value=False)
+            mock_tmp.TemporaryDirectory.return_value.__exit__ = MagicMock(
+                return_value=False
             )
             await verify_asset_hash(_ASSET_ID)
 
-        mock_metric.labels.assert_called_with(
-            activity="verify_hash"
-        )
+        mock_metric.labels.assert_called_with(activity="verify_hash")
         mock_metric.labels.return_value.observe.assert_called_once()
-        duration = (
-            mock_metric.labels.return_value.observe.call_args[0][0]
-        )
+        duration = mock_metric.labels.return_value.observe.call_args[0][0]
         assert duration > 0
 
-    @patch(
-        "loom.workflows.ingest_activities"
-        ".ingest_workflow_duration"
-    )
-    @patch(
-        "loom.workflows.ingest_activities"
-        ".get_db_session"
-    )
+    @patch("loom.workflows.ingest_activities.ingest_workflow_duration")
+    @patch("loom.workflows.ingest_activities.get_db_session")
     async def test_mark_complete_observes_metric(
         self,
         mock_session_ctx: MagicMock,
@@ -125,23 +98,13 @@ class TestIngestActivityMetrics:
 
         await mark_asset_complete(_ASSET_ID)
 
-        mock_metric.labels.assert_called_with(
-            activity="mark_complete"
-        )
+        mock_metric.labels.assert_called_with(activity="mark_complete")
         mock_metric.labels.return_value.observe.assert_called_once()
-        duration = (
-            mock_metric.labels.return_value.observe.call_args[0][0]
-        )
+        duration = mock_metric.labels.return_value.observe.call_args[0][0]
         assert duration > 0
 
-    @patch(
-        "loom.workflows.ingest_activities"
-        ".ingest_workflow_duration"
-    )
-    @patch(
-        "loom.workflows.ingest_activities"
-        ".get_db_session"
-    )
+    @patch("loom.workflows.ingest_activities.ingest_workflow_duration")
+    @patch("loom.workflows.ingest_activities.get_db_session")
     async def test_metric_observed_on_error(
         self,
         mock_session_ctx: MagicMock,
@@ -164,23 +127,15 @@ class TestIngestActivityMetrics:
             await mark_asset_complete(_ASSET_ID)
 
         mock_metric.labels.return_value.observe.assert_called_once()
-        duration = (
-            mock_metric.labels.return_value.observe.call_args[0][0]
-        )
+        duration = mock_metric.labels.return_value.observe.call_args[0][0]
         assert duration > 0
 
 
 class TestExportActivityMetrics:
     """verify export activity observes the histogram."""
 
-    @patch(
-        "loom.workflows.export_activities"
-        ".ingest_workflow_duration"
-    )
-    @patch(
-        "loom.workflows.export_activities"
-        ".get_db_session"
-    )
+    @patch("loom.workflows.export_activities.ingest_workflow_duration")
+    @patch("loom.workflows.export_activities.get_db_session")
     async def test_build_export_observes_metric(
         self,
         mock_session_ctx: MagicMock,
@@ -200,31 +155,18 @@ class TestExportActivityMetrics:
 
         await build_export(_EXPORT_ID)
 
-        mock_metric.labels.assert_called_with(
-            activity="export"
-        )
+        mock_metric.labels.assert_called_with(activity="export")
         mock_metric.labels.return_value.observe.assert_called_once()
-        duration = (
-            mock_metric.labels.return_value.observe.call_args[0][0]
-        )
+        duration = mock_metric.labels.return_value.observe.call_args[0][0]
         assert duration > 0
 
 
 class TestOcrActivityMetrics:
     """verify ocr activities observe the histogram."""
 
-    @patch(
-        "loom.workflows.ocr_activities"
-        ".ingest_workflow_duration"
-    )
-    @patch(
-        "loom.workflows.ocr_activities"
-        ".get_minio_client"
-    )
-    @patch(
-        "loom.workflows.ocr_activities"
-        ".get_db_session"
-    )
+    @patch("loom.workflows.ocr_activities.ingest_workflow_duration")
+    @patch("loom.workflows.ocr_activities.get_minio_client")
+    @patch("loom.workflows.ocr_activities.get_db_session")
     async def test_prepare_ocr_observes_metric(
         self,
         mock_session_ctx: MagicMock,
@@ -239,32 +181,20 @@ class TestOcrActivityMetrics:
         ctx, _ = _mock_session(asset)
         mock_session_ctx.return_value = ctx
 
-        with patch(
-            "loom.workflows.ocr_activities.StorageService"
-        ):
+        with patch("loom.workflows.ocr_activities.StorageService"):
             await prepare_ocr_input(_ASSET_ID)
 
-        mock_metric.labels.assert_called_with(
-            activity="ocr_prepare"
-        )
+        mock_metric.labels.assert_called_with(activity="ocr_prepare")
         mock_metric.labels.return_value.observe.assert_called_once()
-        duration = (
-            mock_metric.labels.return_value.observe.call_args[0][0]
-        )
+        duration = mock_metric.labels.return_value.observe.call_args[0][0]
         assert duration > 0
 
 
 class TestSceneActivityMetrics:
     """verify scene activities observe the histogram."""
 
-    @patch(
-        "loom.workflows.scene_activities"
-        ".ingest_workflow_duration"
-    )
-    @patch(
-        "loom.workflows.scene_activities"
-        ".get_db_session"
-    )
+    @patch("loom.workflows.scene_activities.ingest_workflow_duration")
+    @patch("loom.workflows.scene_activities.get_db_session")
     async def test_detect_scenes_observes_metric_non_video(
         self,
         mock_session_ctx: MagicMock,
@@ -281,27 +211,17 @@ class TestSceneActivityMetrics:
         result = await detect_asset_scenes(_ASSET_ID)
 
         assert result == []
-        mock_metric.labels.assert_called_with(
-            activity="scene_detect"
-        )
+        mock_metric.labels.assert_called_with(activity="scene_detect")
         mock_metric.labels.return_value.observe.assert_called_once()
-        duration = (
-            mock_metric.labels.return_value.observe.call_args[0][0]
-        )
+        duration = mock_metric.labels.return_value.observe.call_args[0][0]
         assert duration > 0
 
 
 class TestTranscriptionActivityMetrics:
     """verify transcription activities observe the histogram."""
 
-    @patch(
-        "loom.workflows.transcription_activities"
-        ".ingest_workflow_duration"
-    )
-    @patch(
-        "loom.workflows.transcription_activities"
-        ".transcribe_audio"
-    )
+    @patch("loom.workflows.transcription_activities.ingest_workflow_duration")
+    @patch("loom.workflows.transcription_activities.transcribe_audio")
     async def test_transcribe_observes_metric(
         self,
         mock_transcribe: MagicMock,
@@ -311,32 +231,21 @@ class TestTranscriptionActivityMetrics:
             transcribe_asset,
         )
 
-        mock_transcribe.return_value = [
-            {"start": 0, "end": 1, "text": "hello"}
-        ]
+        mock_transcribe.return_value = [{"start": 0, "end": 1, "text": "hello"}]
 
         result = await transcribe_asset(
-            _ASSET_ID, "/tmp/audio.wav"  # noqa: S108
+            _ASSET_ID,
+            "/tmp/audio.wav",  # noqa: S108
         )
 
         assert len(result) == 1
-        mock_metric.labels.assert_called_with(
-            activity="transcribe"
-        )
+        mock_metric.labels.assert_called_with(activity="transcribe")
         mock_metric.labels.return_value.observe.assert_called_once()
-        duration = (
-            mock_metric.labels.return_value.observe.call_args[0][0]
-        )
+        duration = mock_metric.labels.return_value.observe.call_args[0][0]
         assert duration > 0
 
-    @patch(
-        "loom.workflows.transcription_activities"
-        ".ingest_workflow_duration"
-    )
-    @patch(
-        "loom.workflows.transcription_activities"
-        ".diarize_audio"
-    )
+    @patch("loom.workflows.transcription_activities.ingest_workflow_duration")
+    @patch("loom.workflows.transcription_activities.diarize_audio")
     async def test_diarize_observes_metric(
         self,
         mock_diarize: MagicMock,
@@ -349,17 +258,14 @@ class TestTranscriptionActivityMetrics:
         mock_diarize.return_value = []
 
         result = await diarize_asset(
-            _ASSET_ID, "/tmp/audio.wav"  # noqa: S108
+            _ASSET_ID,
+            "/tmp/audio.wav",  # noqa: S108
         )
 
         assert result == []
-        mock_metric.labels.assert_called_with(
-            activity="diarize"
-        )
+        mock_metric.labels.assert_called_with(activity="diarize")
         mock_metric.labels.return_value.observe.assert_called_once()
-        duration = (
-            mock_metric.labels.return_value.observe.call_args[0][0]
-        )
+        duration = mock_metric.labels.return_value.observe.call_args[0][0]
         assert duration > 0
 
 

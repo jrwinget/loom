@@ -11,7 +11,7 @@ from loom.security.auth import hash_password
 
 _USER_ID = UUID("01912345-6789-7abc-8def-0123456789ab")
 _USER_EMAIL = "admin@example.com"
-_USER_PASSWORD = "securepassword123"
+_USER_PASSWORD = "SecurePass1234"
 _USER_HASH = hash_password(_USER_PASSWORD)
 
 
@@ -177,7 +177,7 @@ async def test_register_rate_limit(
                     json={
                         "email": f"user{i}@example.com",
                         "display_name": f"User {i}",
-                        "password": "securepassword123",
+                        "password": "SecurePass1234",
                     },
                 )
                 # 201 for successful registration
@@ -189,7 +189,7 @@ async def test_register_rate_limit(
                 json={
                     "email": "extra@example.com",
                     "display_name": "Extra",
-                    "password": "securepassword123",
+                    "password": "SecurePass1234",
                 },
             )
             assert resp.status_code == 429
