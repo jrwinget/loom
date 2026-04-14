@@ -550,7 +550,10 @@ async def test_update_webhook(
     updated.url = "https://updated.example.com/hook"
 
     # mock dns to avoid resolution failures in test env
-    fake_addr = [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 443))]
+    fake_addr = [
+        (socket.AF_INET, socket.SOCK_STREAM, 0, "",
+         ("93.184.216.34", 443)),
+    ]
     with (
         patch(
             "loom.security.auth.get_settings",

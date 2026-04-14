@@ -134,60 +134,6 @@ class TestSecurityHeaders:
         assert len(rid) == 36  # uuid format
 
 
-class TestSecurityHeaders:
-    """security headers on all responses."""
-
-    async def test_security_headers_present(self) -> None:
-        """all 5 security headers are in the response."""
-        import httpx
-
-        get_settings.cache_clear()
-        with patch(
-            "loom.main.get_settings",
-            return_value=_make_settings(debug=True),
-        ):
-            app = create_app()
-
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app),
-            base_url="http://testserver",
-        ) as client:
-            resp = await client.get("/api/v1/health")
-
-        assert resp.headers["X-Frame-Options"] == "DENY"
-        assert resp.headers["X-Content-Type-Options"] == "nosniff"
-        assert resp.headers["X-XSS-Protection"] == "0"
-        assert resp.headers["Referrer-Policy"] == (
-            "strict-origin-when-cross-origin"
-        )
-        assert resp.headers["Permissions-Policy"] == (
-            "camera=(), microphone=(), geolocation=()"
-        )
-
-    async def test_request_id_header_still_present(
-        self,
-    ) -> None:
-        """X-Request-Id is still returned."""
-        import httpx
-
-        get_settings.cache_clear()
-        with patch(
-            "loom.main.get_settings",
-            return_value=_make_settings(debug=True),
-        ):
-            app = create_app()
-
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app),
-            base_url="http://testserver",
-        ) as client:
-            resp = await client.get("/api/v1/health")
-
-        assert "X-Request-Id" in resp.headers
-        rid = resp.headers["X-Request-Id"]
-        assert len(rid) == 36  # uuid format
-
-
 class TestRouterIncluded:
     """api router is mounted at /api/v1."""
 
