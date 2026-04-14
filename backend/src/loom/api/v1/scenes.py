@@ -1,15 +1,13 @@
-import asyncio
 import logging
 from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from minio import Minio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from loom.dependencies import get_db_session, get_minio_client
+from loom.dependencies import get_db_session
 from loom.models.scene import Scene
 from loom.schemas.scene import (
     SceneListResponse,
@@ -20,7 +18,6 @@ from loom.security.rbac import (
     require_authenticated,
 )
 from loom.services.case import check_case_access
-from loom.services.storage import DERIVATIVES_BUCKET, StorageService
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +90,6 @@ async def get_scene_thumbnail(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-    minio_client: Minio = Depends(  # noqa: B008
-        get_minio_client
-    ),
 ) -> dict[str, Any]:
     """redirect to presigned thumbnail url (viewer+)."""
     db: AsyncSession = session  # type: ignore[assignment]
@@ -122,17 +116,8 @@ async def get_scene_thumbnail(
             detail="no thumbnail available",
         )
 
-    storage = StorageService(minio_client)
-    loop = asyncio.get_running_loop()
-    url = await loop.run_in_executor(
-        None,
-        storage.get_presigned_download_url,
-        DERIVATIVES_BUCKET,
-        scene.thumbnail_key,
-        900,
-    )
-
-    return {"thumbnail_url": url}
+    # TODO: generate presigned url from minio
+    return {"thumbnail_url": scene.thumbnail_key}
 
 
 @router.post(
@@ -183,14 +168,18 @@ async def start_scene_detection(
             task_queue="loom-ingest",
         )
     except Exception:
-        logger.warning(
+        logger.error(
             "failed to start scene detection workflow for %s",
             asset_id,
+            exc_info=True,
         )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="workflow service unavailable",
+        ) from None
 
     return {
         "status": "accepted",
         "asset_id": asset_id,
         "workflow_id": workflow_id,
-        "message": "scene detection started",
     }

@@ -83,7 +83,6 @@ async def create_export_endpoint(
         db, case_id, body.name, body.format, user_id
     )
 
-    # start temporal workflow (best-effort, non-blocking)
     try:
         from temporalio.client import Client
 
@@ -103,6 +102,10 @@ async def create_export_endpoint(
             export.id,
             exc_info=True,
         )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="workflow service unavailable",
+        ) from None
 
     return ExportResponse.model_validate(export)
 

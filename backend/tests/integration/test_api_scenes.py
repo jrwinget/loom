@@ -159,6 +159,9 @@ async def test_start_scene_detection(
     """post detect returns 202 accepted."""
     app = _create_app(mock_settings)
 
+    mock_temporal = AsyncMock()
+    mock_temporal.start_workflow = AsyncMock()
+
     with (
         patch(
             "loom.security.auth.get_settings",
@@ -168,6 +171,11 @@ async def test_start_scene_detection(
             f"{_SVC}.check_case_access",
             new_callable=AsyncMock,
             return_value=True,
+        ),
+        patch(
+            "temporalio.client.Client.connect",
+            new_callable=AsyncMock,
+            return_value=mock_temporal,
         ),
     ):
         token = create_access_token(str(_ADMIN_ID), "admin")
