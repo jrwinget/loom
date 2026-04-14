@@ -490,9 +490,7 @@ class TestGetTimelineBatchFetch:
             events.append(e)
             row = MagicMock()
             vals = [e, 0, 0, 0]
-            row.__getitem__ = (
-                lambda self, i, v=vals: v[i]
-            )
+            row.__getitem__ = lambda self, i, v=vals: v[i]
             rows.append(row)
 
         # evidence for event 0 and event 2 only

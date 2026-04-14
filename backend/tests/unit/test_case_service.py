@@ -169,9 +169,7 @@ class TestUpdateCaseFieldWhitelist:
         session.execute.return_value = mock_result
 
         with pytest.raises(ValueError, match="not updatable"):
-            await update_case(
-                session, _CASE_ID, {"created_by": "evil"}
-            )
+            await update_case(session, _CASE_ID, {"created_by": "evil"})
 
     @pytest.mark.asyncio
     async def test_allows_name_update(self) -> None:
@@ -182,9 +180,7 @@ class TestUpdateCaseFieldWhitelist:
         mock_result.scalar_one_or_none.return_value = case
         session.execute.return_value = mock_result
 
-        updated = await update_case(
-            session, _CASE_ID, {"name": "New"}
-        )
+        updated = await update_case(session, _CASE_ID, {"name": "New"})
         assert updated.name == "New"
 
     @pytest.mark.asyncio

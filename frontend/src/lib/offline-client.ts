@@ -4,11 +4,7 @@ import type { QueueItemType } from '@/stores/offline-queue-store';
 
 const MAX_RETRIES = 3;
 
-function idempotencyKey(
-  method: string,
-  path: string,
-  body?: string,
-): string {
+function idempotencyKey(method: string, path: string, body?: string): string {
   // simple djb2 hash for body dedup
   let hash = 5381;
   const str = body ?? '';
@@ -46,14 +42,16 @@ function enqueueMutation(
   const key = idempotencyKey(method, path, serialized);
 
   // deduplicate: skip if an identical pending item exists
-  const existing = store.getPending().find(
-    (item) =>
-      idempotencyKey(
-        item.payload.method,
-        item.payload.path,
-        item.payload.body,
-      ) === key,
-  );
+  const existing = store
+    .getPending()
+    .find(
+      (item) =>
+        idempotencyKey(
+          item.payload.method,
+          item.payload.path,
+          item.payload.body,
+        ) === key,
+    );
   if (existing) return existing.id;
 
   return store.enqueue({

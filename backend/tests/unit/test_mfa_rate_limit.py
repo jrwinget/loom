@@ -40,9 +40,7 @@ class MockSession:
 
     async def execute(self, stmt):
         result = MagicMock()
-        result.scalar_one_or_none.return_value = (
-            self._user
-        )
+        result.scalar_one_or_none.return_value = self._user
         return result
 
     def add(self, obj: object) -> None:
@@ -55,9 +53,7 @@ class MockSession:
 @pytest_asyncio.fixture
 def mock_settings():
     return Settings(
-        secret_key=(
-            "test-secret-key-that-is-long-enough-for-validation"
-        ),
+        secret_key=("test-secret-key-that-is-long-enough-for-validation"),
         access_token_expire_minutes=15,
         refresh_token_expire_days=7,
         database_url="sqlite+aiosqlite:///",
@@ -66,9 +62,7 @@ def mock_settings():
 
 def _create_app(mock_session, settings):
     get_settings.cache_clear()
-    with patch(
-        "loom.config.get_settings", return_value=settings
-    ):
+    with patch("loom.config.get_settings", return_value=settings):
         from loom.main import create_app
 
         application = create_app()
@@ -76,9 +70,7 @@ def _create_app(mock_session, settings):
     async def override_db():
         yield mock_session
 
-    application.dependency_overrides[get_db_session] = (
-        override_db
-    )
+    application.dependency_overrides[get_db_session] = override_db
     application.state.db_session_factory = None
     return application
 
@@ -102,9 +94,7 @@ async def test_mfa_challenge_rate_limit(
         "loom.security.auth.get_settings",
         return_value=mock_settings,
     ):
-        challenge_token = create_mfa_challenge_token(
-            str(_USER_ID)
-        )
+        challenge_token = create_mfa_challenge_token(str(_USER_ID))
 
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app),

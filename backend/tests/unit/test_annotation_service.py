@@ -255,9 +255,7 @@ class TestDeleteAnnotation:
         mock_result.scalar_one_or_none.return_value = annotation
         session.execute.return_value = mock_result
 
-        assert await delete_annotation(
-            session, _ANNO_ID, _USER_ID
-        ) is True
+        assert await delete_annotation(session, _ANNO_ID, _USER_ID) is True
         assert annotation.deleted_at is not None
         assert str(annotation.deleted_by) == _USER_ID
         session.commit.assert_awaited_once()

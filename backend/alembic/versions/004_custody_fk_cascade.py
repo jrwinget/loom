@@ -1,14 +1,14 @@
 """Change chain_of_custody asset_id FK from RESTRICT to CASCADE
 
 Revision ID: 004
-Revises: 003
+Revises: 003b
 Create Date: 2026-03-31
 """
 
 from alembic import op
 
 revision: str = "004"
-down_revision: str = "003"
+down_revision: str = "003b"
 branch_labels = None
 depends_on = None
 

@@ -328,6 +328,10 @@ async def test_apply_redaction(
             new_callable=AsyncMock,
             return_value=applied,
         ),
+        patch(
+            "loom.services.storage.StorageService.get_object_stream",
+            return_value=(4, iter([b"fake"])),
+        ),
     ):
         token = create_access_token(str(_USER_ID), "analyst")
         async with httpx.AsyncClient(

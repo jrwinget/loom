@@ -17,27 +17,23 @@ export function LoginPage(): React.ReactElement {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const { setAuth, setMfaChallenge, requiresMfa } =
-    useAuthStore();
+  const { setAuth, setMfaChallenge, requiresMfa } = useAuthStore();
   const navigate = useNavigate();
 
   if (requiresMfa()) {
     return <MfaChallenge />;
   }
 
-  const handleSubmit = async (
-    e: React.FormEvent,
-  ): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError('');
     setSubmitting(true);
 
     try {
-      const resp =
-        await apiClient.post<LoginResponse>(
-          '/auth/login',
-          { email, password },
-        );
+      const resp = await apiClient.post<LoginResponse>('/auth/login', {
+        email,
+        password,
+      });
 
       if (resp.requires_mfa && resp.challenge_token) {
         setMfaChallenge(resp.challenge_token);
@@ -48,8 +44,7 @@ export function LoginPage(): React.ReactElement {
         useAuthStore.setState({
           token: resp.access_token,
         });
-        const user =
-          await apiClient.get<User>('/auth/me');
+        const user = await apiClient.get<User>('/auth/me');
         setAuth(resp.access_token, user);
         navigate('/');
       }
@@ -62,16 +57,13 @@ export function LoginPage(): React.ReactElement {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-8">
+      <div className="bg-card w-full max-w-sm space-y-6 rounded-lg border border-border p-8">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground">
             Sign in to Loom
           </h1>
         </div>
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4"
-        >
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
               htmlFor="email"
@@ -101,18 +93,13 @@ export function LoginPage(): React.ReactElement {
               type="password"
               autoComplete="current-password"
               value={password}
-              onChange={(e) =>
-                setPassword(e.target.value)
-              }
+              onChange={(e) => setPassword(e.target.value)}
               className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
               required
             />
           </div>
           {error && (
-            <p
-              role="alert"
-              className="text-sm text-destructive"
-            >
+            <p role="alert" className="text-sm text-destructive">
               {error}
             </p>
           )}

@@ -161,9 +161,7 @@ def mute_audio_regions(
         start = r.get("start_time", 0)
         end = r.get("end_time", 0)
         if end > start:
-            filters.append(
-                f"volume=enable='between(t,{start},{end})':volume=0"
-            )
+            filters.append(f"volume=enable='between(t,{start},{end})':volume=0")
 
     if not filters:
         shutil.copy2(input_path, output_path)
@@ -174,10 +172,14 @@ def mute_audio_regions(
 
     af = ",".join(filters)
     cmd = [
-        "ffmpeg", "-y",
-        "-i", input_path,
-        "-af", af,
-        "-c:v", "copy",
+        "ffmpeg",
+        "-y",
+        "-i",
+        input_path,
+        "-af",
+        af,
+        "-c:v",
+        "copy",
         output_path,
     ]
     result = subprocess.run(  # noqa: S603 — ffmpeg with controlled args
@@ -228,16 +230,11 @@ async def apply_redaction(
         )
         if result is None:
             redaction.status = "failed"
-            redaction.error_message = (
-                "pillow not installed — cannot process"
-            )
+            redaction.error_message = "pillow not installed — cannot process"
             await session.flush()
             return redaction
 
-        output_key = (
-            f"redactions/{redaction.asset_id}/"
-            f"{redaction.id}.png"
-        )
+        output_key = f"redactions/{redaction.asset_id}/{redaction.id}.png"
         if storage is not None:
             storage.upload_bytes(
                 DERIVATIVES_BUCKET,
@@ -253,9 +250,7 @@ async def apply_redaction(
     if rtype == "audio_mute":
         if storage is None:
             redaction.status = "failed"
-            redaction.error_message = (
-                "storage service required for audio mute"
-            )
+            redaction.error_message = "storage service required for audio mute"
             await session.flush()
             return redaction
 
@@ -275,8 +270,7 @@ async def apply_redaction(
                     redaction.regions,
                 )
                 output_key = (
-                    f"redactions/{redaction.asset_id}/"
-                    f"{redaction.id}.mp4"
+                    f"redactions/{redaction.asset_id}/{redaction.id}.mp4"
                 )
                 storage.upload_file(
                     DERIVATIVES_BUCKET,

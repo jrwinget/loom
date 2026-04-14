@@ -23,31 +23,24 @@ class MockSession:
 @pytest_asyncio.fixture
 def mock_settings():
     return Settings(
-        secret_key=(
-            "test-secret-key-that-is-long-enough-for-validation"
-        ),
+        secret_key=("test-secret-key-that-is-long-enough-for-validation"),
         database_url="sqlite+aiosqlite:///",
     )
 
 
-def _create_app(
-    settings: Settings, *, with_db: bool = False
-) -> object:
+def _create_app(settings: Settings, *, with_db: bool = False) -> object:
     get_settings.cache_clear()
-    with patch(
-        "loom.config.get_settings", return_value=settings
-    ):
+    with patch("loom.config.get_settings", return_value=settings):
         from loom.main import create_app
 
         app = create_app()
 
     if with_db:
+
         async def override_db():
             yield MockSession()
 
-        app.dependency_overrides[get_db_session] = (
-            override_db
-        )
+        app.dependency_overrides[get_db_session] = override_db
         app.state.db_session_factory = None
 
     return app

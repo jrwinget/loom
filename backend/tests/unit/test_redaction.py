@@ -345,11 +345,19 @@ class TestApplyRedaction:
         session = AsyncMock()
         redaction = MagicMock(spec=Redaction)
         redaction.redaction_type = "audio_mute"
+        redaction.asset_id = UUID(FAKE_ASSET_ID)
+        redaction.id = UUID("01912345-6789-7abc-8def-012345678999")
         redaction.regions = [
             {"type": "temporal", "start_time": 0, "end_time": 5}
         ]
+        mock_storage = MagicMock()
 
-        result = await apply_redaction(session, redaction)
+        with patch(
+            "loom.services.redaction.mute_audio_regions",
+        ):
+            result = await apply_redaction(
+                session, redaction, storage=mock_storage
+            )
 
         assert result.status == "complete"
 

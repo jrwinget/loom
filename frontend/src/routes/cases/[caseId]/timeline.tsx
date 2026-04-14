@@ -15,15 +15,14 @@ export function TimelinePage(): React.ReactElement {
   const { caseId } = useParams<{ caseId: string }>();
   const safeId = caseId ?? '';
 
-  const [statusFilter, setStatusFilter] =
-    useState<EventStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<EventStatus | 'all'>('all');
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('days');
-  const [selectedEvent, setSelectedEvent] =
-    useState<TimelineEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(
+    null,
+  );
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const filterParam =
-    statusFilter === 'all' ? undefined : statusFilter;
+  const filterParam = statusFilter === 'all' ? undefined : statusFilter;
 
   const { data, isLoading, isError, refetch } = useTimelineEvents(
     safeId,
@@ -52,9 +51,7 @@ export function TimelinePage(): React.ReactElement {
 
   const handleSelectEvent = useCallback(
     (event: TimelineEvent) => {
-      setSelectedEvent(
-        selectedEvent?.id === event.id ? null : event,
-      );
+      setSelectedEvent(selectedEvent?.id === event.id ? null : event);
     },
     [selectedEvent],
   );
@@ -65,9 +62,7 @@ export function TimelinePage(): React.ReactElement {
 
   return (
     <div className="flex flex-col gap-4 p-6">
-      <h1 className="text-2xl font-bold text-foreground">
-        Timeline
-      </h1>
+      <h1 className="text-2xl font-bold text-foreground">Timeline</h1>
 
       <TimelineControls
         onAddEvent={handleAddEvent}
@@ -116,7 +111,7 @@ export function TimelinePage(): React.ReactElement {
             data-testid="event-detail-panel"
             className={
               'fixed inset-y-0 right-0 z-40 flex w-full ' +
-              'max-w-md flex-col overflow-y-auto border-l ' +
+              'max-w-md flex-col overflow-y-auto border-l' +
               'border-border bg-background p-6 shadow-lg'
             }
           >
@@ -131,16 +126,10 @@ export function TimelinePage(): React.ReactElement {
                 {selectedEvent.description}
               </p>
             )}
-            <div
-              className={
-                'mt-4 space-y-2 text-sm text-muted-foreground'
-              }
-            >
+            <div className={'mt-4 space-y-2 text-sm text-muted-foreground'}>
               <p>
                 Status:{' '}
-                <span className="font-medium">
-                  {selectedEvent.status}
-                </span>
+                <span className="font-medium">{selectedEvent.status}</span>
               </p>
               <p>
                 Precision:{' '}
@@ -174,9 +163,7 @@ interface AddEventFormProps {
   submitting: boolean;
 }
 
-function AddEventForm(
-  props: AddEventFormProps,
-): React.ReactElement {
+function AddEventForm(props: AddEventFormProps): React.ReactElement {
   const { onSubmit, onCancel, submitting } = props;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -196,19 +183,11 @@ function AddEventForm(
     <form
       data-testid="add-event-form"
       onSubmit={handleSubmit}
-      className={
-        'rounded-lg border border-border bg-card p-4 ' +
-        'space-y-3'
-      }
+      className={'bg-card rounded-lg border border-border p-4 ' + 'space-y-3'}
     >
-      <h3 className="text-sm font-semibold text-foreground">
-        New Event
-      </h3>
+      <h3 className="text-sm font-semibold text-foreground">New Event</h3>
       <div>
-        <label
-          htmlFor="event-title"
-          className="text-xs text-muted-foreground"
-        >
+        <label htmlFor="event-title" className="text-xs text-muted-foreground">
           Title
         </label>
         <input
@@ -266,7 +245,7 @@ function AddEventForm(
           disabled={submitting}
           className={
             'rounded-md bg-primary px-3 py-1.5 text-sm ' +
-            'font-medium text-primary-foreground ' +
+            'font-medium text-primary-foreground' +
             'hover:bg-primary/90 disabled:opacity-50'
           }
         >

@@ -54,9 +54,7 @@ class CSRFMiddleware:
 
         csrf_header = request.headers.get("x-csrf-token", "")
 
-        if not csrf_header or not hmac.compare_digest(
-            csrf_cookie, csrf_header
-        ):
+        if not csrf_header or not hmac.compare_digest(csrf_cookie, csrf_header):
             await log.awarning(
                 "csrf validation failed",
                 path=request.url.path,
