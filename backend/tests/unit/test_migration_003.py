@@ -27,8 +27,8 @@ migration = _load_migration()
 
 
 def test_revision_identifiers() -> None:
-    assert migration.revision == "003"
-    assert migration.down_revision == "002"
+    assert migration.revision == "003b"
+    assert migration.down_revision == "003"
 
 
 class TestUpgrade:
