@@ -33,9 +33,13 @@ describe('ProtectedRoute', () => {
         selector({
           token: null,
           user: null,
+          mfaChallengeToken: null,
           setAuth: vi.fn(),
           clearAuth: vi.fn(),
+          setMfaChallenge: vi.fn(),
+          clearMfaChallenge: vi.fn(),
           isAuthenticated: () => false,
+          requiresMfa: () => false,
         }),
     );
 
@@ -51,9 +55,13 @@ describe('ProtectedRoute', () => {
         selector({
           token: 'valid-token',
           user: null,
+          mfaChallengeToken: null,
           setAuth: vi.fn(),
           clearAuth: vi.fn(),
+          setMfaChallenge: vi.fn(),
+          clearMfaChallenge: vi.fn(),
           isAuthenticated: () => true,
+          requiresMfa: () => false,
         }),
     );
 
