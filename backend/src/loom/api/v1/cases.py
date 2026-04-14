@@ -279,7 +279,7 @@ async def list_members_endpoint(
             id=m.id,
             case_id=m.case_id,
             user_id=m.user_id,
-            user_email=m.user_email,  # type: ignore[attr-defined]
+            user_email=getattr(m, "user_email", ""),
             role=m.role,
             granted_at=m.granted_at,
         )

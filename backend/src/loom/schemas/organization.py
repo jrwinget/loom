@@ -14,6 +14,11 @@ class OrgUpdate(BaseModel):
     description: str | None = None
 
 
+class OrgMemberCreate(BaseModel):
+    user_id: str
+    role: str = "member"
+
+
 class OrgResponse(BaseModel):
     id: UUID
     name: str

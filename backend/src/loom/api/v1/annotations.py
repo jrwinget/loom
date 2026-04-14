@@ -122,7 +122,7 @@ async def list_annotations_endpoint(
             frame_number=a.frame_number,
             spatial_region=a.spatial_region,
             created_by=a.created_by,
-            created_by_email=a.created_by_email,  # type: ignore[attr-defined]
+            created_by_email=getattr(a, "created_by_email", ""),
             created_at=a.created_at,
             updated_at=a.updated_at,
         )
@@ -174,7 +174,7 @@ async def get_annotation_endpoint(
         frame_number=annotation.frame_number,
         spatial_region=annotation.spatial_region,
         created_by=annotation.created_by,
-        created_by_email=annotation.created_by_email,  # type: ignore[attr-defined]
+        created_by_email=getattr(annotation, "created_by_email", ""),
         created_at=annotation.created_at,
         updated_at=annotation.updated_at,
     )
@@ -228,7 +228,7 @@ async def update_annotation_endpoint(
         frame_number=annotation.frame_number,
         spatial_region=annotation.spatial_region,
         created_by=annotation.created_by,
-        created_by_email=annotation.created_by_email,  # type: ignore[attr-defined]
+        created_by_email=getattr(annotation, "created_by_email", ""),
         created_at=annotation.created_at,
         updated_at=annotation.updated_at,
     )

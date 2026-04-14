@@ -138,8 +138,8 @@ async def list_events_endpoint(
             created_by=e.created_by,
             created_at=e.created_at,
             updated_at=e.updated_at,
-            evidence_count=e.evidence_count,  # type: ignore[attr-defined]
-            has_contradictions=e.has_contradictions,  # type: ignore[attr-defined]
+            evidence_count=getattr(e, "evidence_count", 0),
+            has_contradictions=getattr(e, "has_contradictions", False),
         )
         for e in events
     ]
@@ -194,8 +194,8 @@ async def get_event_endpoint(
         created_by=event.created_by,
         created_at=event.created_at,
         updated_at=event.updated_at,
-        evidence_count=event.evidence_count,  # type: ignore[attr-defined]
-        has_contradictions=event.has_contradictions,  # type: ignore[attr-defined]
+        evidence_count=getattr(event, "evidence_count", 0),
+        has_contradictions=getattr(event, "has_contradictions", False),
     )
 
 
@@ -252,8 +252,8 @@ async def update_event_endpoint(
         created_by=event.created_by,
         created_at=event.created_at,
         updated_at=event.updated_at,
-        evidence_count=event.evidence_count,  # type: ignore[attr-defined]
-        has_contradictions=event.has_contradictions,  # type: ignore[attr-defined]
+        evidence_count=getattr(event, "evidence_count", 0),
+        has_contradictions=getattr(event, "has_contradictions", False),
     )
 
 
@@ -405,8 +405,8 @@ async def get_timeline_endpoint(
             created_by=e.created_by,
             created_at=e.created_at,
             updated_at=e.updated_at,
-            evidence_count=e.evidence_count,  # type: ignore[attr-defined]
-            has_contradictions=e.has_contradictions,  # type: ignore[attr-defined]
+            evidence_count=getattr(e, "evidence_count", 0),
+            has_contradictions=getattr(e, "has_contradictions", False),
             evidence=[
                 EvidenceLinkResponse(
                     id=ev.id,
@@ -421,7 +421,7 @@ async def get_timeline_endpoint(
                     linked_by=ev.linked_by,
                     linked_at=ev.linked_at,
                 )
-                for ev in (e.evidence or [])  # type: ignore[attr-defined]
+                for ev in getattr(e, "evidence", [])
             ],
         )
         for e in events

@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.dependencies import get_db_session
+from loom.metrics import auth_failures
 from loom.models.user import User
 from loom.schemas.user import (
     MfaRequiredResponse,
@@ -24,7 +25,6 @@ from loom.security.auth import (
     hash_password,
     verify_password,
 )
-from loom.metrics import auth_failures
 from loom.security.rate_limit import limiter
 from loom.security.rbac import (
     get_current_user_id,
@@ -50,7 +50,7 @@ async def register(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-) -> User:
+) -> UserResponse:
     """register a new user."""
     db: AsyncSession = session  # type: ignore[assignment]
 
@@ -83,7 +83,14 @@ async def register(
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    return user
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        display_name=user.display_name,
+        role=user.role,
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )
 
 
 @router.post(
@@ -101,7 +108,7 @@ async def register_user(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-) -> User:
+) -> UserResponse:
     """register a new user (admin only)."""
     db: AsyncSession = session  # type: ignore[assignment]
 
@@ -122,7 +129,14 @@ async def register_user(
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    return user
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        display_name=user.display_name,
+        role=user.role,
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )
 
 
 @router.post(
@@ -140,14 +154,10 @@ async def login(
     """authenticate and return tokens, or mfa challenge."""
     db: AsyncSession = session  # type: ignore[assignment]
 
-    result = await db.execute(
-        select(User).where(User.email == body.email)
-    )
+    result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(
-        body.password, user.password_hash
-    ):
+    if not user or not verify_password(body.password, user.password_hash):
         auth_failures.labels(reason="wrong_password").inc()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -162,15 +172,11 @@ async def login(
 
     if user.mfa_enabled:
         return MfaRequiredResponse(
-            challenge_token=create_mfa_challenge_token(
-                str(user.id)
-            ),
+            challenge_token=create_mfa_challenge_token(str(user.id)),
         )
 
     return TokenResponse(
-        access_token=create_access_token(
-            str(user.id), user.role
-        ),
+        access_token=create_access_token(str(user.id), user.role),
         refresh_token=create_refresh_token(str(user.id)),
     )
 
@@ -291,7 +297,7 @@ async def get_me(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-) -> User:
+) -> UserResponse:
     """return the current authenticated user."""
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
@@ -304,4 +310,11 @@ async def get_me(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="user not found",
         )
-    return user
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        display_name=user.display_name,
+        role=user.role,
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )
