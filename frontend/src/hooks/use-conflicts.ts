@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
+import { useToastStore } from '@/stores/toast-store';
 import type {
   ConflictDetail,
   ConflictListResponse,
@@ -61,6 +62,12 @@ export function useCreateResolution(
         queryKey: queryKeys.conflicts.byCase(caseId),
       });
     },
+    onError: () => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: 'Failed to create resolution',
+      });
+    },
   });
 }
 
@@ -97,6 +104,12 @@ export function useUpdateResolution(caseId: string): ReturnType<
       });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.conflicts.byCase(caseId),
+      });
+    },
+    onError: () => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: 'Failed to update resolution',
       });
     },
   });

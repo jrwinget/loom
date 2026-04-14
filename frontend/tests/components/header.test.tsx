@@ -1,41 +1,124 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Header } from '@/components/layout/header';
+import { useAuthStore } from '@/stores/auth-store';
 
-function renderHeader(): ReturnType<typeof render> {
-  return render(<Header />);
+const mockNavigate = vi.fn();
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
+function renderHeader(): void {
+  render(
+    <MemoryRouter>
+      <Header />
+    </MemoryRouter>,
+  );
 }
 
-describe('Header', () => {
-  it('renders with banner landmark role', () => {
-    renderHeader();
-    const header = screen.getByRole('banner');
-    expect(header).toBeInTheDocument();
+describe('Header user menu', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAuthStore.setState({
+      token: 'test-token',
+      user: {
+        id: 'u1',
+        email: 'analyst@example.com',
+        displayName: 'Test User',
+        role: 'analyst',
+      },
+    });
   });
 
-  it('renders breadcrumb navigation', () => {
+  it('renders the user menu button', () => {
     renderHeader();
-    const nav = screen.getByRole('navigation', {
-      name: 'Breadcrumb',
-    });
-    expect(nav).toBeInTheDocument();
-    expect(screen.getByText('Home')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('user-menu-button'),
+    ).toBeInTheDocument();
   });
 
-  it('has keyboard shortcuts button', () => {
+  it('shows first letter of email on the button', () => {
     renderHeader();
-    const btn = screen.getByRole('button', {
-      name: 'Keyboard shortcuts',
-    });
-    expect(btn).toBeInTheDocument();
-    expect(btn).toHaveTextContent('?');
+    expect(
+      screen.getByTestId('user-menu-button'),
+    ).toHaveTextContent('A');
   });
 
-  it('has user menu button', () => {
+  it('opens dropdown on click', async () => {
+    const user = userEvent.setup();
     renderHeader();
-    const btn = screen.getByRole('button', {
-      name: 'User menu',
-    });
-    expect(btn).toBeInTheDocument();
+
+    expect(
+      screen.queryByTestId('user-menu-dropdown'),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('user-menu-button'));
+
+    expect(
+      screen.getByTestId('user-menu-dropdown'),
+    ).toBeInTheDocument();
+  });
+
+  it('displays user email in the dropdown', async () => {
+    const user = userEvent.setup();
+    renderHeader();
+
+    await user.click(screen.getByTestId('user-menu-button'));
+
+    expect(
+      screen.getByTestId('user-menu-email'),
+    ).toHaveTextContent('analyst@example.com');
+  });
+
+  it('has a settings link', async () => {
+    const user = userEvent.setup();
+    renderHeader();
+
+    await user.click(screen.getByTestId('user-menu-button'));
+
+    expect(screen.getByText('Settings')).toBeInTheDocument();
+  });
+
+  it('navigates to settings on settings click', async () => {
+    const user = userEvent.setup();
+    renderHeader();
+
+    await user.click(screen.getByTestId('user-menu-button'));
+    await user.click(screen.getByText('Settings'));
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/settings/security',
+    );
+  });
+
+  it('clears auth and navigates to login on logout', async () => {
+    const user = userEvent.setup();
+    renderHeader();
+
+    await user.click(screen.getByTestId('user-menu-button'));
+    await user.click(screen.getByTestId('logout-button'));
+
+    expect(useAuthStore.getState().token).toBeNull();
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(mockNavigate).toHaveBeenCalledWith('/login');
+  });
+
+  it('closes dropdown when clicking outside', async () => {
+    const user = userEvent.setup();
+    renderHeader();
+
+    await user.click(screen.getByTestId('user-menu-button'));
+    expect(
+      screen.getByTestId('user-menu-dropdown'),
+    ).toBeInTheDocument();
+
+    await user.click(document.body);
+    expect(
+      screen.queryByTestId('user-menu-dropdown'),
+    ).not.toBeInTheDocument();
   });
 });
