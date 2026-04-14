@@ -4,6 +4,20 @@ import type { QueueItemType } from '@/stores/offline-queue-store';
 
 const MAX_RETRIES = 3;
 
+function idempotencyKey(
+  method: string,
+  path: string,
+  body?: string,
+): string {
+  // simple djb2 hash for body dedup
+  let hash = 5381;
+  const str = body ?? '';
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
+  }
+  return `${method}:${path}:${hash}`;
+}
+
 class OfflineError extends Error {
   constructor(message: string) {
     super(message);
@@ -28,12 +42,26 @@ function enqueueMutation(
   body?: unknown,
 ): string {
   const store = useOfflineQueueStore.getState();
+  const serialized = body ? JSON.stringify(body) : undefined;
+  const key = idempotencyKey(method, path, serialized);
+
+  // deduplicate: skip if an identical pending item exists
+  const existing = store.getPending().find(
+    (item) =>
+      idempotencyKey(
+        item.payload.method,
+        item.payload.path,
+        item.payload.body,
+      ) === key,
+  );
+  if (existing) return existing.id;
+
   return store.enqueue({
     type: inferType(path),
     payload: {
       method,
       path,
-      body: body ? JSON.stringify(body) : undefined,
+      body: serialized,
     },
   });
 }

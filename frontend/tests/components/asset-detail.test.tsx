@@ -15,6 +15,37 @@ vi.mock('@/hooks/use-assets', () => ({
   }),
 }));
 
+// mock the custody hook
+const mockCustodyData = {
+  items: [
+    {
+      id: 'c1',
+      asset_id: 'asset-1',
+      action: 'upload',
+      actor_id: 'user-1',
+      detail: null,
+      ip_address: null,
+      timestamp: '2026-03-15T16:00:00Z',
+    },
+    {
+      id: 'c2',
+      asset_id: 'asset-1',
+      action: 'process_complete',
+      actor_id: 'system',
+      detail: null,
+      ip_address: null,
+      timestamp: '2026-03-15T16:05:00Z',
+    },
+  ],
+  total: 2,
+};
+vi.mock('@/hooks/use-custody', () => ({
+  useAssetCustody: () => ({
+    data: mockCustodyData,
+    isLoading: false,
+  }),
+}));
+
 const mockAsset: Asset = {
   id: 'asset-1',
   caseId: 'case-1',
@@ -106,24 +137,18 @@ describe('AssetDetail', () => {
       screen.getByText('Chain of custody'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('File uploaded'),
+      screen.getByText('upload'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Processing completed'),
+      screen.getByText('process complete'),
     ).toBeInTheDocument();
   });
 
-  it('shows only upload event when processing not complete', () => {
-    renderDetail({
-      ...mockAsset,
-      processingStatus: 'processing',
-    });
+  it('shows custody timeline data-testid', () => {
+    renderDetail();
     expect(
-      screen.getByText('File uploaded'),
+      screen.getByTestId('custody-timeline'),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText('Processing completed'),
-    ).not.toBeInTheDocument();
   });
 
   it('shows capture time when available', () => {
