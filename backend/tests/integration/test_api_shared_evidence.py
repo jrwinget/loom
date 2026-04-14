@@ -247,7 +247,7 @@ async def test_share_evidence_forbidden_no_target_access(
             )
 
     assert resp.status_code == 403
-    assert "target case" in resp.json()["detail"]
+    assert "insufficient permissions" in resp.json()["detail"]
 
 
 async def test_share_evidence_forbidden_viewer_on_target(
@@ -282,7 +282,7 @@ async def test_share_evidence_forbidden_viewer_on_target(
             )
 
     assert resp.status_code == 403
-    assert "target case" in resp.json()["detail"]
+    assert "insufficient permissions" in resp.json()["detail"]
 
 
 async def test_share_evidence_editor_on_both_cases(
