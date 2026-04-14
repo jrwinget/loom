@@ -42,15 +42,11 @@ async def detect_asset_scenes(
     """
     start = time.monotonic()
     try:
-        logger.info(
-            "detecting scenes for asset %s", asset_id
-        )
+        logger.info("detecting scenes for asset %s", asset_id)
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(Asset).where(
-                    Asset.id == UUID(asset_id)
-                )
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
             asset = result.scalar_one_or_none()
             if asset is None:
@@ -59,8 +55,7 @@ async def detect_asset_scenes(
 
             if asset.media_type != "video":
                 logger.info(
-                    "asset %s is not video (%s); "
-                    "skipping scene detection",
+                    "asset %s is not video (%s); skipping scene detection",
                     asset_id,
                     asset.media_type,
                 )
@@ -68,9 +63,7 @@ async def detect_asset_scenes(
 
             storage = StorageService(get_minio_client())
 
-            with tempfile.TemporaryDirectory(
-                prefix="loom_scene_"
-            ) as tmp_dir:
+            with tempfile.TemporaryDirectory(prefix="loom_scene_") as tmp_dir:
                 suffix = Path(asset.original_filename).suffix
                 dest = str(Path(tmp_dir) / f"video{suffix}")
                 storage.download_file(
@@ -89,9 +82,9 @@ async def detect_asset_scenes(
         return scenes
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="scene_detect"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="scene_detect").observe(
+            duration
+        )
 
 
 @activity.defn
@@ -114,9 +107,7 @@ async def generate_scene_thumbs(
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(Asset).where(
-                    Asset.id == UUID(asset_id)
-                )
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
             asset = result.scalar_one_or_none()
             if asset is None:
@@ -142,19 +133,13 @@ async def generate_scene_thumbs(
 
                 scenes = detect_scenes(dest)
                 thumb_dir = str(Path(tmp_dir) / "thumbs")
-                thumb_paths = generate_scene_thumbnails(
-                    dest, scenes, thumb_dir
-                )
+                thumb_paths = generate_scene_thumbnails(dest, scenes, thumb_dir)
 
                 case_id = str(asset.case_id)
-                base_key = (
-                    f"{case_id}/{asset_id}/scenes"
-                )
+                base_key = f"{case_id}/{asset_id}/scenes"
 
                 for i, thumb_path in enumerate(thumb_paths):
-                    key = (
-                        f"{base_key}/scene_{i + 1:04d}.jpg"
-                    )
+                    key = f"{base_key}/scene_{i + 1:04d}.jpg"
                     storage.upload_file(
                         DERIVATIVES_BUCKET,
                         key,
@@ -174,9 +159,9 @@ async def generate_scene_thumbs(
         return keys
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="scene_thumbnails"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="scene_thumbnails").observe(
+            duration
+        )
 
 
 @activity.defn
@@ -189,15 +174,11 @@ async def store_scene_results(
     """
     start = time.monotonic()
     try:
-        logger.info(
-            "storing scene results for asset %s", asset_id
-        )
+        logger.info("storing scene results for asset %s", asset_id)
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(Asset).where(
-                    Asset.id == UUID(asset_id)
-                )
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
             asset = result.scalar_one_or_none()
             if asset is None:
@@ -222,9 +203,7 @@ async def store_scene_results(
 
                 scenes = detect_scenes(dest)
 
-            records = await store_scenes(
-                session, asset_id, scenes
-            )
+            records = await store_scenes(session, asset_id, scenes)
             await session.commit()
 
         logger.info(
@@ -234,6 +213,6 @@ async def store_scene_results(
         )
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="scene_store"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="scene_store").observe(
+            duration
+        )

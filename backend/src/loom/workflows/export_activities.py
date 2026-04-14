@@ -32,21 +32,15 @@ async def build_export(export_id: str) -> str:
     """
     start = time.monotonic()
     try:
-        logger.info(
-            "building export bundle %s", export_id
-        )
+        logger.info("building export bundle %s", export_id)
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(ExportBundle).where(
-                    ExportBundle.id == export_id
-                )
+                select(ExportBundle).where(ExportBundle.id == export_id)
             )
             export = result.scalar_one_or_none()
             if not export:
-                logger.error(
-                    "export %s not found", export_id
-                )
+                logger.error("export %s not found", export_id)
                 return export_id
 
             export.status = "processing"
@@ -57,17 +51,11 @@ async def build_export(export_id: str) -> str:
 
             try:
                 if fmt == "pdf_report":
-                    await _build_pdf_report(
-                        session, export, case_id
-                    )
+                    await _build_pdf_report(session, export, case_id)
                 elif fmt == "json_manifest":
-                    await _build_json_manifest(
-                        session, export, case_id
-                    )
+                    await _build_json_manifest(session, export, case_id)
                 else:
-                    await _build_zip_bundle(
-                        session, export, case_id
-                    )
+                    await _build_zip_bundle(session, export, case_id)
 
                 export.status = "complete"
                 await session.commit()
@@ -83,9 +71,7 @@ async def build_export(export_id: str) -> str:
         return export_id
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="export"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="export").observe(duration)
 
 
 async def _build_pdf_report(

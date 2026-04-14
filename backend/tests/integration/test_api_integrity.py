@@ -47,15 +47,14 @@ def _create_app(settings: Settings) -> object:
     get_settings.cache_clear()
     with patch("loom.config.get_settings", return_value=settings):
         from loom.main import create_app
+
         application = create_app()
 
     async def override_db():
         yield _StubSession()
 
     application.dependency_overrides[get_db_session] = override_db
-    application.dependency_overrides[get_minio_client] = (
-        lambda: MagicMock()
-    )
+    application.dependency_overrides[get_minio_client] = lambda: MagicMock()
     application.state.db_session_factory = None
     return application
 
@@ -63,9 +62,7 @@ def _create_app(settings: Settings) -> object:
 @pytest.fixture
 def mock_settings():
     return Settings(
-        secret_key=(
-            "test-secret-key-that-is-long-enough-for-validation"
-        ),
+        secret_key=("test-secret-key-that-is-long-enough-for-validation"),
         database_url="sqlite+aiosqlite:///",
     )
 
@@ -122,8 +119,7 @@ async def test_verify_single_asset(
             base_url="http://testserver",
         ) as ac:
             resp = await ac.post(
-                f"/api/v1/cases/{_CASE_ID}/assets/"
-                f"{_ASSET_ID}/verify",
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/verify",
                 headers=_auth_header(token),
             )
 
@@ -161,8 +157,7 @@ async def test_verify_asset_not_found(
             base_url="http://testserver",
         ) as ac:
             resp = await ac.post(
-                f"/api/v1/cases/{_CASE_ID}/assets/"
-                f"{_ASSET_ID}/verify",
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/verify",
                 headers=_auth_header(token),
             )
 
@@ -192,8 +187,7 @@ async def test_verify_asset_forbidden(
             base_url="http://testserver",
         ) as ac:
             resp = await ac.post(
-                f"/api/v1/cases/{_CASE_ID}/assets/"
-                f"{_ASSET_ID}/verify",
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/verify",
                 headers=_auth_header(token),
             )
 
@@ -290,8 +284,7 @@ async def test_integrity_report(
             base_url="http://testserver",
         ) as ac:
             resp = await ac.get(
-                f"/api/v1/cases/{_CASE_ID}/assets/"
-                f"{_ASSET_ID}/integrity-report",
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/integrity-report",
                 headers=_auth_header(token),
             )
 
@@ -329,8 +322,7 @@ async def test_integrity_report_not_found(
             base_url="http://testserver",
         ) as ac:
             resp = await ac.get(
-                f"/api/v1/cases/{_CASE_ID}/assets/"
-                f"{_ASSET_ID}/integrity-report",
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/integrity-report",
                 headers=_auth_header(token),
             )
 

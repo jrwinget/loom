@@ -138,13 +138,18 @@ async def upload_asset(
             )
 
             storage_key = generate_storage_key(
-                case_id, str(asset.id), filename,
+                case_id,
+                str(asset.id),
+                filename,
             )
             asset.storage_key = storage_key
             await db.flush()
 
             await record_upload_custody(
-                db, str(asset.id), user_id, ip_address,
+                db,
+                str(asset.id),
+                user_id,
+                ip_address,
             )
 
         # upload to minio (sync call via executor)

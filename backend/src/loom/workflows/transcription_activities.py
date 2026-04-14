@@ -41,15 +41,11 @@ async def extract_audio(asset_id: str) -> str:
     """
     start = time.monotonic()
     try:
-        logger.info(
-            "extracting audio for asset %s", asset_id
-        )
+        logger.info("extracting audio for asset %s", asset_id)
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(Asset).where(
-                    Asset.id == UUID(asset_id)
-                )
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
             asset = result.scalar_one_or_none()
             if asset is None:
@@ -76,10 +72,7 @@ async def extract_audio(asset_id: str) -> str:
 
             ffmpeg = shutil.which("ffmpeg")
             if ffmpeg is None:
-                msg = (
-                    "ffmpeg is not installed; "
-                    "cannot extract audio from video"
-                )
+                msg = "ffmpeg is not installed; cannot extract audio from video"
                 raise RuntimeError(msg)
 
             audio_path = str(Path(tmp_dir) / "audio.wav")
@@ -110,9 +103,9 @@ async def extract_audio(asset_id: str) -> str:
         return audio_path
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="extract_audio"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="extract_audio").observe(
+            duration
+        )
 
 
 @activity.defn
@@ -144,9 +137,7 @@ async def transcribe_asset(
         return segments
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="transcribe"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="transcribe").observe(duration)
 
 
 @activity.defn
@@ -170,17 +161,14 @@ async def diarize_asset(
         diarization = diarize_audio(audio_path)
 
         logger.info(
-            "diarization found %d speaker turns "
-            "for asset %s",
+            "diarization found %d speaker turns for asset %s",
             len(diarization),
             asset_id,
         )
         return diarization
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="diarize"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="diarize").observe(duration)
 
 
 @activity.defn
@@ -193,15 +181,11 @@ async def store_transcript(asset_id: str) -> None:
     """
     start = time.monotonic()
     try:
-        logger.info(
-            "storing transcript for asset %s", asset_id
-        )
+        logger.info("storing transcript for asset %s", asset_id)
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(Asset).where(
-                    Asset.id == UUID(asset_id)
-                )
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
             asset = result.scalar_one_or_none()
             if asset is None:
@@ -214,9 +198,7 @@ async def store_transcript(asset_id: str) -> None:
                 prefix="loom_transcript_"
             ) as tmp_dir:
                 suffix = Path(asset.original_filename).suffix
-                src = str(
-                    Path(tmp_dir) / f"original{suffix}"
-                )
+                src = str(Path(tmp_dir) / f"original{suffix}")
                 storage.download_file(
                     ORIGINALS_BUCKET,
                     asset.storage_key,
@@ -231,9 +213,7 @@ async def store_transcript(asset_id: str) -> None:
                             "extract audio for transcript"
                         )
                         return
-                    audio_path = str(
-                        Path(tmp_dir) / "audio.wav"
-                    )
+                    audio_path = str(Path(tmp_dir) / "audio.wav")
                     subprocess.run(  # noqa: S603
                         [
                             ffmpeg,
@@ -260,10 +240,8 @@ async def store_transcript(asset_id: str) -> None:
                 diarization = diarize_audio(audio_path)
 
                 if diarization:
-                    segments = (
-                        align_transcript_with_speakers(
-                            segments, diarization
-                        )
+                    segments = align_transcript_with_speakers(
+                        segments, diarization
                     )
 
             records = await store_transcript_segments(
@@ -278,6 +256,6 @@ async def store_transcript(asset_id: str) -> None:
         )
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="store_transcript"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="store_transcript").observe(
+            duration
+        )

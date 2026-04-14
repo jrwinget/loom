@@ -185,9 +185,7 @@ async def apply_asset_redaction(
         )
 
     # look up the asset to get the correct storage key
-    result = await db.execute(
-        select(Asset).where(Asset.id == UUID(asset_id))
-    )
+    result = await db.execute(select(Asset).where(Asset.id == UUID(asset_id)))
     asset = result.scalar_one_or_none()
     if not asset:
         raise HTTPException(
@@ -205,9 +203,7 @@ async def apply_asset_redaction(
         )
         image_bytes = b"".join(chunks)
 
-    updated = await apply_redaction(
-        db, redaction, image_bytes=image_bytes
-    )
+    updated = await apply_redaction(db, redaction, image_bytes=image_bytes)
     await db.commit()
     await db.refresh(updated)
 

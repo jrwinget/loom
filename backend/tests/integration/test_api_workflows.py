@@ -39,6 +39,7 @@ def _create_app(settings: Settings) -> object:
     get_settings.cache_clear()
     with patch("loom.config.get_settings", return_value=settings):
         from loom.main import create_app
+
         application = create_app()
 
     async def override_db():
@@ -52,9 +53,7 @@ def _create_app(settings: Settings) -> object:
 @pytest.fixture
 def mock_settings():
     return Settings(
-        secret_key=(
-            "test-secret-key-that-is-long-enough-for-validation"
-        ),
+        secret_key=("test-secret-key-that-is-long-enough-for-validation"),
         database_url="sqlite+aiosqlite:///",
     )
 
@@ -90,8 +89,7 @@ async def test_workflow_status_temporal_unavailable(
             base_url="http://testserver",
         ) as ac:
             resp = await ac.get(
-                f"/api/v1/cases/{_CASE_ID}/workflows/"
-                f"{_WORKFLOW_ID}/status",
+                f"/api/v1/cases/{_CASE_ID}/workflows/{_WORKFLOW_ID}/status",
                 headers=_auth_header(token),
             )
 
@@ -122,8 +120,7 @@ async def test_workflow_status_forbidden(
             base_url="http://testserver",
         ) as ac:
             resp = await ac.get(
-                f"/api/v1/cases/{_CASE_ID}/workflows/"
-                f"{_WORKFLOW_ID}/status",
+                f"/api/v1/cases/{_CASE_ID}/workflows/{_WORKFLOW_ID}/status",
                 headers=_auth_header(token),
             )
 
@@ -145,8 +142,7 @@ async def test_workflow_status_unauthenticated(
             base_url="http://testserver",
         ) as ac:
             resp = await ac.get(
-                f"/api/v1/cases/{_CASE_ID}/workflows/"
-                f"{_WORKFLOW_ID}/status",
+                f"/api/v1/cases/{_CASE_ID}/workflows/{_WORKFLOW_ID}/status",
             )
 
     assert resp.status_code in (401, 403)
@@ -188,9 +184,7 @@ async def test_workflow_status_not_found(
     mock_client = AsyncMock()
     mock_client.get_workflow_handle.return_value = mock_handle
     mock_client_cls = AsyncMock()
-    mock_client_cls.connect = AsyncMock(
-        return_value=mock_client
-    )
+    mock_client_cls.connect = AsyncMock(return_value=mock_client)
 
     with (
         patch(
@@ -213,8 +207,7 @@ async def test_workflow_status_not_found(
             base_url="http://testserver",
         ) as ac:
             resp = await ac.get(
-                f"/api/v1/cases/{_CASE_ID}/workflows/"
-                f"{_WORKFLOW_ID}/status",
+                f"/api/v1/cases/{_CASE_ID}/workflows/{_WORKFLOW_ID}/status",
                 headers=_auth_header(token),
             )
 

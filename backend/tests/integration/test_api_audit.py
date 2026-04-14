@@ -44,6 +44,7 @@ def _create_app(settings: Settings) -> object:
     get_settings.cache_clear()
     with patch("loom.config.get_settings", return_value=settings):
         from loom.main import create_app
+
         application = create_app()
 
     async def override_db():
@@ -57,9 +58,7 @@ def _create_app(settings: Settings) -> object:
 @pytest.fixture
 def mock_settings():
     return Settings(
-        secret_key=(
-            "test-secret-key-that-is-long-enough-for-validation"
-        ),
+        secret_key=("test-secret-key-that-is-long-enough-for-validation"),
         database_url="sqlite+aiosqlite:///",
     )
 

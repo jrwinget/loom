@@ -551,8 +551,7 @@ async def test_update_webhook(
 
     # mock dns to avoid resolution failures in test env
     fake_addr = [
-        (socket.AF_INET, socket.SOCK_STREAM, 0, "",
-         ("93.184.216.34", 443)),
+        (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 443)),
     ]
     with (
         patch(

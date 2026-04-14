@@ -46,9 +46,7 @@ async def verify_asset_hash(asset_id: str) -> bool:
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(Asset).where(
-                    Asset.id == UUID(asset_id)
-                )
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
             asset = result.scalar_one_or_none()
             if asset is None:
@@ -57,9 +55,7 @@ async def verify_asset_hash(asset_id: str) -> bool:
 
             storage = StorageService(get_minio_client())
 
-            with tempfile.TemporaryDirectory(
-                prefix="loom_hash_"
-            ) as tmp_dir:
+            with tempfile.TemporaryDirectory(prefix="loom_hash_") as tmp_dir:
                 dest = str(Path(tmp_dir) / "original")
                 storage.download_file(
                     ORIGINALS_BUCKET,
@@ -67,9 +63,7 @@ async def verify_asset_hash(asset_id: str) -> bool:
                     dest,
                 )
 
-                sha256, sha512 = compute_hashes_from_file(
-                    Path(dest)
-                )
+                sha256, sha512 = compute_hashes_from_file(Path(dest))
 
             if sha256 != asset.sha256_hash:
                 msg = (
@@ -91,9 +85,9 @@ async def verify_asset_hash(asset_id: str) -> bool:
         return True
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="verify_hash"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="verify_hash").observe(
+            duration
+        )
 
 
 @activity.defn
@@ -107,15 +101,11 @@ async def extract_asset_metadata(
     """
     start = time.monotonic()
     try:
-        logger.info(
-            "extracting metadata for asset %s", asset_id
-        )
+        logger.info("extracting metadata for asset %s", asset_id)
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(Asset).where(
-                    Asset.id == UUID(asset_id)
-                )
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
             asset = result.scalar_one_or_none()
             if asset is None:
@@ -124,9 +114,7 @@ async def extract_asset_metadata(
 
             storage = StorageService(get_minio_client())
 
-            with tempfile.TemporaryDirectory(
-                prefix="loom_meta_"
-            ) as tmp_dir:
+            with tempfile.TemporaryDirectory(prefix="loom_meta_") as tmp_dir:
                 suffix = Path(asset.original_filename).suffix
                 dest = str(Path(tmp_dir) / f"file{suffix}")
                 storage.download_file(
@@ -138,20 +126,16 @@ async def extract_asset_metadata(
                 metadata = extract_metadata_from_file(dest)
 
             asset.metadata_raw = metadata.get("raw", {})
-            asset.metadata_extracted = metadata.get(
-                "normalized", {}
-            )
+            asset.metadata_extracted = metadata.get("normalized", {})
             await session.commit()
 
-        logger.info(
-            "metadata extracted for asset %s", asset_id
-        )
+        logger.info("metadata extracted for asset %s", asset_id)
         return metadata
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="extract_metadata"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="extract_metadata").observe(
+            duration
+        )
 
 
 @activity.defn
@@ -165,15 +149,11 @@ async def generate_asset_proxies(
     """
     start = time.monotonic()
     try:
-        logger.info(
-            "generating proxies for asset %s", asset_id
-        )
+        logger.info("generating proxies for asset %s", asset_id)
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(Asset).where(
-                    Asset.id == UUID(asset_id)
-                )
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
             asset = result.scalar_one_or_none()
             if asset is None:
@@ -183,13 +163,9 @@ async def generate_asset_proxies(
             storage = StorageService(get_minio_client())
             derivative_keys: list[str] = []
 
-            with tempfile.TemporaryDirectory(
-                prefix="loom_proxy_"
-            ) as tmp_dir:
+            with tempfile.TemporaryDirectory(prefix="loom_proxy_") as tmp_dir:
                 suffix = Path(asset.original_filename).suffix
-                src = str(
-                    Path(tmp_dir) / f"original{suffix}"
-                )
+                src = str(Path(tmp_dir) / f"original{suffix}")
                 storage.download_file(
                     ORIGINALS_BUCKET,
                     asset.storage_key,
@@ -243,9 +219,9 @@ async def generate_asset_proxies(
         return derivative_keys
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="generate_proxy"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="generate_proxy").observe(
+            duration
+        )
 
 
 def _generate_video_derivatives(
@@ -440,9 +416,7 @@ async def record_derivatives_custody(
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(Asset).where(
-                    Asset.id == UUID(asset_id)
-                )
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
             asset = result.scalar_one_or_none()
             if asset is None:
@@ -451,10 +425,8 @@ async def record_derivatives_custody(
 
             existing = await session.execute(
                 select(ChainOfCustodyEntry).where(
-                    ChainOfCustodyEntry.asset_id
-                    == UUID(asset_id),
-                    ChainOfCustodyEntry.action
-                    == "ingest_verified",
+                    ChainOfCustodyEntry.asset_id == UUID(asset_id),
+                    ChainOfCustodyEntry.action == "ingest_verified",
                 )
             )
             if existing.scalar_one_or_none() is not None:
@@ -476,14 +448,12 @@ async def record_derivatives_custody(
             session.add(entry)
             await session.commit()
 
-        logger.info(
-            "custody recorded for asset %s", asset_id
-        )
+        logger.info("custody recorded for asset %s", asset_id)
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="record_custody"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="record_custody").observe(
+            duration
+        )
 
 
 @activity.defn
@@ -494,15 +464,11 @@ async def mark_asset_complete(asset_id: str) -> None:
     """
     start = time.monotonic()
     try:
-        logger.info(
-            "marking asset %s as complete", asset_id
-        )
+        logger.info("marking asset %s as complete", asset_id)
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(Asset).where(
-                    Asset.id == UUID(asset_id)
-                )
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
             asset = result.scalar_one_or_none()
             if asset is None:
@@ -515,6 +481,6 @@ async def mark_asset_complete(asset_id: str) -> None:
         logger.info("asset %s marked complete", asset_id)
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="mark_complete"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="mark_complete").observe(
+            duration
+        )

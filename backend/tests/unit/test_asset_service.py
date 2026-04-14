@@ -194,9 +194,7 @@ async def test_soft_delete_records_ip() -> None:
     asset = _make_asset(deleted=False)
     session = _make_session(asset=asset)
 
-    await soft_delete_asset(
-        session, _ASSET_ID, _USER_ID, ip_address="10.0.0.1"
-    )
+    await soft_delete_asset(session, _ASSET_ID, _USER_ID, ip_address="10.0.0.1")
 
     # verify the custody entry was created with ip
     add_call = session.add.call_args[0][0]

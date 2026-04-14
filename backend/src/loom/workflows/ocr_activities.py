@@ -33,15 +33,11 @@ async def prepare_ocr_input(
     """
     start = time.monotonic()
     try:
-        logger.info(
-            "preparing ocr input for asset %s", asset_id
-        )
+        logger.info("preparing ocr input for asset %s", asset_id)
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(Asset).where(
-                    Asset.id == UUID(asset_id)
-                )
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
             asset = result.scalar_one_or_none()
             if asset is None:
@@ -66,9 +62,9 @@ async def prepare_ocr_input(
         }
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="ocr_prepare"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="ocr_prepare").observe(
+            duration
+        )
 
 
 @activity.defn
@@ -87,9 +83,7 @@ async def run_ocr(
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(Asset).where(
-                    Asset.id == UUID(asset_id)
-                )
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
             asset = result.scalar_one_or_none()
             if asset is None:
@@ -98,9 +92,7 @@ async def run_ocr(
 
             storage = StorageService(get_minio_client())
 
-            with tempfile.TemporaryDirectory(
-                prefix="loom_ocr_run_"
-            ) as tmp_dir:
+            with tempfile.TemporaryDirectory(prefix="loom_ocr_run_") as tmp_dir:
                 suffix = Path(asset.original_filename).suffix
                 dest = str(Path(tmp_dir) / f"asset{suffix}")
                 storage.download_file(
@@ -109,9 +101,7 @@ async def run_ocr(
                     dest,
                 )
 
-                regions = run_ocr_on_asset(
-                    dest, asset.media_type
-                )
+                regions = run_ocr_on_asset(dest, asset.media_type)
 
         logger.info(
             "ocr found %d regions for asset %s",
@@ -124,9 +114,9 @@ async def run_ocr(
         }
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="ocr_process"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="ocr_process").observe(
+            duration
+        )
 
 
 @activity.defn
@@ -140,15 +130,11 @@ async def store_ocr_results(
     """
     start = time.monotonic()
     try:
-        logger.info(
-            "storing ocr results for asset %s", asset_id
-        )
+        logger.info("storing ocr results for asset %s", asset_id)
 
         async with get_db_session() as session:
             result = await session.execute(
-                select(Asset).where(
-                    Asset.id == UUID(asset_id)
-                )
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
             asset = result.scalar_one_or_none()
             if asset is None:
@@ -168,13 +154,9 @@ async def store_ocr_results(
                     dest,
                 )
 
-                regions = run_ocr_on_asset(
-                    dest, asset.media_type
-                )
+                regions = run_ocr_on_asset(dest, asset.media_type)
 
-            records = await store_ocr_regions(
-                session, asset_id, regions
-            )
+            records = await store_ocr_regions(session, asset_id, regions)
             await session.commit()
 
         logger.info(
@@ -188,6 +170,4 @@ async def store_ocr_results(
         }
     finally:
         duration = time.monotonic() - start
-        ingest_workflow_duration.labels(
-            activity="ocr_store"
-        ).observe(duration)
+        ingest_workflow_duration.labels(activity="ocr_store").observe(duration)

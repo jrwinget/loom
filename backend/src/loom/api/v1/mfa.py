@@ -56,12 +56,8 @@ def _generate_recovery_codes() -> list[str]:
     ]
 
 
-async def _get_user(
-    db: AsyncSession, user_id: str
-) -> User:
-    result = await db.execute(
-        select(User).where(User.id == user_id)
-    )
+async def _get_user(db: AsyncSession, user_id: str) -> User:
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(
@@ -111,9 +107,7 @@ async def mfa_setup(
     user.mfa_secret = secret
 
     totp = pyotp.TOTP(secret)
-    uri = totp.provisioning_uri(
-        name=user.email, issuer_name="Loom"
-    )
+    uri = totp.provisioning_uri(name=user.email, issuer_name="Loom")
 
     await _audit(db, user_id, "mfa_setup_initiated")
     await db.commit()
@@ -173,9 +167,7 @@ async def mfa_verify(
     return MfaVerifyResponse(recovery_codes=plaintext_codes)
 
 
-@router.post(
-    "/challenge", response_model=MfaChallengeResponse
-)
+@router.post("/challenge", response_model=MfaChallengeResponse)
 @limiter.limit("5/minute")
 async def mfa_challenge(
     request: Request,
@@ -220,12 +212,8 @@ async def mfa_challenge(
         )
         await db.commit()
         return MfaChallengeResponse(
-            access_token=create_access_token(
-                str(user.id), user.role
-            ),
-            refresh_token=create_refresh_token(
-                str(user.id)
-            ),
+            access_token=create_access_token(str(user.id), user.role),
+            refresh_token=create_refresh_token(str(user.id)),
         )
 
     # try recovery code
@@ -234,9 +222,7 @@ async def mfa_challenge(
         stored = user.recovery_codes.split(",")
         if code_hash in stored:
             stored.remove(code_hash)
-            user.recovery_codes = (
-                ",".join(stored) if stored else None
-            )
+            user.recovery_codes = ",".join(stored) if stored else None
             await _audit(
                 db,
                 str(user.id),
@@ -245,17 +231,11 @@ async def mfa_challenge(
             )
             await db.commit()
             return MfaChallengeResponse(
-                access_token=create_access_token(
-                    str(user.id), user.role
-                ),
-                refresh_token=create_refresh_token(
-                    str(user.id)
-                ),
+                access_token=create_access_token(str(user.id), user.role),
+                refresh_token=create_refresh_token(str(user.id)),
             )
 
-    await _audit(
-        db, str(user.id), "mfa_challenge_failed"
-    )
+    await _audit(db, str(user.id), "mfa_challenge_failed")
     await db.commit()
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -289,9 +269,7 @@ async def mfa_disable(
 
     totp = pyotp.TOTP(user.mfa_secret)
     if not totp.verify(body.code, valid_window=1):
-        await _audit(
-            db, user_id, "mfa_disable_failed"
-        )
+        await _audit(db, user_id, "mfa_disable_failed")
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
