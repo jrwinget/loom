@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { User } from '@/types';
 
-interface AuthState {
+export interface AuthState {
   token: string | null;
   user: User | null;
   mfaChallengeToken: string | null;

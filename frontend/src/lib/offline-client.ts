@@ -4,20 +4,6 @@ import type { QueueItemType } from '@/stores/offline-queue-store';
 
 const MAX_RETRIES = 3;
 
-function idempotencyKey(
-  method: string,
-  path: string,
-  body?: string,
-): string {
-  // simple djb2 hash for body dedup
-  let hash = 5381;
-  const str = body ?? '';
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
-  }
-  return `${method}:${path}:${hash}`;
-}
-
 class OfflineError extends Error {
   constructor(message: string) {
     super(message);
@@ -42,26 +28,12 @@ function enqueueMutation(
   body?: unknown,
 ): string {
   const store = useOfflineQueueStore.getState();
-  const serialized = body ? JSON.stringify(body) : undefined;
-  const key = idempotencyKey(method, path, serialized);
-
-  // deduplicate: skip if an identical pending item exists
-  const existing = store.getPending().find(
-    (item) =>
-      idempotencyKey(
-        item.payload.method,
-        item.payload.path,
-        item.payload.body,
-      ) === key,
-  );
-  if (existing) return existing.id;
-
   return store.enqueue({
     type: inferType(path),
     payload: {
       method,
       path,
-      body: serialized,
+      body: body ? JSON.stringify(body) : undefined,
     },
   });
 }
@@ -99,15 +71,15 @@ export const offlineClient = {
     return apiClient.patch<T>(path, body);
   },
 
-  delete: <T>(path: string): Promise<T> => {
+  delete: <T>(path: string, data?: unknown): Promise<T> => {
     if (!isOnline()) {
-      const id = enqueueMutation('DELETE', path);
+      const id = enqueueMutation('DELETE', path, data);
       return Promise.resolve({
         _offlineQueued: true,
         _queueId: id,
       } as T);
     }
-    return apiClient.delete<T>(path);
+    return apiClient.delete<T>(path, data);
   },
 } as const;
 
@@ -139,14 +111,13 @@ export async function processQueue(): Promise<{
           await apiClient.post(path, parsed);
           break;
         case 'PUT':
-          // use post as a fallback — api client has no put
-          await apiClient.post(path, parsed);
+          await apiClient.put(path, parsed);
           break;
         case 'PATCH':
           await apiClient.patch(path, parsed);
           break;
         case 'DELETE':
-          await apiClient.delete(path);
+          await apiClient.delete(path, parsed);
           break;
       }
 
