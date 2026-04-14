@@ -20,10 +20,7 @@ export function Header(): React.ReactElement {
   useEffect(() => {
     if (!menuOpen) return;
     const handleClick = (e: MouseEvent): void => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node)
-      ) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
       }
     };
@@ -62,7 +59,7 @@ export function Header(): React.ReactElement {
             type="button"
             className={
               'flex h-8 w-8 items-center justify-center ' +
-              'rounded-full bg-muted text-xs font-medium ' +
+              'rounded-full bg-muted text-xs font-medium' +
               'text-foreground'
             }
             aria-label="User menu"
@@ -79,7 +76,7 @@ export function Header(): React.ReactElement {
               data-testid="user-menu-dropdown"
               className={
                 'absolute right-0 top-full z-50 mt-1 w-56 ' +
-                'rounded-md border border-border bg-background ' +
+                'rounded-md border border-border bg-background' +
                 'py-1 shadow-lg'
               }
             >

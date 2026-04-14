@@ -12,25 +12,21 @@ export function MfaChallenge(): React.ReactElement {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const { mfaChallengeToken, setAuth, clearMfaChallenge } =
-    useAuthStore();
+  const { mfaChallengeToken, setAuth, clearMfaChallenge } = useAuthStore();
 
-  const handleSubmit = async (
-    e: React.FormEvent,
-  ): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError('');
     setSubmitting(true);
 
     try {
-      const tokens =
-        await apiClient.post<MfaChallengeTokens>(
-          '/auth/mfa/challenge',
-          {
-            challenge_token: mfaChallengeToken,
-            code,
-          },
-        );
+      const tokens = await apiClient.post<MfaChallengeTokens>(
+        '/auth/mfa/challenge',
+        {
+          challenge_token: mfaChallengeToken,
+          code,
+        },
+      );
 
       // fetch user profile with the new token
       useAuthStore.setState({ token: tokens.access_token });
@@ -45,20 +41,16 @@ export function MfaChallenge(): React.ReactElement {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-8">
+      <div className="bg-card w-full max-w-sm space-y-6 rounded-lg border border-border p-8">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground">
             Two-Factor Authentication
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Enter your authenticator code or a recovery
-            code
+            Enter your authenticator code or a recovery code
           </p>
         </div>
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4"
-        >
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
               htmlFor="mfa-code"
@@ -79,10 +71,7 @@ export function MfaChallenge(): React.ReactElement {
             />
           </div>
           {error && (
-            <p
-              role="alert"
-              className="text-sm text-destructive"
-            >
+            <p role="alert" className="text-sm text-destructive">
               {error}
             </p>
           )}

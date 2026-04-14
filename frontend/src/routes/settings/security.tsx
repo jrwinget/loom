@@ -10,23 +10,18 @@ interface VerifyResponse {
 }
 
 export function SecuritySettingsPage(): React.ReactElement {
-  const [step, setStep] = useState<
-    'idle' | 'setup' | 'verify' | 'done'
-  >('idle');
+  const [step, setStep] = useState<'idle' | 'setup' | 'verify' | 'done'>(
+    'idle',
+  );
   const [uri, setUri] = useState('');
   const [code, setCode] = useState('');
-  const [recoveryCodes, setRecoveryCodes] = useState<
-    string[]
-  >([]);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [error, setError] = useState('');
 
   const handleSetup = async (): Promise<void> => {
     setError('');
     try {
-      const resp =
-        await apiClient.post<SetupResponse>(
-          '/auth/mfa/setup',
-        );
+      const resp = await apiClient.post<SetupResponse>('/auth/mfa/setup');
       setUri(resp.provisioning_uri);
       setStep('setup');
     } catch {
@@ -34,17 +29,13 @@ export function SecuritySettingsPage(): React.ReactElement {
     }
   };
 
-  const handleVerify = async (
-    e: React.FormEvent,
-  ): Promise<void> => {
+  const handleVerify = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError('');
     try {
-      const resp =
-        await apiClient.post<VerifyResponse>(
-          '/auth/mfa/verify',
-          { code },
-        );
+      const resp = await apiClient.post<VerifyResponse>('/auth/mfa/verify', {
+        code,
+      });
       setRecoveryCodes(resp.recovery_codes);
       setStep('done');
     } catch {
@@ -55,12 +46,9 @@ export function SecuritySettingsPage(): React.ReactElement {
   if (step === 'done') {
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-foreground">
-          MFA Enabled
-        </h2>
+        <h2 className="text-xl font-bold text-foreground">MFA Enabled</h2>
         <p className="text-sm text-muted-foreground">
-          Save these recovery codes in a secure location.
-          Each can be used once.
+          Save these recovery codes in a secure location. Each can be used once.
         </p>
         <ul
           className="space-y-1 font-mono text-sm"
@@ -81,13 +69,9 @@ export function SecuritySettingsPage(): React.ReactElement {
           Setup Authenticator
         </h2>
         <p className="break-all text-sm text-muted-foreground">
-          Add this URI to your authenticator app:{' '}
-          <code>{uri}</code>
+          Add this URI to your authenticator app: <code>{uri}</code>
         </p>
-        <form
-          onSubmit={handleVerify}
-          className="space-y-4"
-        >
+        <form onSubmit={handleVerify} className="space-y-4">
           <input
             type="text"
             inputMode="numeric"
@@ -97,11 +81,7 @@ export function SecuritySettingsPage(): React.ReactElement {
             className="block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
             required
           />
-          {error && (
-            <p className="text-sm text-destructive">
-              {error}
-            </p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <button
             type="submit"
             className="rounded-md bg-primary px-4 py-2 text-primary-foreground"
@@ -115,18 +95,11 @@ export function SecuritySettingsPage(): React.ReactElement {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-foreground">
-        Security Settings
-      </h2>
+      <h2 className="text-xl font-bold text-foreground">Security Settings</h2>
       <p className="text-sm text-muted-foreground">
-        Protect your account with two-factor
-        authentication.
+        Protect your account with two-factor authentication.
       </p>
-      {error && (
-        <p className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <button
         onClick={handleSetup}
         className="rounded-md bg-primary px-4 py-2 text-primary-foreground"

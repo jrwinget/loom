@@ -33,10 +33,7 @@ interface MfaDisableRequest {
 
 export function useMfaSetup() {
   return useMutation({
-    mutationFn: () =>
-      apiClient.post<MfaSetupResponse>(
-        '/auth/mfa/setup',
-      ),
+    mutationFn: () => apiClient.post<MfaSetupResponse>('/auth/mfa/setup'),
     onError: (error: Error) => {
       useToastStore.getState().addToast({
         type: 'error',
@@ -49,10 +46,7 @@ export function useMfaSetup() {
 export function useMfaVerify() {
   return useMutation({
     mutationFn: (payload: MfaVerifyRequest) =>
-      apiClient.post<MfaVerifyResponse>(
-        '/auth/mfa/verify',
-        payload,
-      ),
+      apiClient.post<MfaVerifyResponse>('/auth/mfa/verify', payload),
     onSuccess: () => {
       useToastStore.getState().addToast({
         type: 'success',
@@ -62,8 +56,7 @@ export function useMfaVerify() {
     onError: (error: Error) => {
       useToastStore.getState().addToast({
         type: 'error',
-        message:
-          error.message || 'Failed to verify MFA code',
+        message: error.message || 'Failed to verify MFA code',
       });
     },
   });
@@ -72,10 +65,7 @@ export function useMfaVerify() {
 export function useMfaChallenge() {
   return useMutation({
     mutationFn: (payload: MfaChallengeRequest) =>
-      apiClient.post<MfaChallengeResponse>(
-        '/auth/mfa/challenge',
-        payload,
-      ),
+      apiClient.post<MfaChallengeResponse>('/auth/mfa/challenge', payload),
     onError: (error: Error) => {
       useToastStore.getState().addToast({
         type: 'error',

@@ -13,24 +13,20 @@ export interface AuthState {
   requiresMfa: () => boolean;
 }
 
-export const useAuthStore = create<AuthState>(
-  (set, get) => ({
-    token: null,
-    user: null,
-    mfaChallengeToken: null,
-    setAuth: (token: string, user: User) =>
-      set({ token, user, mfaChallengeToken: null }),
-    clearAuth: () =>
-      set({
-        token: null,
-        user: null,
-        mfaChallengeToken: null,
-      }),
-    setMfaChallenge: (token: string) =>
-      set({ mfaChallengeToken: token }),
-    clearMfaChallenge: () =>
-      set({ mfaChallengeToken: null }),
-    isAuthenticated: () => get().token !== null,
-    requiresMfa: () => get().mfaChallengeToken !== null,
-  }),
-);
+export const useAuthStore = create<AuthState>((set, get) => ({
+  token: null,
+  user: null,
+  mfaChallengeToken: null,
+  setAuth: (token: string, user: User) =>
+    set({ token, user, mfaChallengeToken: null }),
+  clearAuth: () =>
+    set({
+      token: null,
+      user: null,
+      mfaChallengeToken: null,
+    }),
+  setMfaChallenge: (token: string) => set({ mfaChallengeToken: token }),
+  clearMfaChallenge: () => set({ mfaChallengeToken: null }),
+  isAuthenticated: () => get().token !== null,
+  requiresMfa: () => get().mfaChallengeToken !== null,
+}));

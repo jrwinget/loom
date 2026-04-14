@@ -19,10 +19,7 @@ function renderWithRouter(initialPath: string) {
       <Routes>
         <Route path="/login" element={<div>Login page</div>} />
         <Route element={<ProtectedRoute />}>
-          <Route
-            path="/dashboard"
-            element={<div>Dashboard</div>}
-          />
+          <Route path="/dashboard" element={<div>Dashboard</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -45,9 +42,7 @@ describe('ProtectedRoute', () => {
     renderWithRouter('/dashboard');
 
     expect(screen.getByText('Login page')).toBeInTheDocument();
-    expect(
-      screen.queryByText('Dashboard'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
   });
 
   it('renders children when token exists', () => {
@@ -65,8 +60,6 @@ describe('ProtectedRoute', () => {
     renderWithRouter('/dashboard');
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(
-      screen.queryByText('Login page'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Login page')).not.toBeInTheDocument();
   });
 });

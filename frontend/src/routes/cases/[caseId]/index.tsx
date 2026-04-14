@@ -7,14 +7,11 @@ import type { AuditEntry } from '@/hooks/use-audit';
 
 const statusColors: Record<string, string> = {
   active:
-    'bg-green-100 text-green-800 dark:bg-green-900 ' +
-    'dark:text-green-200',
+    'bg-green-100 text-green-800 dark:bg-green-900 ' + 'dark:text-green-200',
   archived:
-    'bg-gray-100 text-gray-800 dark:bg-gray-900 ' +
-    'dark:text-gray-200',
+    'bg-gray-100 text-gray-800 dark:bg-gray-900 ' + 'dark:text-gray-200',
   exported:
-    'bg-blue-100 text-blue-800 dark:bg-blue-900 ' +
-    'dark:text-blue-200',
+    'bg-blue-100 text-blue-800 dark:bg-blue-900 ' + 'dark:text-blue-200',
 };
 
 function formatAuditTimestamp(iso: string): string {
@@ -35,12 +32,7 @@ function describeAuditEntry(entry: AuditEntry): string {
 export function CaseDetailPage(): React.ReactElement {
   const { caseId } = useParams<{ caseId: string }>();
   const safeId = caseId ?? '';
-  const {
-    data: caseData,
-    isLoading,
-    isError,
-    refetch,
-  } = useCase(safeId);
+  const { data: caseData, isLoading, isError, refetch } = useCase(safeId);
   const { data: members } = useCaseMembers(safeId);
   const { data: auditData } = useCaseAudit(safeId);
 
@@ -69,8 +61,7 @@ export function CaseDetailPage(): React.ReactElement {
     );
   }
 
-  const colorClass =
-    statusColors[caseData.status] ?? statusColors['archived'];
+  const colorClass = statusColors[caseData.status] ?? statusColors['archived'];
 
   const recentActivity = auditData?.items ?? [];
 
@@ -85,7 +76,7 @@ export function CaseDetailPage(): React.ReactElement {
             data-testid="status-badge"
             className={
               'inline-flex items-center rounded-full ' +
-              'px-2 py-0.5 text-xs font-medium ' +
+              'px-2 py-0.5 text-xs font-medium' +
               colorClass
             }
           >
@@ -105,8 +96,8 @@ export function CaseDetailPage(): React.ReactElement {
             value="overview"
             className={
               'px-3 py-2 text-sm text-muted-foreground ' +
-              'data-[state=active]:border-b-2 ' +
-              'data-[state=active]:border-primary ' +
+              'data-[state=active]:border-b-2' +
+              'data-[state=active]:border-primary' +
               'data-[state=active]:text-foreground'
             }
           >
@@ -116,8 +107,8 @@ export function CaseDetailPage(): React.ReactElement {
             value="members"
             className={
               'px-3 py-2 text-sm text-muted-foreground ' +
-              'data-[state=active]:border-b-2 ' +
-              'data-[state=active]:border-primary ' +
+              'data-[state=active]:border-b-2' +
+              'data-[state=active]:border-primary' +
               'data-[state=active]:text-foreground'
             }
           >
@@ -126,43 +117,21 @@ export function CaseDetailPage(): React.ReactElement {
         </Tabs.List>
 
         <Tabs.Content value="overview" className="pt-4">
-          <div
-            className={
-              'grid grid-cols-1 gap-4 sm:grid-cols-3'
-            }
-          >
-            <div
-              className={
-                'bg-card rounded-lg border border-border p-4'
-              }
-            >
-              <p className="text-xs text-muted-foreground">
-                Assets
-              </p>
+          <div className={'grid grid-cols-1 gap-4 sm:grid-cols-3'}>
+            <div className={'bg-card rounded-lg border border-border p-4'}>
+              <p className="text-xs text-muted-foreground">Assets</p>
               <p className="text-2xl font-semibold text-foreground">
                 {caseData.assetCount}
               </p>
             </div>
-            <div
-              className={
-                'bg-card rounded-lg border border-border p-4'
-              }
-            >
-              <p className="text-xs text-muted-foreground">
-                Events
-              </p>
+            <div className={'bg-card rounded-lg border border-border p-4'}>
+              <p className="text-xs text-muted-foreground">Events</p>
               <p className="text-2xl font-semibold text-foreground">
                 {caseData.eventCount}
               </p>
             </div>
-            <div
-              className={
-                'bg-card rounded-lg border border-border p-4'
-              }
-            >
-              <p className="text-xs text-muted-foreground">
-                Members
-              </p>
+            <div className={'bg-card rounded-lg border border-border p-4'}>
+              <p className="text-xs text-muted-foreground">Members</p>
               <p className="text-2xl font-semibold text-foreground">
                 {members?.length ?? 0}
               </p>
@@ -178,15 +147,9 @@ export function CaseDetailPage(): React.ReactElement {
                 No recent activity to display.
               </p>
             ) : (
-              <ul
-                data-testid="activity-feed"
-                className="mt-2 space-y-3"
-              >
+              <ul data-testid="activity-feed" className="mt-2 space-y-3">
                 {recentActivity.map((entry) => (
-                  <li
-                    key={entry.id}
-                    className="flex items-start gap-3"
-                  >
+                  <li key={entry.id} className="flex items-start gap-3">
                     <div
                       className={
                         'mt-1.5 h-2 w-2 flex-shrink-0 ' +
@@ -218,23 +181,15 @@ export function CaseDetailPage(): React.ReactElement {
               {members.map((m) => (
                 <li
                   key={m.id}
-                  className={
-                    'flex items-center justify-between py-3'
-                  }
+                  className={'flex items-center justify-between py-3'}
                 >
                   <div>
                     <p className="text-sm font-medium text-foreground">
                       {m.displayName}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      {m.email}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{m.email}</p>
                   </div>
-                  <span
-                    className={
-                      'text-xs font-medium text-muted-foreground'
-                    }
-                  >
+                  <span className={'text-xs font-medium text-muted-foreground'}>
                     {m.role}
                   </span>
                 </li>
