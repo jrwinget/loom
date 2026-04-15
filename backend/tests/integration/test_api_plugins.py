@@ -1,3 +1,4 @@
+import socket
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
@@ -548,6 +549,10 @@ async def test_update_webhook(
     updated = _make_webhook()
     updated.url = "https://updated.example.com/hook"
 
+    # mock dns to avoid resolution failures in test env
+    fake_addr = [
+        (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 443)),
+    ]
     with (
         patch(
             "loom.security.auth.get_settings",
@@ -563,6 +568,7 @@ async def test_update_webhook(
             new_callable=AsyncMock,
             return_value=updated,
         ),
+        patch("socket.getaddrinfo", return_value=fake_addr),
     ):
         token = create_access_token(str(_ADMIN_ID), "admin")
         async with httpx.AsyncClient(

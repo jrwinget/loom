@@ -123,6 +123,9 @@ async def test_post_ocr_run_returns_202(
     """post run returns 202 accepted."""
     app = _create_app(mock_settings)
 
+    mock_temporal = AsyncMock()
+    mock_temporal.start_workflow = AsyncMock()
+
     with (
         patch(
             "loom.security.auth.get_settings",
@@ -132,6 +135,11 @@ async def test_post_ocr_run_returns_202(
             _SVC_CASE,
             new_callable=AsyncMock,
             return_value=True,
+        ),
+        patch(
+            "temporalio.client.Client.connect",
+            new_callable=AsyncMock,
+            return_value=mock_temporal,
         ),
     ):
         token = create_access_token(str(_ADMIN_ID), "admin")

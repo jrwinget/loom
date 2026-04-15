@@ -7,6 +7,7 @@ object storage.
 
 import logging
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -14,6 +15,7 @@ from uuid import UUID
 from sqlalchemy import select
 from temporalio import activity
 
+from loom.metrics import ingest_workflow_duration
 from loom.models.asset import Asset
 from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.models.derivative import Derivative
@@ -38,47 +40,54 @@ async def verify_asset_hash(asset_id: str) -> bool:
     idempotent: re-running will simply re-verify the hash.
     returns True if hashes match, raises on mismatch.
     """
-    logger.info("verifying hash for asset %s", asset_id)
+    start = time.monotonic()
+    try:
+        logger.info("verifying hash for asset %s", asset_id)
 
-    async with get_db_session() as session:
-        result = await session.execute(
-            select(Asset).where(Asset.id == UUID(asset_id))
+        async with get_db_session() as session:
+            result = await session.execute(
+                select(Asset).where(Asset.id == UUID(asset_id))
+            )
+            asset = result.scalar_one_or_none()
+            if asset is None:
+                msg = f"asset {asset_id} not found"
+                raise ValueError(msg)
+
+            storage = StorageService(get_minio_client())
+
+            with tempfile.TemporaryDirectory(prefix="loom_hash_") as tmp_dir:
+                dest = str(Path(tmp_dir) / "original")
+                storage.download_file(
+                    ORIGINALS_BUCKET,
+                    asset.storage_key,
+                    dest,
+                )
+
+                sha256, sha512 = compute_hashes_from_file(Path(dest))
+
+            if sha256 != asset.sha256_hash:
+                msg = (
+                    f"sha256 mismatch for asset {asset_id}: "
+                    f"expected {asset.sha256_hash}, "
+                    f"got {sha256}"
+                )
+                raise ValueError(msg)
+
+            if sha512 != asset.sha512_hash:
+                msg = (
+                    f"sha512 mismatch for asset {asset_id}: "
+                    f"expected {asset.sha512_hash}, "
+                    f"got {sha512}"
+                )
+                raise ValueError(msg)
+
+        logger.info("hash verified for asset %s", asset_id)
+        return True
+    finally:
+        duration = time.monotonic() - start
+        ingest_workflow_duration.labels(activity="verify_hash").observe(
+            duration
         )
-        asset = result.scalar_one_or_none()
-        if asset is None:
-            msg = f"asset {asset_id} not found"
-            raise ValueError(msg)
-
-        storage = StorageService(get_minio_client())
-
-        with tempfile.TemporaryDirectory(prefix="loom_hash_") as tmp_dir:
-            dest = str(Path(tmp_dir) / "original")
-            storage.download_file(
-                ORIGINALS_BUCKET,
-                asset.storage_key,
-                dest,
-            )
-
-            sha256, sha512 = compute_hashes_from_file(Path(dest))
-
-        if sha256 != asset.sha256_hash:
-            msg = (
-                f"sha256 mismatch for asset {asset_id}: "
-                f"expected {asset.sha256_hash}, "
-                f"got {sha256}"
-            )
-            raise ValueError(msg)
-
-        if sha512 != asset.sha512_hash:
-            msg = (
-                f"sha512 mismatch for asset {asset_id}: "
-                f"expected {asset.sha512_hash}, "
-                f"got {sha512}"
-            )
-            raise ValueError(msg)
-
-    logger.info("hash verified for asset %s", asset_id)
-    return True
 
 
 @activity.defn
@@ -90,37 +99,43 @@ async def extract_asset_metadata(
     idempotent: overwrites metadata_raw and
     metadata_extracted on each run.
     """
-    logger.info("extracting metadata for asset %s", asset_id)
+    start = time.monotonic()
+    try:
+        logger.info("extracting metadata for asset %s", asset_id)
 
-    async with get_db_session() as session:
-        result = await session.execute(
-            select(Asset).where(Asset.id == UUID(asset_id))
-        )
-        asset = result.scalar_one_or_none()
-        if asset is None:
-            msg = f"asset {asset_id} not found"
-            raise ValueError(msg)
-
-        storage = StorageService(get_minio_client())
-
-        with tempfile.TemporaryDirectory(prefix="loom_meta_") as tmp_dir:
-            # preserve extension for mime detection
-            suffix = Path(asset.original_filename).suffix
-            dest = str(Path(tmp_dir) / f"file{suffix}")
-            storage.download_file(
-                ORIGINALS_BUCKET,
-                asset.storage_key,
-                dest,
+        async with get_db_session() as session:
+            result = await session.execute(
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
+            asset = result.scalar_one_or_none()
+            if asset is None:
+                msg = f"asset {asset_id} not found"
+                raise ValueError(msg)
 
-            metadata = extract_metadata_from_file(dest)
+            storage = StorageService(get_minio_client())
 
-        asset.metadata_raw = metadata.get("raw", {})
-        asset.metadata_extracted = metadata.get("normalized", {})
-        await session.commit()
+            with tempfile.TemporaryDirectory(prefix="loom_meta_") as tmp_dir:
+                suffix = Path(asset.original_filename).suffix
+                dest = str(Path(tmp_dir) / f"file{suffix}")
+                storage.download_file(
+                    ORIGINALS_BUCKET,
+                    asset.storage_key,
+                    dest,
+                )
 
-    logger.info("metadata extracted for asset %s", asset_id)
-    return metadata
+                metadata = extract_metadata_from_file(dest)
+
+            asset.metadata_raw = metadata.get("raw", {})
+            asset.metadata_extracted = metadata.get("normalized", {})
+            await session.commit()
+
+        logger.info("metadata extracted for asset %s", asset_id)
+        return metadata
+    finally:
+        duration = time.monotonic() - start
+        ingest_workflow_duration.labels(activity="extract_metadata").observe(
+            duration
+        )
 
 
 @activity.defn
@@ -132,74 +147,81 @@ async def generate_asset_proxies(
     idempotent: existing derivatives are not duplicated
     because storage keys are deterministic.
     """
-    logger.info("generating proxies for asset %s", asset_id)
+    start = time.monotonic()
+    try:
+        logger.info("generating proxies for asset %s", asset_id)
 
-    async with get_db_session() as session:
-        result = await session.execute(
-            select(Asset).where(Asset.id == UUID(asset_id))
-        )
-        asset = result.scalar_one_or_none()
-        if asset is None:
-            msg = f"asset {asset_id} not found"
-            raise ValueError(msg)
-
-        storage = StorageService(get_minio_client())
-        derivative_keys: list[str] = []
-
-        with tempfile.TemporaryDirectory(prefix="loom_proxy_") as tmp_dir:
-            suffix = Path(asset.original_filename).suffix
-            src = str(Path(tmp_dir) / f"original{suffix}")
-            storage.download_file(
-                ORIGINALS_BUCKET,
-                asset.storage_key,
-                src,
+        async with get_db_session() as session:
+            result = await session.execute(
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
+            asset = result.scalar_one_or_none()
+            if asset is None:
+                msg = f"asset {asset_id} not found"
+                raise ValueError(msg)
 
-            case_id = str(asset.case_id)
-            base_key = f"{case_id}/{asset_id}"
+            storage = StorageService(get_minio_client())
+            derivative_keys: list[str] = []
 
-            if asset.media_type == "video":
-                derivative_keys.extend(
-                    _generate_video_derivatives(
-                        session,
-                        storage,
-                        asset_id,
-                        src,
-                        tmp_dir,
-                        base_key,
-                    )
-                )
-            elif asset.media_type == "image":
-                derivative_keys.extend(
-                    _generate_image_derivatives(
-                        session,
-                        storage,
-                        asset_id,
-                        src,
-                        tmp_dir,
-                        base_key,
-                    )
-                )
-            elif asset.media_type == "audio":
-                derivative_keys.extend(
-                    _generate_audio_derivatives(
-                        session,
-                        storage,
-                        asset_id,
-                        src,
-                        tmp_dir,
-                        base_key,
-                    )
+            with tempfile.TemporaryDirectory(prefix="loom_proxy_") as tmp_dir:
+                suffix = Path(asset.original_filename).suffix
+                src = str(Path(tmp_dir) / f"original{suffix}")
+                storage.download_file(
+                    ORIGINALS_BUCKET,
+                    asset.storage_key,
+                    src,
                 )
 
-        await session.commit()
+                case_id = str(asset.case_id)
+                base_key = f"{case_id}/{asset_id}"
 
-    logger.info(
-        "generated %d proxies for asset %s",
-        len(derivative_keys),
-        asset_id,
-    )
-    return derivative_keys
+                if asset.media_type == "video":
+                    derivative_keys.extend(
+                        _generate_video_derivatives(
+                            session,
+                            storage,
+                            asset_id,
+                            src,
+                            tmp_dir,
+                            base_key,
+                        )
+                    )
+                elif asset.media_type == "image":
+                    derivative_keys.extend(
+                        _generate_image_derivatives(
+                            session,
+                            storage,
+                            asset_id,
+                            src,
+                            tmp_dir,
+                            base_key,
+                        )
+                    )
+                elif asset.media_type == "audio":
+                    derivative_keys.extend(
+                        _generate_audio_derivatives(
+                            session,
+                            storage,
+                            asset_id,
+                            src,
+                            tmp_dir,
+                            base_key,
+                        )
+                    )
+
+            await session.commit()
+
+        logger.info(
+            "generated %d proxies for asset %s",
+            len(derivative_keys),
+            asset_id,
+        )
+        return derivative_keys
+    finally:
+        duration = time.monotonic() - start
+        ingest_workflow_duration.labels(activity="generate_proxy").observe(
+            duration
+        )
 
 
 def _generate_video_derivatives(
@@ -385,48 +407,53 @@ async def record_derivatives_custody(
 
     idempotent: checks for existing entry before inserting.
     """
-    logger.info(
-        "recording custody for asset %s",
-        asset_id,
-    )
-
-    async with get_db_session() as session:
-        # fetch asset to get uploaded_by
-        result = await session.execute(
-            select(Asset).where(Asset.id == UUID(asset_id))
+    start = time.monotonic()
+    try:
+        logger.info(
+            "recording custody for asset %s",
+            asset_id,
         )
-        asset = result.scalar_one_or_none()
-        if asset is None:
-            msg = f"asset {asset_id} not found"
-            raise ValueError(msg)
 
-        # check for existing ingest_verified entry
-        existing = await session.execute(
-            select(ChainOfCustodyEntry).where(
-                ChainOfCustodyEntry.asset_id == UUID(asset_id),
-                ChainOfCustodyEntry.action == "ingest_verified",
+        async with get_db_session() as session:
+            result = await session.execute(
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
-        )
-        if existing.scalar_one_or_none() is not None:
-            logger.info(
-                "custody already recorded for asset %s",
-                asset_id,
+            asset = result.scalar_one_or_none()
+            if asset is None:
+                msg = f"asset {asset_id} not found"
+                raise ValueError(msg)
+
+            existing = await session.execute(
+                select(ChainOfCustodyEntry).where(
+                    ChainOfCustodyEntry.asset_id == UUID(asset_id),
+                    ChainOfCustodyEntry.action == "ingest_verified",
+                )
             )
-            return
+            if existing.scalar_one_or_none() is not None:
+                logger.info(
+                    "custody already recorded for asset %s",
+                    asset_id,
+                )
+                return
 
-        entry = ChainOfCustodyEntry(
-            asset_id=UUID(asset_id),
-            action="ingest_verified",
-            actor_id=asset.uploaded_by,
-            detail={
-                "action": "ingest_pipeline_complete",
-                "sha256_verified": True,
-            },
+            entry = ChainOfCustodyEntry(
+                asset_id=UUID(asset_id),
+                action="ingest_verified",
+                actor_id=asset.uploaded_by,
+                detail={
+                    "action": "ingest_pipeline_complete",
+                    "sha256_verified": True,
+                },
+            )
+            session.add(entry)
+            await session.commit()
+
+        logger.info("custody recorded for asset %s", asset_id)
+    finally:
+        duration = time.monotonic() - start
+        ingest_workflow_duration.labels(activity="record_custody").observe(
+            duration
         )
-        session.add(entry)
-        await session.commit()
-
-    logger.info("custody recorded for asset %s", asset_id)
 
 
 @activity.defn
@@ -435,18 +462,25 @@ async def mark_asset_complete(asset_id: str) -> None:
 
     idempotent: setting complete on already-complete is a no-op.
     """
-    logger.info("marking asset %s as complete", asset_id)
+    start = time.monotonic()
+    try:
+        logger.info("marking asset %s as complete", asset_id)
 
-    async with get_db_session() as session:
-        result = await session.execute(
-            select(Asset).where(Asset.id == UUID(asset_id))
+        async with get_db_session() as session:
+            result = await session.execute(
+                select(Asset).where(Asset.id == UUID(asset_id))
+            )
+            asset = result.scalar_one_or_none()
+            if asset is None:
+                msg = f"asset {asset_id} not found"
+                raise ValueError(msg)
+
+            asset.processing_status = "complete"
+            await session.commit()
+
+        logger.info("asset %s marked complete", asset_id)
+    finally:
+        duration = time.monotonic() - start
+        ingest_workflow_duration.labels(activity="mark_complete").observe(
+            duration
         )
-        asset = result.scalar_one_or_none()
-        if asset is None:
-            msg = f"asset {asset_id} not found"
-            raise ValueError(msg)
-
-        asset.processing_status = "complete"
-        await session.commit()
-
-    logger.info("asset %s marked complete", asset_id)

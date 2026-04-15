@@ -13,12 +13,12 @@ class ProvenanceRecord(UUIDMixin, Base):
     __tablename__ = "provenance_records"
 
     asset_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("assets.id"),
+        ForeignKey("assets.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
     export_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("export_bundles.id"),
+        ForeignKey("export_bundles.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )

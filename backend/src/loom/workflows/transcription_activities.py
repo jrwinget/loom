@@ -9,6 +9,7 @@ import logging
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -16,6 +17,7 @@ from uuid import UUID
 from sqlalchemy import select
 from temporalio import activity
 
+from loom.metrics import ingest_workflow_duration
 from loom.models.asset import Asset
 from loom.services.storage import ORIGINALS_BUCKET, StorageService
 from loom.services.transcription import (
@@ -37,70 +39,73 @@ async def extract_audio(asset_id: str) -> str:
     if video, extracts audio via ffmpeg to wav. idempotent:
     re-running produces the same output.
     """
-    logger.info("extracting audio for asset %s", asset_id)
+    start = time.monotonic()
+    try:
+        logger.info("extracting audio for asset %s", asset_id)
 
-    async with get_db_session() as session:
-        result = await session.execute(
-            select(Asset).where(Asset.id == UUID(asset_id))
-        )
-        asset = result.scalar_one_or_none()
-        if asset is None:
-            msg = f"asset {asset_id} not found"
-            raise ValueError(msg)
-
-        storage = StorageService(get_minio_client())
-
-        # use a persistent temp dir (cleaned up by
-        # store_transcript or os on reboot)
-        tmp_dir = tempfile.mkdtemp(prefix="loom_audio_")
-        suffix = Path(asset.original_filename).suffix
-        src = str(Path(tmp_dir) / f"original{suffix}")
-        storage.download_file(
-            ORIGINALS_BUCKET,
-            asset.storage_key,
-            src,
-        )
-
-        # if already audio, return as-is
-        if asset.media_type == "audio":
-            logger.info(
-                "asset %s is audio; using directly",
-                asset_id,
+        async with get_db_session() as session:
+            result = await session.execute(
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
-            return src
+            asset = result.scalar_one_or_none()
+            if asset is None:
+                msg = f"asset {asset_id} not found"
+                raise ValueError(msg)
 
-        # extract audio from video via ffmpeg
-        ffmpeg = shutil.which("ffmpeg")
-        if ffmpeg is None:
-            msg = "ffmpeg is not installed; cannot extract audio from video"
-            raise RuntimeError(msg)
+            storage = StorageService(get_minio_client())
 
-        audio_path = str(Path(tmp_dir) / "audio.wav")
-        cmd = [
-            ffmpeg,
-            "-y",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-i",
-            src,
-            "-vn",
-            "-acodec",
-            "pcm_s16le",
-            "-ar",
-            "16000",
+            tmp_dir = tempfile.mkdtemp(prefix="loom_audio_")
+            suffix = Path(asset.original_filename).suffix
+            src = str(Path(tmp_dir) / f"original{suffix}")
+            storage.download_file(
+                ORIGINALS_BUCKET,
+                asset.storage_key,
+                src,
+            )
+
+            if asset.media_type == "audio":
+                logger.info(
+                    "asset %s is audio; using directly",
+                    asset_id,
+                )
+                return src
+
+            ffmpeg = shutil.which("ffmpeg")
+            if ffmpeg is None:
+                msg = "ffmpeg is not installed; cannot extract audio from video"
+                raise RuntimeError(msg)
+
+            audio_path = str(Path(tmp_dir) / "audio.wav")
+            cmd = [
+                ffmpeg,
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                src,
+                "-vn",
+                "-acodec",
+                "pcm_s16le",
+                "-ar",
+                "16000",
+                audio_path,
+            ]
+            subprocess.run(  # noqa: S603
+                cmd, check=True, capture_output=True
+            )
+
+        logger.info(
+            "audio extracted for asset %s: %s",
+            asset_id,
             audio_path,
-        ]
-        subprocess.run(  # noqa: S603
-            cmd, check=True, capture_output=True
         )
-
-    logger.info(
-        "audio extracted for asset %s: %s",
-        asset_id,
-        audio_path,
-    )
-    return audio_path
+        return audio_path
+    finally:
+        duration = time.monotonic() - start
+        ingest_workflow_duration.labels(activity="extract_audio").observe(
+            duration
+        )
 
 
 @activity.defn
@@ -114,20 +119,25 @@ async def transcribe_asset(
     degrades if faster-whisper is not installed. idempotent:
     re-running produces the same segments.
     """
-    logger.info(
-        "transcribing asset %s from %s",
-        asset_id,
-        audio_path,
-    )
+    start = time.monotonic()
+    try:
+        logger.info(
+            "transcribing asset %s from %s",
+            asset_id,
+            audio_path,
+        )
 
-    segments = transcribe_audio(audio_path)
+        segments = transcribe_audio(audio_path)
 
-    logger.info(
-        "transcribed %d segments for asset %s",
-        len(segments),
-        asset_id,
-    )
-    return segments
+        logger.info(
+            "transcribed %d segments for asset %s",
+            len(segments),
+            asset_id,
+        )
+        return segments
+    finally:
+        duration = time.monotonic() - start
+        ingest_workflow_duration.labels(activity="transcribe").observe(duration)
 
 
 @activity.defn
@@ -140,20 +150,25 @@ async def diarize_asset(
     delegates to transcription service which gracefully
     degrades if pyannote is not installed. idempotent.
     """
-    logger.info(
-        "diarizing asset %s from %s",
-        asset_id,
-        audio_path,
-    )
+    start = time.monotonic()
+    try:
+        logger.info(
+            "diarizing asset %s from %s",
+            asset_id,
+            audio_path,
+        )
 
-    diarization = diarize_audio(audio_path)
+        diarization = diarize_audio(audio_path)
 
-    logger.info(
-        "diarization found %d speaker turns for asset %s",
-        len(diarization),
-        asset_id,
-    )
-    return diarization
+        logger.info(
+            "diarization found %d speaker turns for asset %s",
+            len(diarization),
+            asset_id,
+        )
+        return diarization
+    finally:
+        duration = time.monotonic() - start
+        ingest_workflow_duration.labels(activity="diarize").observe(duration)
 
 
 @activity.defn
@@ -164,71 +179,83 @@ async def store_transcript(asset_id: str) -> None:
     transcribes, and stores. idempotent: re-running will
     re-insert segments.
     """
-    logger.info("storing transcript for asset %s", asset_id)
+    start = time.monotonic()
+    try:
+        logger.info("storing transcript for asset %s", asset_id)
 
-    async with get_db_session() as session:
-        result = await session.execute(
-            select(Asset).where(Asset.id == UUID(asset_id))
-        )
-        asset = result.scalar_one_or_none()
-        if asset is None:
-            msg = f"asset {asset_id} not found"
-            raise ValueError(msg)
-
-        storage = StorageService(get_minio_client())
-
-        with tempfile.TemporaryDirectory(prefix="loom_transcript_") as tmp_dir:
-            suffix = Path(asset.original_filename).suffix
-            src = str(Path(tmp_dir) / f"original{suffix}")
-            storage.download_file(
-                ORIGINALS_BUCKET,
-                asset.storage_key,
-                src,
+        async with get_db_session() as session:
+            result = await session.execute(
+                select(Asset).where(Asset.id == UUID(asset_id))
             )
+            asset = result.scalar_one_or_none()
+            if asset is None:
+                msg = f"asset {asset_id} not found"
+                raise ValueError(msg)
 
-            # extract audio if video
-            if asset.media_type == "video":
-                ffmpeg = shutil.which("ffmpeg")
-                if ffmpeg is None:
-                    logger.warning(
-                        "ffmpeg unavailable; cannot "
-                        "extract audio for transcript"
-                    )
-                    return
-                audio_path = str(Path(tmp_dir) / "audio.wav")
-                subprocess.run(  # noqa: S603
-                    [
-                        ffmpeg,
-                        "-y",
-                        "-hide_banner",
-                        "-loglevel",
-                        "error",
-                        "-i",
-                        src,
-                        "-vn",
-                        "-acodec",
-                        "pcm_s16le",
-                        "-ar",
-                        "16000",
-                        audio_path,
-                    ],
-                    check=True,
-                    capture_output=True,
+            storage = StorageService(get_minio_client())
+
+            with tempfile.TemporaryDirectory(
+                prefix="loom_transcript_"
+            ) as tmp_dir:
+                suffix = Path(asset.original_filename).suffix
+                src = str(Path(tmp_dir) / f"original{suffix}")
+                storage.download_file(
+                    ORIGINALS_BUCKET,
+                    asset.storage_key,
+                    src,
                 )
-            else:
-                audio_path = src
 
-            segments = transcribe_audio(audio_path)
-            diarization = diarize_audio(audio_path)
+                if asset.media_type == "video":
+                    ffmpeg = shutil.which("ffmpeg")
+                    if ffmpeg is None:
+                        logger.warning(
+                            "ffmpeg unavailable; cannot "
+                            "extract audio for transcript"
+                        )
+                        return
+                    audio_path = str(Path(tmp_dir) / "audio.wav")
+                    subprocess.run(  # noqa: S603
+                        [
+                            ffmpeg,
+                            "-y",
+                            "-hide_banner",
+                            "-loglevel",
+                            "error",
+                            "-i",
+                            src,
+                            "-vn",
+                            "-acodec",
+                            "pcm_s16le",
+                            "-ar",
+                            "16000",
+                            audio_path,
+                        ],
+                        check=True,
+                        capture_output=True,
+                    )
+                else:
+                    audio_path = src
 
-            if diarization:
-                segments = align_transcript_with_speakers(segments, diarization)
+                segments = transcribe_audio(audio_path)
+                diarization = diarize_audio(audio_path)
 
-        records = await store_transcript_segments(session, asset_id, segments)
-        await session.commit()
+                if diarization:
+                    segments = align_transcript_with_speakers(
+                        segments, diarization
+                    )
 
-    logger.info(
-        "stored %d transcript segments for asset %s",
-        len(records),
-        asset_id,
-    )
+            records = await store_transcript_segments(
+                session, asset_id, segments
+            )
+            await session.commit()
+
+        logger.info(
+            "stored %d transcript segments for asset %s",
+            len(records),
+            asset_id,
+        )
+    finally:
+        duration = time.monotonic() - start
+        ingest_workflow_duration.labels(activity="store_transcript").observe(
+            duration
+        )

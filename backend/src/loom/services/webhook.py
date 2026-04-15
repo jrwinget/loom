@@ -1,9 +1,12 @@
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
+import socket
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlparse
 from uuid import UUID
 
 import httpx
@@ -16,6 +19,38 @@ logger = logging.getLogger(__name__)
 
 # auto-disable after this many consecutive failures
 _MAX_FAILURES = 10
+
+_BLOCKED_NETWORKS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+]
+
+
+def _validate_url_at_delivery(url: str) -> None:
+    """validate webhook url does not resolve to private IP.
+
+    raises ValueError if the url resolves to a blocked network.
+    this catches DNS rebinding attacks where a hostname resolves
+    to a public IP at registration but a private IP at delivery.
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("webhook url has no hostname")
+    addr_infos = socket.getaddrinfo(hostname, parsed.port or 443)
+    for info in addr_infos:
+        addr = ipaddress.ip_address(info[4][0])
+        for network in _BLOCKED_NETWORKS:
+            if addr in network:
+                raise ValueError(
+                    f"webhook url resolves to private/reserved address {addr}"
+                )
 
 
 def compute_signature(secret: str, payload_json: str) -> str:
@@ -188,6 +223,17 @@ async def _deliver(
         event_type=event_type,
         payload=payload,
     )
+
+    # runtime SSRF check to catch DNS rebinding attacks
+    try:
+        _validate_url_at_delivery(webhook.url)
+    except ValueError:
+        logger.warning(
+            "ssrf: skipping delivery to %s — resolves to "
+            "private/reserved address",
+            webhook.url,
+        )
+        return
 
     try:
         resp = await client.post(

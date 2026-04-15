@@ -2,9 +2,11 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.dependencies import get_db_session
+from loom.models.user import User
 from loom.schemas.case import (
     CaseCreate,
     CaseListResponse,
@@ -199,11 +201,6 @@ async def add_member_endpoint(
         )
 
     membership = await add_member(db, case_id, body.user_id, body.role, user_id)
-    # fetch user email
-    from sqlalchemy import select
-
-    from loom.models.user import User
-
     result = await db.execute(select(User).where(User.id == membership.user_id))
     user = result.scalar_one()
 
@@ -282,7 +279,7 @@ async def list_members_endpoint(
             id=m.id,
             case_id=m.case_id,
             user_id=m.user_id,
-            user_email=m.user_email,  # type: ignore[attr-defined]
+            user_email=getattr(m, "user_email", ""),
             role=m.role,
             granted_at=m.granted_at,
         )

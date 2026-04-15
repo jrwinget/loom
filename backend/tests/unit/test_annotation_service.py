@@ -194,13 +194,14 @@ class TestUpdateAnnotation:
             content="old content",
             created_by=UUID(_USER_ID),
         )
-        # first execute: select annotation
-        scalar_result = MagicMock()
-        scalar_result.scalar_one.return_value = annotation
-        # second execute: fetch email
-        email_result = MagicMock()
-        email_result.scalar_one.return_value = "u@t.com"
-        session.execute.side_effect = [scalar_result, email_result]
+        row = MagicMock()
+        row.__getitem__ = lambda self, i: [
+            annotation,
+            "u@t.com",
+        ][i]
+        mock_result = MagicMock()
+        mock_result.one.return_value = row
+        session.execute.return_value = mock_result
 
         updated = await update_annotation(
             session,
@@ -208,7 +209,6 @@ class TestUpdateAnnotation:
             {"content": "new content", "type": None},
         )
         assert updated.content == "new content"
-        # type stays because none values are skipped
         assert updated.type == "observation"
         session.commit.assert_awaited_once()
         assert updated.created_by_email == "u@t.com"
@@ -223,11 +223,14 @@ class TestUpdateAnnotation:
             content="x",
             created_by=UUID(_USER_ID),
         )
-        scalar_result = MagicMock()
-        scalar_result.scalar_one.return_value = annotation
-        email_result = MagicMock()
-        email_result.scalar_one.return_value = "u@t.com"
-        session.execute.side_effect = [scalar_result, email_result]
+        row = MagicMock()
+        row.__getitem__ = lambda self, i: [
+            annotation,
+            "u@t.com",
+        ][i]
+        mock_result = MagicMock()
+        mock_result.one.return_value = row
+        session.execute.return_value = mock_result
 
         await update_annotation(session, _ANNO_ID, {"content": "y"})
         session.refresh.assert_awaited_once_with(annotation)
@@ -238,8 +241,8 @@ class TestUpdateAnnotation:
 
 class TestDeleteAnnotation:
     @pytest.mark.asyncio
-    async def test_deletes_existing(self) -> None:
-        """returns true and deletes when found."""
+    async def test_soft_deletes_existing(self) -> None:
+        """sets deleted_at and deleted_by instead of hard-deleting."""
         session = _mock_session()
         annotation = Annotation(
             case_id=UUID(_CASE_ID),
@@ -247,12 +250,14 @@ class TestDeleteAnnotation:
             content="x",
             created_by=UUID(_USER_ID),
         )
+        annotation.deleted_at = None
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = annotation
         session.execute.return_value = mock_result
 
-        assert await delete_annotation(session, _ANNO_ID) is True
-        session.delete.assert_awaited_once_with(annotation)
+        assert await delete_annotation(session, _ANNO_ID, _USER_ID) is True
+        assert annotation.deleted_at is not None
+        assert str(annotation.deleted_by) == _USER_ID
         session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -264,4 +269,34 @@ class TestDeleteAnnotation:
         session.execute.return_value = mock_result
 
         assert await delete_annotation(session, _ANNO_ID) is False
-        session.delete.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_already_deleted(
+        self,
+    ) -> None:
+        """returns false for already soft-deleted annotations."""
+        session = _mock_session()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        session.execute.return_value = mock_result
+
+        assert await delete_annotation(session, _ANNO_ID) is False
+
+    @pytest.mark.asyncio
+    async def test_soft_delete_without_user_id(self) -> None:
+        """sets deleted_at but leaves deleted_by as none."""
+        session = _mock_session()
+        annotation = Annotation(
+            case_id=UUID(_CASE_ID),
+            type="note",
+            content="x",
+            created_by=UUID(_USER_ID),
+        )
+        annotation.deleted_at = None
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = annotation
+        session.execute.return_value = mock_result
+
+        assert await delete_annotation(session, _ANNO_ID) is True
+        assert annotation.deleted_at is not None
+        assert annotation.deleted_by is None

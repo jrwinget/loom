@@ -106,6 +106,8 @@ async def test_create_pdf_report_export(
     """creating export with format=pdf_report returns 201."""
     app = _create_app(mock_settings)
     export = _make_export()
+    mock_temporal = AsyncMock()
+    mock_temporal.start_workflow = AsyncMock()
 
     with (
         patch(
@@ -121,6 +123,11 @@ async def test_create_pdf_report_export(
             f"{_SVC}.create_export_record",
             new_callable=AsyncMock,
             return_value=export,
+        ),
+        patch(
+            "temporalio.client.Client.connect",
+            new_callable=AsyncMock,
+            return_value=mock_temporal,
         ),
     ):
         token = create_access_token(str(_ADMIN_ID), "admin")
@@ -150,6 +157,8 @@ async def test_create_json_manifest_export(
     """creating export with format=json_manifest returns 201."""
     app = _create_app(mock_settings)
     export = _make_export(fmt="json_manifest", name="Manifest")
+    mock_temporal = AsyncMock()
+    mock_temporal.start_workflow = AsyncMock()
 
     with (
         patch(
@@ -165,6 +174,11 @@ async def test_create_json_manifest_export(
             f"{_SVC}.create_export_record",
             new_callable=AsyncMock,
             return_value=export,
+        ),
+        patch(
+            "temporalio.client.Client.connect",
+            new_callable=AsyncMock,
+            return_value=mock_temporal,
         ),
     ):
         token = create_access_token(str(_ADMIN_ID), "admin")

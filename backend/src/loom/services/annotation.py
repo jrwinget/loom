@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -45,6 +46,7 @@ async def list_annotations(
         select(Annotation, User.email)
         .join(User, User.id == Annotation.created_by)
         .where(Annotation.case_id == UUID(case_id))
+        .where(Annotation.deleted_at.is_(None))
     )
 
     if asset_id is not None:
@@ -78,11 +80,12 @@ async def get_annotation(
     session: AsyncSession,
     annotation_id: str,
 ) -> Annotation | None:
-    """get a single annotation by id."""
+    """get a single annotation by id (excludes soft-deleted)."""
     result = await session.execute(
         select(Annotation, User.email)
         .join(User, User.id == Annotation.created_by)
         .where(Annotation.id == UUID(annotation_id))
+        .where(Annotation.deleted_at.is_(None))
     )
     row = result.one_or_none()
     if row is None:
@@ -99,9 +102,14 @@ async def update_annotation(
 ) -> Annotation:
     """update annotation fields."""
     result = await session.execute(
-        select(Annotation).where(Annotation.id == UUID(annotation_id))
+        select(Annotation, User.email)
+        .join(User, User.id == Annotation.created_by)
+        .where(Annotation.id == UUID(annotation_id))
+        .where(Annotation.deleted_at.is_(None))
     )
-    annotation = result.scalar_one()
+    row = result.one()
+    annotation = row[0]
+    email = row[1]
 
     for key, value in data.items():
         if value is not None:
@@ -110,26 +118,27 @@ async def update_annotation(
     await session.commit()
     await session.refresh(annotation)
 
-    # fetch email
-    user_result = await session.execute(
-        select(User.email).where(User.id == annotation.created_by)
-    )
-    annotation.created_by_email = user_result.scalar_one()  # type: ignore[attr-defined]
-    return annotation
+    annotation.created_by_email = email
+    return annotation  # type: ignore[no-any-return]
 
 
 async def delete_annotation(
     session: AsyncSession,
     annotation_id: str,
+    user_id: str | None = None,
 ) -> bool:
-    """delete an annotation."""
+    """soft-delete an annotation."""
     result = await session.execute(
-        select(Annotation).where(Annotation.id == UUID(annotation_id))
+        select(Annotation)
+        .where(Annotation.id == UUID(annotation_id))
+        .where(Annotation.deleted_at.is_(None))
     )
     annotation = result.scalar_one_or_none()
     if not annotation:
         return False
 
-    await session.delete(annotation)
+    annotation.deleted_at = datetime.now(UTC)
+    if user_id:
+        annotation.deleted_by = UUID(user_id)
     await session.commit()
     return True

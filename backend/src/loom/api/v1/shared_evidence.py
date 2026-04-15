@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -17,6 +18,8 @@ from loom.services.shared_evidence import (
     revoke_share,
     share_evidence,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/cases/{case_id}/shared-evidence",
@@ -54,9 +57,13 @@ async def share_evidence_endpoint(
             expires_at=body.expires_at,
         )
     except PermissionError as err:
+        logger.warning(
+            "permission denied for shared evidence: %s",
+            err,
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(err),
+            detail="insufficient permissions for this operation",
         ) from err
     except ValueError as err:
         raise HTTPException(

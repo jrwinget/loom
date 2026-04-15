@@ -63,7 +63,9 @@ self.addEventListener('fetch', (event) => {
           .then((response) => {
             const clone = response.clone();
             caches.open(API_CACHE).then((cache) => {
-              cache.put(event.request, clone);
+              cache.put(event.request, clone).catch((err) => {
+                console.warn('sw: api cache put failed', err);
+              });
             });
             return response;
           })
@@ -104,7 +106,9 @@ self.addEventListener('fetch', (event) => {
         return fetch(event.request).then((response) => {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, clone);
+            cache.put(event.request, clone).catch((err) => {
+              console.warn('sw: static cache put failed', err);
+            });
           });
           return response;
         });

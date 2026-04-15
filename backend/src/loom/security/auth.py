@@ -58,6 +58,22 @@ def create_refresh_token(user_id: str) -> str:
     )
 
 
+def create_mfa_challenge_token(user_id: str) -> str:
+    """create a short-lived token for mfa challenge step."""
+    settings = get_settings()
+    payload = {
+        "sub": user_id,
+        "type": "mfa_challenge",
+        "jti": str(uuid4()),
+        "exp": datetime.now(UTC) + timedelta(minutes=5),
+    }
+    return jwt.encode(
+        payload,
+        settings.secret_key,
+        algorithm="HS256",
+    )
+
+
 def decode_token(token: str) -> dict[str, Any]:
     """decode and verify a jwt token."""
     settings = get_settings()

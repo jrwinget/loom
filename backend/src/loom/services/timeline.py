@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Any
 from uuid import UUID
 
@@ -167,6 +168,22 @@ async def get_event(
     return event  # type: ignore[no-any-return]
 
 
+_UPDATABLE_EVENT_FIELDS: frozenset[str] = frozenset(
+    {
+        "title",
+        "description",
+        "event_time_start",
+        "event_time_end",
+        "time_precision",
+        "location_description",
+        "location_lat",
+        "location_lon",
+        "location_confidence",
+        "status",
+    }
+)
+
+
 async def update_event(
     session: AsyncSession,
     event_id: str,
@@ -180,6 +197,8 @@ async def update_event(
 
     for key, value in data.items():
         if value is not None:
+            if key not in _UPDATABLE_EVENT_FIELDS:
+                raise ValueError(f"field '{key}' is not updatable")
             setattr(event, key, value)
 
     await session.commit()
@@ -255,14 +274,36 @@ async def get_timeline(
     session: AsyncSession,
     case_id: str,
     status: str | None = None,
+    skip: int = 0,
+    limit: int = 200,
 ) -> list[TimelineEvent]:
-    """full timeline with events and their evidence links."""
+    """timeline with events and their evidence links."""
     events, _ = await list_events(
-        session, case_id, status=status, skip=0, limit=10000
+        session, case_id, status=status, skip=skip, limit=limit
     )
 
+    if not events:
+        return events
+
+    # batch-fetch all evidence in one query instead of n+1
+    event_ids = [event.id for event in events]
+    result = await session.execute(
+        select(TimelineEventEvidence)
+        .where(TimelineEventEvidence.event_id.in_(event_ids))
+        .order_by(TimelineEventEvidence.linked_at.asc())
+    )
+    all_evidence = list(result.scalars().all())
+
+    # group by event_id
+    evidence_by_event: dict[UUID, list[TimelineEventEvidence]] = defaultdict(
+        list
+    )
+    for ev in all_evidence:
+        evidence_by_event[ev.event_id].append(ev)
+
     for event in events:
-        evidence = await get_event_evidence(session, str(event.id))
-        event.evidence = evidence  # type: ignore[attr-defined]
+        event.evidence = evidence_by_event.get(  # type: ignore[attr-defined]
+            event.id, []
+        )
 
     return events

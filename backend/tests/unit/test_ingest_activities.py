@@ -261,6 +261,7 @@ class TestRecordDerivativesCustody:
         asset = _make_asset()
 
         session = AsyncMock()
+        session.add = MagicMock()
 
         # first call returns asset, second returns no existing
         call_count = 0
@@ -299,6 +300,7 @@ class TestRecordDerivativesCustody:
         existing_entry = MagicMock()
 
         session = AsyncMock()
+        session.add = MagicMock()
         call_count = 0
 
         async def mock_execute(query: object) -> MagicMock:

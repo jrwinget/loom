@@ -15,6 +15,7 @@ from minio import Minio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.dependencies import get_db_session, get_minio_client
+from loom.metrics import active_uploads
 from loom.schemas.asset import (
     AssetListResponse,
     AssetResponse,
@@ -95,66 +96,78 @@ async def upload_asset(
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id, "editor")
 
-    # read file bytes
-    data = await file.read()
-    if len(data) > _MAX_UPLOAD_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="file exceeds 100mb limit",
-        )
-
-    filename = file.filename or "unnamed"
-
-    # validate file type by magic bytes
+    active_uploads.inc()
     try:
-        mime_type, media_type = validate_file_type(data, filename)
-    except ValueError as err:
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=str(err),
-        ) from err
+        # read file bytes
+        data = await file.read()
+        if len(data) > _MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="file exceeds 100mb limit",
+            )
 
-    # compute hashes
-    sha256, sha512 = compute_hashes_from_bytes(data)
+        filename = file.filename or "unnamed"
 
-    # create asset + custody atomically in a savepoint
-    ip_address = request.client.host if request.client else None
+        # validate file type by magic bytes
+        try:
+            mime_type, media_type = validate_file_type(data, filename)
+        except ValueError as err:
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=str(err),
+            ) from err
 
-    async with db.begin_nested():
-        asset = await create_asset_record(
-            db,
-            case_id,
-            filename,
-            "",  # placeholder key, updated below
-            media_type,
+        # compute hashes
+        sha256, sha512 = compute_hashes_from_bytes(data)
+
+        # create asset + custody atomically in a savepoint
+        ip_address = request.client.host if request.client else None
+
+        async with db.begin_nested():
+            asset = await create_asset_record(
+                db,
+                case_id,
+                filename,
+                "",  # placeholder key, updated below
+                media_type,
+                mime_type,
+                len(data),
+                sha256,
+                sha512,
+                user_id,
+            )
+
+            storage_key = generate_storage_key(
+                case_id,
+                str(asset.id),
+                filename,
+            )
+            asset.storage_key = storage_key
+            await db.flush()
+
+            await record_upload_custody(
+                db,
+                str(asset.id),
+                user_id,
+                ip_address,
+            )
+
+        # upload to minio (sync call via executor)
+        storage = StorageService(minio_client)
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            None,
+            storage.upload_bytes,
+            ORIGINALS_BUCKET,
+            storage_key,
+            data,
             mime_type,
-            len(data),
-            sha256,
-            sha512,
-            user_id,
         )
 
-        # generate storage key and update asset
-        storage_key = generate_storage_key(case_id, str(asset.id), filename)
-        asset.storage_key = storage_key
-        await db.flush()
-
-        await record_upload_custody(db, str(asset.id), user_id, ip_address)
-
-    # upload to minio (sync call via executor)
-    storage = StorageService(minio_client)
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(
-        None,
-        storage.upload_bytes,
-        ORIGINALS_BUCKET,
-        storage_key,
-        data,
-        mime_type,
-    )
-
-    await db.commit()
-    await db.refresh(asset)
+        await db.commit()
+        await db.refresh(asset)
+    finally:
+        active_uploads.dec()
 
     return AssetUploadResponse(
         id=asset.id,

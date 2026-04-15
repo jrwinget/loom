@@ -2,12 +2,15 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.dependencies import get_db_session
+from loom.models.user import User
 from loom.schemas.organization import (
     OrgCreate,
     OrgListResponse,
+    OrgMemberCreate,
     OrgMemberResponse,
     OrgResponse,
     OrgUpdate,
@@ -166,7 +169,7 @@ async def update_org_endpoint(
 )
 async def add_member_endpoint(
     org_id: str,
-    body: dict[str, Any],
+    body: OrgMemberCreate,
     token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
@@ -185,14 +188,7 @@ async def add_member_endpoint(
             detail="org admin required",
         )
 
-    target_user_id = body.get("user_id", "")
-    role = body.get("role", "member")
-    membership = await add_member(db, org_id, target_user_id, role)
-
-    # fetch user email
-    from sqlalchemy import select
-
-    from loom.models.user import User
+    membership = await add_member(db, org_id, body.user_id, body.role)
 
     result = await db.execute(select(User).where(User.id == membership.user_id))
     user = result.scalar_one()
@@ -268,7 +264,7 @@ async def list_members_endpoint(
         OrgMemberResponse(
             id=m.id,
             user_id=m.user_id,
-            user_email=m.user_email,  # type: ignore[attr-defined]
+            user_email=getattr(m, "user_email", ""),
             role=m.role,
             joined_at=m.joined_at,
         )

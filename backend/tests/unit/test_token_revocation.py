@@ -8,7 +8,7 @@ from loom.config import Settings
 
 # fixed test values
 _USER_ID = UUID("01912345-6789-7abc-8def-0123456789ab")
-_SECRET = "test-secret-key-that-is-long-enough-for-validation"  # noqa: S105
+_SECRET = "test-secret-key-that-is-long-enough-for-validation"
 
 
 @pytest.fixture(autouse=True)
@@ -59,11 +59,13 @@ def test_each_token_gets_unique_jti():
     assert p1["jti"] != p2["jti"]
 
 
+@pytest.mark.asyncio
 async def test_revoke_token_service():
     """revoke_token should add an entry to the session."""
     from loom.services.token_revocation import revoke_token
 
     session = AsyncMock()
+    session.add = MagicMock()
     # simulate no existing revoked token
     result_mock = MagicMock()
     result_mock.scalar_one_or_none.return_value = None
@@ -76,11 +78,13 @@ async def test_revoke_token_service():
     session.commit.assert_called_once()
 
 
+@pytest.mark.asyncio
 async def test_revoke_token_skips_duplicate():
     """revoking the same jti twice should be idempotent."""
     from loom.services.token_revocation import revoke_token
 
     session = AsyncMock()
+    session.add = MagicMock()
     # simulate existing revoked token
     result_mock = MagicMock()
     result_mock.scalar_one_or_none.return_value = UUID(
@@ -94,6 +98,7 @@ async def test_revoke_token_skips_duplicate():
     session.add.assert_not_called()
 
 
+@pytest.mark.asyncio
 async def test_is_token_revoked_true():
     """is_token_revoked returns true for revoked jti."""
     from loom.services.token_revocation import is_token_revoked
@@ -108,6 +113,7 @@ async def test_is_token_revoked_true():
     assert await is_token_revoked(session, "revoked-jti") is True
 
 
+@pytest.mark.asyncio
 async def test_is_token_revoked_false():
     """is_token_revoked returns false for valid jti."""
     from loom.services.token_revocation import is_token_revoked
@@ -120,6 +126,7 @@ async def test_is_token_revoked_false():
     assert await is_token_revoked(session, "valid-jti") is False
 
 
+@pytest.mark.asyncio
 async def test_cleanup_expired_tokens():
     """cleanup should delete expired revoked tokens."""
     from loom.services.token_revocation import (

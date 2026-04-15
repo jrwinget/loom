@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -32,6 +33,8 @@ from loom.services.storage import (
     DERIVATIVES_BUCKET,
     StorageService,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/cases/{case_id}/exports",
@@ -80,7 +83,6 @@ async def create_export_endpoint(
         db, case_id, body.name, body.format, user_id
     )
 
-    # start temporal workflow (best-effort, non-blocking)
     try:
         from temporalio.client import Client
 
@@ -94,9 +96,16 @@ async def create_export_endpoint(
             id=f"export-{export.id}",
             task_queue="loom-ingest",
         )
-    except Exception:  # noqa: S110
-        # workflow start failure is non-fatal; export stays pending
-        pass
+    except Exception:
+        logger.error(
+            "failed to start export workflow for %s",
+            export.id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="workflow service unavailable",
+        ) from None
 
     return ExportResponse.model_validate(export)
 

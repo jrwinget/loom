@@ -7,6 +7,7 @@ import structlog
 from starlette.requests import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from loom.metrics import audit_failures
 from loom.models.audit import AuditLogEntry
 from loom.security.auth import decode_token
 
@@ -118,6 +119,7 @@ class AuditMiddleware:
                 session.add(entry)
                 await session.commit()
         except Exception:
+            audit_failures.inc()
             await log.awarning(
                 "failed to write audit log entry",
                 action=action,

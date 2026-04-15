@@ -3,6 +3,7 @@ export interface User {
   email: string;
   displayName: string;
   role: string;
+  mfaEnabled: boolean;
 }
 
 export interface Case {

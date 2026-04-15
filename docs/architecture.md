@@ -39,6 +39,9 @@ The evidence spine ensures traceability:
   (supports, contradicts, context)
 - **Chain of custody** is an append-only log of every action
   on an asset
+- **Redactions** track blur/pixelate/mute operations applied
+  to derivatives (originals are never modified)
+- **Revoked tokens** track invalidated JWTs for secure logout
 
 ### Contradiction Surfacing
 
@@ -50,8 +53,12 @@ for legal work, uncertainty is information.
 ## Authentication and Authorization
 
 - JWT access tokens (15-minute expiry) with argon2 hashing
+- Token revocation via `revoked_tokens` table (checked on
+  refresh)
 - System roles: admin, analyst, viewer
 - Case-level roles: owner, editor, viewer
+- Frontend routes protected by `ProtectedRoute` wrapper
+  (redirects to `/login` when unauthenticated)
 - Audit middleware logs all mutations to an append-only
   audit_log table
 

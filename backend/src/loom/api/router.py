@@ -13,6 +13,7 @@ from loom.api.v1.exports import router as exports_router
 from loom.api.v1.geo import router as geo_router
 from loom.api.v1.health import router as health_router
 from loom.api.v1.integrity import router as integrity_router
+from loom.api.v1.mfa import router as mfa_router
 from loom.api.v1.ocr import router as ocr_router
 from loom.api.v1.organizations import router as organizations_router
 from loom.api.v1.plugins import router as plugins_router
@@ -29,6 +30,7 @@ api_router = APIRouter()
 api_router.include_router(health_router, tags=["health"])
 api_router.include_router(audit_router)
 api_router.include_router(auth_router)
+api_router.include_router(mfa_router)
 api_router.include_router(cases_router)
 api_router.include_router(assets_router)
 api_router.include_router(annotations_router)

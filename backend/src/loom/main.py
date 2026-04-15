@@ -18,6 +18,7 @@ from loom.api.router import api_router
 from loom.config import get_settings
 from loom.observability import setup_db_telemetry, setup_telemetry
 from loom.security.audit import AuditMiddleware
+from loom.security.csrf import CSRFMiddleware
 from loom.security.rate_limit import limiter
 
 
@@ -144,18 +145,28 @@ def create_app() -> FastAPI:
     # cors
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"] if settings.debug else [],
+        allow_origins=(["*"] if settings.debug else settings.cors_origins),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
-    # request-id middleware
+    # csrf double-submit cookie validation
+    application.add_middleware(CSRFMiddleware)
+
+    # request-id + security headers middleware
     @application.middleware("http")
     async def add_request_id(request: Request, call_next: object) -> Response:
         request_id = str(uuid.uuid4())
         response: Response = await call_next(request)  # type: ignore[operator]
         response.headers["X-Request-Id"] = request_id
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "0"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=()"
+        )
         return response
 
     # routes
@@ -163,6 +174,13 @@ def create_app() -> FastAPI:
 
     # audit middleware
     application.add_middleware(AuditMiddleware)
+
+    # prometheus metrics endpoint
+    from prometheus_fastapi_instrumentator import Instrumentator
+
+    Instrumentator().instrument(application).expose(
+        application, endpoint="/metrics", include_in_schema=False
+    )
 
     # observability (opt-in via LOOM_OTEL_ENABLED=true)
     setup_telemetry(application, settings)
