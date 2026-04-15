@@ -57,6 +57,10 @@ docker compose -f docker/docker-compose.yml run --rm \
 
 ### Restore Latest Backup
 
+The restore script includes interactive confirmation. It will
+show which database will be overwritten, the backup source, and
+the current table count before prompting you to type `yes`.
+
 ```bash
 make restore
 ```

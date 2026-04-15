@@ -20,7 +20,7 @@ class ChainOfCustodyEntry(UUIDMixin, Base):
     )
 
     asset_id: Mapped[UUID] = mapped_column(
-        ForeignKey("assets.id", ondelete="RESTRICT"),
+        ForeignKey("assets.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

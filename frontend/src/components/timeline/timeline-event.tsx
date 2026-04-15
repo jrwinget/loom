@@ -1,3 +1,4 @@
+import React from 'react';
 import type { TimelineEvent as TEvent } from '@/types/timeline';
 
 interface TimelineEventProps {
@@ -26,7 +27,7 @@ function formatTime(iso: string): string {
   });
 }
 
-export function TimelineEventCard(
+export const TimelineEventCard = React.memo(function TimelineEventCard(
   props: TimelineEventProps,
 ): React.ReactElement {
   const { event, selected, onClick, onConflictClick } = props;
@@ -106,4 +107,4 @@ export function TimelineEventCard(
       </div>
     </button>
   );
-}
+});

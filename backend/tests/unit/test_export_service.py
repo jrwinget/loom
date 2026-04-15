@@ -29,6 +29,7 @@ class TestCreateExportRecord:
     async def test_creates_pending_export(self) -> None:
         """creates export with pending status."""
         session = AsyncMock()
+        session.add = MagicMock()
 
         await create_export_record(
             session, _CASE_ID, "test export", "zip", _USER_ID

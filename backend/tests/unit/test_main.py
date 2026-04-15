@@ -54,10 +54,39 @@ class TestCreateApp:
 
 
 class TestCors:
-    """CORS configuration based on debug flag."""
+    """CORS configuration based on settings."""
 
-    def test_debug_allows_all_origins(self) -> None:
-        """debug=True configures CORS with wildcard origins."""
+    def test_cors_uses_configured_origins(self) -> None:
+        """CORS middleware uses settings.cors_origins."""
+        origins = [
+            "http://localhost:3000",
+            "https://app.example.com",
+        ]
+        get_settings.cache_clear()
+        with patch(
+            "loom.main.get_settings",
+            return_value=_make_settings(
+                cors_origins=origins,
+            ),
+        ):
+            app = create_app()
+
+        from starlette.middleware.cors import CORSMiddleware
+
+        cors_entries = [
+            m for m in app.user_middleware if m.cls is CORSMiddleware
+        ]
+        assert len(cors_entries) == 1
+        assert cors_entries[0].kwargs["allow_origins"] == origins
+
+
+class TestSecurityHeaders:
+    """security headers on all responses."""
+
+    async def test_security_headers_present(self) -> None:
+        """all 5 security headers are in the response."""
+        import httpx
+
         get_settings.cache_clear()
         with patch(
             "loom.main.get_settings",
@@ -65,38 +94,26 @@ class TestCors:
         ):
             app = create_app()
 
-        # check user_middleware includes CORSMiddleware
-        from starlette.middleware.cors import CORSMiddleware
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as client:
+            resp = await client.get("/api/v1/health")
 
-        cors_entries = [
-            m for m in app.user_middleware if m.cls is CORSMiddleware
-        ]
-        assert len(cors_entries) == 1
-        assert "*" in cors_entries[0].kwargs["allow_origins"]
+        assert resp.headers["X-Frame-Options"] == "DENY"
+        assert resp.headers["X-Content-Type-Options"] == "nosniff"
+        assert resp.headers["X-XSS-Protection"] == "0"
+        assert resp.headers["Referrer-Policy"] == (
+            "strict-origin-when-cross-origin"
+        )
+        assert resp.headers["Permissions-Policy"] == (
+            "camera=(), microphone=(), geolocation=()"
+        )
 
-    def test_production_no_origins(self) -> None:
-        """debug=False configures CORS with empty origins."""
-        get_settings.cache_clear()
-        with patch(
-            "loom.main.get_settings",
-            return_value=_make_settings(debug=False),
-        ):
-            app = create_app()
-
-        from starlette.middleware.cors import CORSMiddleware
-
-        cors_entries = [
-            m for m in app.user_middleware if m.cls is CORSMiddleware
-        ]
-        assert len(cors_entries) == 1
-        assert cors_entries[0].kwargs["allow_origins"] == []
-
-
-class TestRequestIdMiddleware:
-    """X-Request-Id header added to responses."""
-
-    async def test_response_has_request_id(self) -> None:
-        """every response gets an X-Request-Id header."""
+    async def test_request_id_header_still_present(
+        self,
+    ) -> None:
+        """X-Request-Id is still returned."""
         import httpx
 
         get_settings.cache_clear()
@@ -113,7 +130,6 @@ class TestRequestIdMiddleware:
             resp = await client.get("/api/v1/health")
 
         assert "X-Request-Id" in resp.headers
-        # should be a uuid-like string
         rid = resp.headers["X-Request-Id"]
         assert len(rid) == 36  # uuid format
 

@@ -18,7 +18,7 @@ from loom.security.auth import (
 _USER_ID = UUID("01912345-6789-7abc-8def-0123456789ab")
 _USER_EMAIL = "admin@example.com"
 _USER_DISPLAY = "Admin User"
-_USER_PASSWORD = "securepassword123"  # noqa: S105
+_USER_PASSWORD = "SecurePass1234"
 _USER_HASH = hash_password(_USER_PASSWORD)
 
 
@@ -38,6 +38,7 @@ def _make_user(
     user.role = role
     user.is_active = is_active
     user.password_hash = _USER_HASH
+    user.mfa_enabled = False
     user.created_at = datetime(2025, 1, 1, tzinfo=UTC)
     user.updated_at = datetime(2025, 1, 1, tzinfo=UTC)
     return user
@@ -209,7 +210,7 @@ async def test_login_correct_credentials(
     data = resp.json()
     assert "access_token" in data
     assert "refresh_token" in data
-    assert data["token_type"] == "bearer"  # noqa: S105
+    assert data["token_type"] == "bearer"
 
 
 async def test_login_wrong_password(
@@ -276,7 +277,7 @@ async def test_register_second_user_requires_admin(
         json={
             "email": "new@example.com",
             "display_name": "New User",
-            "password": "newpassword123",
+            "password": "NewPassword123",
         },
     )
     # should be 403 since users exist and no admin check
@@ -294,7 +295,7 @@ async def test_register_user_with_admin_token(
         json={
             "email": "new@example.com",
             "display_name": "New User",
-            "password": "newpassword123",
+            "password": "NewPassword123",
         },
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -312,7 +313,7 @@ async def test_register_invalid_email(
         json={
             "email": "not-an-email",
             "display_name": "Test",
-            "password": "securepassword123",
+            "password": "SecurePass1234",
         },
     )
     assert resp.status_code == 422
@@ -353,7 +354,7 @@ async def test_login_nonexistent_email(
                 "/api/v1/auth/login",
                 json={
                     "email": "nobody@example.com",
-                    "password": "anypassword123",
+                    "password": "AnyPassword123",
                 },
             )
 

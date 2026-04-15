@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID
@@ -17,6 +18,8 @@ from loom.security.rbac import (
     require_authenticated,
 )
 from loom.services.case import check_case_access
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/cases/{case_id}/assets/{asset_id}/scenes",
@@ -147,17 +150,36 @@ async def start_scene_detection(
             detail="insufficient case access",
         )
 
-    # TODO: start temporal workflow
-    # client = await Client.connect(settings.temporal_host)
-    # await client.start_workflow(
-    #     SceneDetectionWorkflow.run,
-    #     asset_id,
-    #     id=f"scene-detect-{asset_id}",
-    #     task_queue="loom-ingest",
-    # )
+    workflow_id = f"scene-detect-{asset_id}"
+    try:
+        from temporalio.client import Client
+
+        from loom.config import get_settings
+        from loom.workflows.scene_workflow import (
+            SceneDetectionWorkflow,
+        )
+
+        settings = get_settings()
+        client = await Client.connect(settings.temporal_host)
+        await client.start_workflow(
+            SceneDetectionWorkflow.run,
+            asset_id,
+            id=workflow_id,
+            task_queue="loom-ingest",
+        )
+    except Exception:
+        logger.error(
+            "failed to start scene detection workflow for %s",
+            asset_id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="workflow service unavailable",
+        ) from None
 
     return {
         "status": "accepted",
         "asset_id": asset_id,
-        "message": "scene detection started",
+        "workflow_id": workflow_id,
     }

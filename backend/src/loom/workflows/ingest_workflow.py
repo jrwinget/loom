@@ -42,11 +42,12 @@ class IngestWorkflow:
             ),
         )
 
-        # step 3: generate proxies
+        # step 3: generate proxies (long-running, with heartbeat)
         await workflow.execute_activity(
             generate_asset_proxies,
             asset_id,
             start_to_close_timeout=timedelta(minutes=30),
+            heartbeat_timeout=timedelta(minutes=2),
             retry_policy=RetryPolicy(
                 maximum_attempts=2,
                 initial_interval=timedelta(seconds=60),
@@ -57,14 +58,22 @@ class IngestWorkflow:
         await workflow.execute_activity(
             record_derivatives_custody,
             asset_id,
-            start_to_close_timeout=timedelta(minutes=1),
+            start_to_close_timeout=timedelta(minutes=2),
+            retry_policy=RetryPolicy(
+                maximum_attempts=3,
+                initial_interval=timedelta(seconds=5),
+            ),
         )
 
         # step 5: mark complete
         await workflow.execute_activity(
             mark_asset_complete,
             asset_id,
-            start_to_close_timeout=timedelta(minutes=1),
+            start_to_close_timeout=timedelta(minutes=2),
+            retry_policy=RetryPolicy(
+                maximum_attempts=3,
+                initial_interval=timedelta(seconds=5),
+            ),
         )
 
         return asset_id

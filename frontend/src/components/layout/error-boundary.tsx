@@ -116,7 +116,7 @@ export function ErrorFallback(props: ErrorFallbackProps): React.ReactElement {
         <p className="mt-2 text-sm text-muted-foreground">
           An unexpected error occurred. You can try again or reload the page.
         </p>
-        {error?.message && (
+        {error?.message && import.meta.env.DEV && (
           <p className="mt-3 rounded bg-muted px-3 py-2 text-xs text-muted-foreground">
             {error.message}
           </p>

@@ -75,6 +75,7 @@ class TestMutatingMethods:
     async def test_logs_post(self) -> None:
         """POST request triggers audit logging."""
         mock_session = AsyncMock()
+        mock_session.add = MagicMock()
         mock_session_factory = MagicMock()
         mock_session_factory.return_value.__aenter__ = AsyncMock(
             return_value=mock_session
@@ -112,6 +113,7 @@ class TestMutatingMethods:
     async def test_logs_delete(self) -> None:
         """DELETE request triggers audit logging."""
         mock_session = AsyncMock()
+        mock_session.add = MagicMock()
         mock_session_factory = MagicMock()
         mock_session_factory.return_value.__aenter__ = AsyncMock(
             return_value=mock_session
@@ -154,6 +156,7 @@ class TestJwtExtraction:
         """valid jwt extracts actor_id."""
         user_id = "01912345-6789-7abc-8def-012345678901"
         mock_session = AsyncMock()
+        mock_session.add = MagicMock()
         mock_session_factory = MagicMock()
         mock_session_factory.return_value.__aenter__ = AsyncMock(
             return_value=mock_session
@@ -203,6 +206,7 @@ class TestResourceParsing:
     async def test_extracts_resource_type(self) -> None:
         """parses resource type from path."""
         mock_session = AsyncMock()
+        mock_session.add = MagicMock()
         mock_session_factory = MagicMock()
         mock_session_factory.return_value.__aenter__ = AsyncMock(
             return_value=mock_session
@@ -251,6 +255,7 @@ class TestMissingAuth:
     async def test_no_auth_header(self) -> None:
         """proceeds without error when no auth header."""
         mock_session = AsyncMock()
+        mock_session.add = MagicMock()
         mock_session_factory = MagicMock()
         mock_session_factory.return_value.__aenter__ = AsyncMock(
             return_value=mock_session

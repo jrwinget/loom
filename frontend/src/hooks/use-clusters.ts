@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
+import { useToastStore } from '@/stores/toast-store';
 import type {
   AcceptPayload,
   ClusterListResponse,
@@ -52,6 +53,12 @@ export function useProposeClusters(
         queryKey: queryKeys.clusters.byCase(caseId),
       });
     },
+    onError: () => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: 'Failed to propose clusters',
+      });
+    },
   });
 }
 
@@ -86,6 +93,12 @@ export function useAcceptCluster(
         queryKey: queryKeys.timeline.events(caseId),
       });
     },
+    onError: () => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: 'Failed to accept cluster',
+      });
+    },
   });
 }
 
@@ -104,6 +117,12 @@ export function useRejectCluster(
         queryKey: queryKeys.clusters.byCase(caseId),
       });
     },
+    onError: () => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: 'Failed to reject cluster',
+      });
+    },
   });
 }
 
@@ -120,6 +139,12 @@ export function useMergeClusters(
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.clusters.byCase(caseId),
+      });
+    },
+    onError: () => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: 'Failed to merge clusters',
       });
     },
   });

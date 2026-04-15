@@ -10,7 +10,7 @@ class ConflictResolution(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "conflict_resolutions"
 
     event_id: Mapped[UUID] = mapped_column(
-        ForeignKey("timeline_events.id"),
+        ForeignKey("timeline_events.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -23,6 +23,6 @@ class ConflictResolution(UUIDMixin, TimestampMixin, Base):
         nullable=True,
     )
     resolved_by: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
     )

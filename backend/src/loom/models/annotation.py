@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -20,6 +21,11 @@ class Annotation(UUIDMixin, TimestampMixin, Base):
     __table_args__ = (
         Index("ix_annotations_case_asset", "case_id", "asset_id"),
         Index("ix_annotations_case_type", "case_id", "type"),
+        Index(
+            "ix_annotations_case_deleted_at",
+            "case_id",
+            "deleted_at",
+        ),
     )
 
     case_id: Mapped[UUID] = mapped_column(
@@ -59,4 +65,13 @@ class Annotation(UUIDMixin, TimestampMixin, Base):
     created_by: Mapped[UUID] = mapped_column(
         ForeignKey("users.id"),
         nullable=False,
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        nullable=True,
+        default=None,
+    )
+    deleted_by: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True,
+        default=None,
     )

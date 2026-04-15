@@ -23,6 +23,7 @@ class TestCreateRedaction:
     async def test_creates_pending_record(self) -> None:
         """creates a redaction with pending status."""
         session = AsyncMock()
+        session.add = MagicMock()
         regions = [{"type": "rect", "x": 0.1, "y": 0.1, "w": 0.3, "h": 0.3}]
 
         result = await create_redaction(
@@ -45,6 +46,7 @@ class TestCreateRedaction:
     async def test_creates_black_box_type(self) -> None:
         """supports black_box redaction type."""
         session = AsyncMock()
+        session.add = MagicMock()
         regions = [{"type": "rect", "x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5}]
 
         result = await create_redaction(
@@ -60,6 +62,7 @@ class TestCreateRedaction:
     async def test_creates_audio_mute_type(self) -> None:
         """supports audio_mute redaction type."""
         session = AsyncMock()
+        session.add = MagicMock()
         regions = [{"type": "temporal", "start_time": 1.0, "end_time": 5.0}]
 
         result = await create_redaction(
@@ -342,11 +345,19 @@ class TestApplyRedaction:
         session = AsyncMock()
         redaction = MagicMock(spec=Redaction)
         redaction.redaction_type = "audio_mute"
+        redaction.asset_id = UUID(FAKE_ASSET_ID)
+        redaction.id = UUID("01912345-6789-7abc-8def-012345678999")
         redaction.regions = [
             {"type": "temporal", "start_time": 0, "end_time": 5}
         ]
+        mock_storage = MagicMock()
 
-        result = await apply_redaction(session, redaction)
+        with patch(
+            "loom.services.redaction.mute_audio_regions",
+        ):
+            result = await apply_redaction(
+                session, redaction, storage=mock_storage
+            )
 
         assert result.status == "complete"
 

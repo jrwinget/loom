@@ -30,6 +30,13 @@ class User(UUIDMixin, TimestampMixin, Base):
         String,
         nullable=True,
     )
+    mfa_enabled: Mapped[bool] = mapped_column(
+        default=False,
+    )
+    recovery_codes: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+    )
     is_active: Mapped[bool] = mapped_column(
         default=True,
     )

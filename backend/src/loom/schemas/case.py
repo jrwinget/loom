@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CaseCreate(BaseModel):
@@ -37,6 +37,16 @@ class CaseListResponse(BaseModel):
 class CaseMemberCreate(BaseModel):
     user_id: str
     role: str = "viewer"
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        allowed = {"viewer", "editor", "owner"}
+        if v not in allowed:
+            raise ValueError(
+                f"role must be one of: {', '.join(sorted(allowed))}"
+            )
+        return v
 
 
 class CaseMemberResponse(BaseModel):

@@ -128,9 +128,21 @@ PRE_TABLES=$(psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}
     "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null || echo "0")
 log "pre-restore public tables: ${PRE_TABLES}"
 
+# ── interactive confirmation ───────────────────────────────
+log "WARNING: about to overwrite database '${PGDATABASE}' on ${PGHOST}:${PGPORT}"
+log "backup source: ${BACKUP_FILE}"
+log "current table count: ${PRE_TABLES}"
+if [ -t 0 ]; then
+    printf "%s " "${LOG_PREFIX} type 'yes' to continue:"
+    read -r answer
+    if [ "${answer}" != "yes" ]; then
+        log "restore cancelled by user"
+        exit 0
+    fi
+fi
+
 # ── restore ─────────────────────────────────────────────────
 log "restoring ${BACKUP_FILE} to ${PGDATABASE} on ${PGHOST}:${PGPORT}"
-log "WARNING: this will overwrite existing data in '${PGDATABASE}'"
 
 # decompress and restore
 if gunzip -c "${BACKUP_PATH}" | pg_restore \

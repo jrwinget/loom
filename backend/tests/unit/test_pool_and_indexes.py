@@ -21,6 +21,7 @@ from loom.models import (
     TimelineEventEvidence,
     TranscriptSegment,
 )
+from loom.models.plugin import Plugin
 
 
 class TestPoolConfiguration:
@@ -161,8 +162,8 @@ class TestOnDeleteBehavior:
     def test_case_membership_user_cascade(self) -> None:
         assert _fk_ondelete(CaseMembership, "user_id") == "CASCADE"
 
-    def test_custody_asset_restrict(self) -> None:
-        assert _fk_ondelete(ChainOfCustodyEntry, "asset_id") == "RESTRICT"
+    def test_custody_asset_cascade(self) -> None:
+        assert _fk_ondelete(ChainOfCustodyEntry, "asset_id") == "CASCADE"
 
     def test_audit_actor_set_null(self) -> None:
         assert _fk_ondelete(AuditLogEntry, "actor_id") == "SET NULL"
@@ -216,3 +217,23 @@ class TestCheckConstraints:
     def test_timeline_event_status_check(self) -> None:
         names = _check_constraint_names(TimelineEvent)
         assert "ck_timeline_events_status" in names
+
+
+class TestFkIndexes:
+    """foreign key columns have indexes for join performance."""
+
+    def test_plugin_created_by_has_index(self) -> None:
+        """plugin.created_by column should have an index."""
+        col = Plugin.__table__.c.created_by
+        assert col.index is True or any(
+            "created_by" in [c.name for c in idx.columns]
+            for idx in Plugin.__table__.indexes
+        )
+
+    def test_export_bundle_created_by_has_index(self) -> None:
+        """export_bundle.created_by column should have an index."""
+        col = ExportBundle.__table__.c.created_by
+        assert col.index is True or any(
+            "created_by" in [c.name for c in idx.columns]
+            for idx in ExportBundle.__table__.indexes
+        )

@@ -1,10 +1,48 @@
+import ipaddress
+import socket
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
 PLUGIN_TYPES = ("webhook", "activity", "integration")
+
+# networks that must not be reachable via webhooks (ssrf guard)
+_BLOCKED_NETWORKS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+]
+
+
+def _validate_webhook_url(url: str) -> str:
+    """reject non-http(s) schemes and private IPs."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("Webhook URL must use http or https scheme")
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("Webhook URL must include a hostname")
+    try:
+        addr_infos = socket.getaddrinfo(hostname, parsed.port or 443)
+    except socket.gaierror as exc:
+        raise ValueError(f"Could not resolve hostname: {hostname}") from exc
+    for info in addr_infos:
+        addr = ipaddress.ip_address(info[4][0])
+        for network in _BLOCKED_NETWORKS:
+            if addr in network:
+                raise ValueError(
+                    f"Webhook URL resolves to private/reserved address {addr}"
+                )
+    return url
+
 
 WEBHOOK_EVENT_TYPES = (
     "asset.uploaded",
@@ -72,6 +110,12 @@ class WebhookCreate(BaseModel):
     events: list[str] = Field(min_length=1)
     secret: str | None = None
 
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        """reject non-http(s) schemes and private IPs."""
+        return _validate_webhook_url(v)
+
     @field_validator("events")
     @classmethod
     def validate_events(cls, v: list[str]) -> list[str]:
@@ -88,6 +132,17 @@ class WebhookUpdate(BaseModel):
     url: str | None = None
     events: list[str] | None = None
     is_active: bool | None = None
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(
+        cls,
+        v: str | None,
+    ) -> str | None:
+        """reject non-http(s) schemes and private IPs."""
+        if v is None:
+            return v
+        return _validate_webhook_url(v)
 
     @field_validator("events")
     @classmethod

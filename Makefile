@@ -63,7 +63,7 @@ backup: ## trigger a manual database backup
 		-e MINIO_ROOT_PASSWORD=$${MINIO_ROOT_PASSWORD:-loom_minio_dev} \
 		-e MINIO_BACKUP_BUCKET=loom-backups \
 		-v $$(pwd)/docker/postgres/backup.sh:/scripts/backup.sh:ro \
-		-v loom-backup-data:/backups \
+		-v docker_backup-data:/backups \
 		--entrypoint /bin/sh \
 		postgres:16-alpine -c "\
 			apk add --no-cache curl > /dev/null 2>&1; \
@@ -83,7 +83,7 @@ restore: ## restore from latest or specified backup (usage: make restore [FILE=l
 		-e MINIO_ROOT_PASSWORD=$${MINIO_ROOT_PASSWORD:-loom_minio_dev} \
 		-e MINIO_BACKUP_BUCKET=loom-backups \
 		-v $$(pwd)/docker/postgres/restore.sh:/scripts/restore.sh:ro \
-		-v loom-backup-data:/backups \
+		-v docker_backup-data:/backups \
 		--entrypoint /bin/sh \
 		postgres:16-alpine -c "\
 			apk add --no-cache curl > /dev/null 2>&1; \
@@ -102,7 +102,7 @@ verify-backup: ## verify the latest backup by restoring to a temp database
 		-e MINIO_ROOT_PASSWORD=$${MINIO_ROOT_PASSWORD:-loom_minio_dev} \
 		-e MINIO_BACKUP_BUCKET=loom-backups \
 		-v $$(pwd)/docker/postgres/verify-backup.sh:/scripts/verify-backup.sh:ro \
-		-v loom-backup-data:/backups \
+		-v docker_backup-data:/backups \
 		--entrypoint /bin/sh \
 		postgres:16-alpine -c "\
 			apk add --no-cache curl > /dev/null 2>&1; \

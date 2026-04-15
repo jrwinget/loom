@@ -18,7 +18,7 @@ class TestHmacSignature:
 
     def test_compute_signature(self) -> None:
         """signature matches expected hmac-sha256."""
-        secret = "my-secret"  # noqa: S105
+        secret = "my-secret"
         payload = '{"event": "test"}'
         expected = hmac.new(
             secret.encode(),
@@ -36,7 +36,7 @@ class TestHmacSignature:
 
     def test_different_payloads_differ(self) -> None:
         """different payloads produce different signatures."""
-        secret = "same-secret"  # noqa: S105
+        secret = "same-secret"
         sig1 = compute_signature(secret, '{"a": 1}')
         sig2 = compute_signature(secret, '{"b": 2}')
         assert sig1 != sig2
@@ -78,6 +78,7 @@ class TestEventMatching:
         webhook = self._make_webhook(["asset.uploaded"], secret="s3cret")
 
         session = AsyncMock()
+        session.add = MagicMock()
         # return webhook from query
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [webhook]
@@ -114,6 +115,7 @@ class TestEventMatching:
         webhook = self._make_webhook(["case.created"])
 
         session = AsyncMock()
+        session.add = MagicMock()
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [webhook]
         session.execute = AsyncMock(return_value=mock_result)
@@ -157,6 +159,7 @@ class TestAutoDisable:
         webhook.last_triggered_at = None
 
         session = AsyncMock()
+        session.add = MagicMock()
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [webhook]
         session.execute = AsyncMock(return_value=mock_result)
@@ -200,6 +203,7 @@ class TestAutoDisable:
         webhook.last_triggered_at = None
 
         session = AsyncMock()
+        session.add = MagicMock()
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [webhook]
         session.execute = AsyncMock(return_value=mock_result)
@@ -239,6 +243,7 @@ class TestCreateWebhook:
         from loom.services.webhook import create_webhook
 
         session = AsyncMock()
+        session.add = MagicMock()
         data = {
             "plugin_id": _PLUGIN_ID,
             "url": "https://example.com/hook",
@@ -395,6 +400,7 @@ class TestDispatchMultiple:
         w2.last_triggered_at = None
 
         session = AsyncMock()
+        session.add = MagicMock()
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [w1, w2]
         session.execute = AsyncMock(return_value=mock_result)
@@ -428,6 +434,7 @@ class TestDispatchMultiple:
     async def test_no_matching_webhooks_noop(self) -> None:
         """no matching webhooks results in no-op."""
         session = AsyncMock()
+        session.add = MagicMock()
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = []
         session.execute = AsyncMock(return_value=mock_result)
@@ -511,6 +518,7 @@ class TestDeliveryRecording:
         webhook.last_triggered_at = None
 
         session = AsyncMock()
+        session.add = MagicMock()
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [webhook]
         session.execute = AsyncMock(return_value=mock_result)
@@ -557,6 +565,7 @@ class TestDeliveryRecording:
         webhook.last_triggered_at = None
 
         session = AsyncMock()
+        session.add = MagicMock()
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [webhook]
         session.execute = AsyncMock(return_value=mock_result)

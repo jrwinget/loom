@@ -9,6 +9,7 @@ from loom.models.case import Case, CaseMembership
 from loom.models.user import User
 from loom.services.case import (
     _ROLE_HIERARCHY,
+    _UPDATABLE_CASE_FIELDS,
     add_member,
     check_case_access,
     create_case,
@@ -117,7 +118,7 @@ class TestUpdateCase:
         session = _mock_session()
         case = Case(name="Old", description="old", created_by=_USER_ID)
         mock_result = MagicMock()
-        mock_result.scalar_one.return_value = case
+        mock_result.scalar_one_or_none.return_value = case
         session.execute.return_value = mock_result
 
         updated = await update_case(
@@ -134,12 +135,71 @@ class TestUpdateCase:
         session = _mock_session()
         case = Case(name="X", created_by=_USER_ID)
         mock_result = MagicMock()
-        mock_result.scalar_one.return_value = case
+        mock_result.scalar_one_or_none.return_value = case
         session.execute.return_value = mock_result
 
         await update_case(session, _CASE_ID, {"name": "Y"})
         session.commit.assert_awaited_once()
         session.refresh.assert_awaited_once_with(case)
+
+
+# ── update_case field whitelist ────────────────────────────
+
+
+class TestUpdateCaseFieldWhitelist:
+    @pytest.mark.asyncio
+    async def test_rejects_non_updatable_field(self) -> None:
+        """setattr rejects fields not in whitelist."""
+        session = _mock_session()
+        case = Case(name="X", created_by=_USER_ID)
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = case
+        session.execute.return_value = mock_result
+
+        with pytest.raises(ValueError, match="not updatable"):
+            await update_case(session, _CASE_ID, {"id": "evil"})
+
+    @pytest.mark.asyncio
+    async def test_rejects_created_by(self) -> None:
+        """cannot overwrite created_by via update."""
+        session = _mock_session()
+        case = Case(name="X", created_by=_USER_ID)
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = case
+        session.execute.return_value = mock_result
+
+        with pytest.raises(ValueError, match="not updatable"):
+            await update_case(session, _CASE_ID, {"created_by": "evil"})
+
+    @pytest.mark.asyncio
+    async def test_allows_name_update(self) -> None:
+        """name is in the whitelist and should be accepted."""
+        session = _mock_session()
+        case = Case(name="Old", created_by=_USER_ID)
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = case
+        session.execute.return_value = mock_result
+
+        updated = await update_case(session, _CASE_ID, {"name": "New"})
+        assert updated.name == "New"
+
+    @pytest.mark.asyncio
+    async def test_allows_all_whitelisted_fields(self) -> None:
+        """all fields in the whitelist are accepted."""
+        session = _mock_session()
+        case = Case(name="X", created_by=_USER_ID)
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = case
+        session.execute.return_value = mock_result
+
+        data = {f: "val" for f in _UPDATABLE_CASE_FIELDS}
+        # should not raise
+        await update_case(session, _CASE_ID, data)
+
+    @pytest.mark.asyncio
+    async def test_whitelist_is_frozen(self) -> None:
+        """whitelist must be a frozenset to prevent mutation."""
+        assert isinstance(_UPDATABLE_CASE_FIELDS, frozenset)
 
 
 # ── list_cases ──────────────────────────────────────────────

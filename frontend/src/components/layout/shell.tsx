@@ -2,11 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { Header } from '@/components/layout/header';
 import { OfflineBanner } from '@/components/layout/offline-banner';
 import { Sidebar } from '@/components/layout/sidebar';
-import { useUiStore } from '@/stores/ui-store';
-
 export function Shell(): React.ReactElement {
-  const sidebarOpen = useUiStore((s) => s.sidebarOpen);
-
   return (
     <div className="flex h-screen overflow-hidden">
       <a
@@ -22,9 +18,7 @@ export function Shell(): React.ReactElement {
         <main
           id="main-content"
           tabIndex={-1}
-          className={`flex-1 overflow-auto p-6 transition-all focus:outline-none ${
-            sidebarOpen ? 'ml-0' : 'ml-0'
-          }`}
+          className="flex-1 overflow-auto p-6 transition-all focus:outline-none"
           data-testid="main-content"
         >
           <Outlet />
