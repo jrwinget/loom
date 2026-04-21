@@ -108,6 +108,14 @@ class Asset(UUIDMixin, TimestampMixin, Base):
         Float,
         nullable=True,
     )
+    clock_offset_seconds: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    clock_confidence: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
     processing_status: Mapped[str] = mapped_column(
         String,
         nullable=False,

@@ -1,9 +1,7 @@
 import { render, screen } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from
-  '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
-import { ReviewWorkspace } from
-  '@/components/review/review-workspace';
+import { ReviewWorkspace } from '@/components/review/review-workspace';
 import type { Asset } from '@/types/asset';
 
 // mock keyboard shortcut
@@ -19,9 +17,7 @@ vi.mock('@/hooks/use-search', () => ({
   }),
 }));
 
-function makeAsset(
-  overrides: Partial<Asset> = {},
-): Asset {
+function makeAsset(overrides: Partial<Asset> = {}): Asset {
   return {
     id: 'asset-1',
     caseId: 'case-1',
@@ -34,25 +30,21 @@ function makeAsset(
     uploadStatus: 'complete',
     processingStatus: 'complete',
     captureTime: null,
+    clockOffsetSeconds: null,
+    clockConfidence: null,
     createdAt: '2026-01-15T10:00:00Z',
     updatedAt: '2026-01-15T10:05:00Z',
     ...overrides,
   };
 }
 
-function renderWithQuery(
-  ui: React.ReactElement,
-): ReturnType<typeof render> {
+function renderWithQuery(ui: React.ReactElement): ReturnType<typeof render> {
   const qc = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
     },
   });
-  return render(
-    <QueryClientProvider client={qc}>
-      {ui}
-    </QueryClientProvider>,
-  );
+  return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
 }
 
 describe('ReviewWorkspace', () => {
@@ -67,18 +59,10 @@ describe('ReviewWorkspace', () => {
       />,
     );
 
-    expect(
-      screen.getByTestId('review-workspace'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId('panel-video'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId('panel-transcript'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId('panel-right'),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('review-workspace')).toBeInTheDocument();
+    expect(screen.getByTestId('panel-video')).toBeInTheDocument();
+    expect(screen.getByTestId('panel-transcript')).toBeInTheDocument();
+    expect(screen.getByTestId('panel-right')).toBeInTheDocument();
   });
 
   it('renders search bar', () => {
@@ -92,9 +76,7 @@ describe('ReviewWorkspace', () => {
       />,
     );
 
-    expect(
-      screen.getByTestId('search-bar'),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('search-bar')).toBeInTheDocument();
   });
 
   it('renders scene strip', () => {
@@ -108,9 +90,7 @@ describe('ReviewWorkspace', () => {
       />,
     );
 
-    expect(
-      screen.getByTestId('scene-strip'),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('scene-strip')).toBeInTheDocument();
   });
 
   it('renders transcript panel with segments', () => {
@@ -135,8 +115,6 @@ describe('ReviewWorkspace', () => {
       />,
     );
 
-    expect(
-      screen.getByText('Hello there'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Hello there')).toBeInTheDocument();
   });
 });

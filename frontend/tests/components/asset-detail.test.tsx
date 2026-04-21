@@ -1,7 +1,4 @@
-import {
-  QueryClient,
-  QueryClientProvider,
-} from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -55,18 +52,17 @@ const mockAsset: Asset = {
   mimeType: 'video/mp4',
   fileSizeBytes: 52_428_800,
   sha256Hash:
-    'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4' +
-    'e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+    'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4' + 'e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
   uploadStatus: 'complete',
   processingStatus: 'complete',
   captureTime: '2026-03-15T14:30:00Z',
+  clockOffsetSeconds: null,
+  clockConfidence: null,
   createdAt: '2026-03-15T16:00:00Z',
   updatedAt: '2026-03-15T16:05:00Z',
 };
 
-function renderDetail(
-  asset: Asset = mockAsset,
-): ReturnType<typeof render> {
+function renderDetail(asset: Asset = mockAsset): ReturnType<typeof render> {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -83,9 +79,7 @@ function renderDetail(
 describe('AssetDetail', () => {
   it('renders asset filename', () => {
     renderDetail();
-    expect(
-      screen.getByText('protest-footage.mp4'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('protest-footage.mp4')).toBeInTheDocument();
   });
 
   it('renders media type metadata', () => {
@@ -109,9 +103,7 @@ describe('AssetDetail', () => {
   it('shows truncated hash', () => {
     renderDetail();
     expect(screen.getByText('SHA-256')).toBeInTheDocument();
-    expect(
-      screen.getByText('a1b2c3d4e5f6a1b2...'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('a1b2c3d4e5f6a1b2...')).toBeInTheDocument();
   });
 
   it('shows processing status badge', () => {
@@ -133,36 +125,52 @@ describe('AssetDetail', () => {
 
   it('shows custody chain entries', () => {
     renderDetail();
-    expect(
-      screen.getByText('Chain of custody'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('upload'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('process complete'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Chain of custody')).toBeInTheDocument();
+    expect(screen.getByText('upload')).toBeInTheDocument();
+    expect(screen.getByText('process complete')).toBeInTheDocument();
   });
 
   it('shows custody timeline data-testid', () => {
     renderDetail();
-    expect(
-      screen.getByTestId('custody-timeline'),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('custody-timeline')).toBeInTheDocument();
   });
 
   it('shows capture time when available', () => {
     renderDetail();
-    expect(
-      screen.getByText('Capture time'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Capture time')).toBeInTheDocument();
   });
 
   it('hides capture time when null', () => {
     renderDetail({ ...mockAsset, captureTime: null });
-    expect(
-      screen.queryByText('Capture time'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Capture time')).not.toBeInTheDocument();
+  });
+
+  it('hides clock drift row when both offset and confidence are null', () => {
+    renderDetail();
+    expect(screen.queryByTestId('clock-drift-row')).not.toBeInTheDocument();
+  });
+
+  it('shows clock drift confidence badge when present', () => {
+    renderDetail({
+      ...mockAsset,
+      clockOffsetSeconds: null,
+      clockConfidence: 0.1,
+    });
+    const badge = screen.getByTestId('clock-confidence-badge');
+    expect(badge).toHaveTextContent('Low');
+    expect(badge.className).toContain('red');
+  });
+
+  it('shows formatted offset when user anchor has been applied', () => {
+    renderDetail({
+      ...mockAsset,
+      clockOffsetSeconds: 17,
+      clockConfidence: 1.0,
+    });
+    expect(screen.getByTestId('clock-offset')).toHaveTextContent('+17.0s');
+    expect(screen.getByTestId('clock-confidence-badge')).toHaveTextContent(
+      'High',
+    );
   });
 
   it('shows download button when url is available', () => {
@@ -173,9 +181,6 @@ describe('AssetDetail', () => {
       'href',
       'https://example.com/download/test.mp4',
     );
-    expect(link).toHaveAttribute(
-      'download',
-      'protest-footage.mp4',
-    );
+    expect(link).toHaveAttribute('download', 'protest-footage.mp4');
   });
 });
