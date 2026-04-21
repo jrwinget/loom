@@ -180,6 +180,34 @@ class TestStoreOcrRegions:
         session.add.assert_not_called()
         session.flush.assert_awaited_once()
 
+    async def test_persists_model_provenance(self) -> None:
+        """model name/version/params flow from region dict to row."""
+        session = AsyncMock()
+        session.add = MagicMock()
+        session.flush = AsyncMock()
+
+        regions = [
+            {
+                "text": "abc",
+                "confidence": 0.9,
+                "bounding_box": None,
+                "frame_number": None,
+                "timestamp": None,
+                "model_name": "pytesseract",
+                "model_version": "0.3.10",
+                "model_params": {"language": "eng"},
+            },
+        ]
+        result = await store_ocr_regions(
+            session,
+            "01912345-6789-7abc-8def-012345678903",
+            regions,
+        )
+
+        assert result[0].model_name == "pytesseract"
+        assert result[0].model_version == "0.3.10"
+        assert result[0].model_params == {"language": "eng"}
+
 
 class TestOcrIlikeEscaping:
     """tests that ocr text search escapes ILIKE wildcards."""

@@ -1,7 +1,9 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import Float, ForeignKey, Index, String, Text, func
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from loom.models.base import Base, UUIDMixin
@@ -46,6 +48,18 @@ class TranscriptSegment(UUIDMixin, Base):
     )
     language: Mapped[str | None] = mapped_column(
         String,
+        nullable=True,
+    )
+    model_name: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+    )
+    model_version: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+    )
+    model_params: Mapped[Any | None] = mapped_column(
+        JSON,
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(

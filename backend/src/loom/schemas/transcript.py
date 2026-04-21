@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -14,6 +15,9 @@ class TranscriptSegmentResponse(BaseModel):
     text: str
     confidence: float | None
     language: str | None
+    model_name: str | None = None
+    model_version: str | None = None
+    model_params: dict[str, Any] | None = None
 
     model_config = {"from_attributes": True}
 

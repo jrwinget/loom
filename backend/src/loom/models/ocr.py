@@ -46,6 +46,18 @@ class OcrRegion(UUIDMixin, Base):
         String,
         nullable=True,
     )
+    model_name: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+    )
+    model_version: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+    )
+    model_params: Mapped[Any | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now(),
     )
