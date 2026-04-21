@@ -9,17 +9,25 @@ interface ExportWizardProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type ExportFormat = 'zip' | 'pdf_report' | 'json_manifest';
+type ExportFormat = 'zip' | 'pdf_report' | 'json_manifest' | 'court_bundle';
 
 const FORMAT_OPTIONS: {
   value: ExportFormat;
   label: string;
+  description?: string;
 }[] = [
   { value: 'zip', label: 'ZIP Archive' },
   { value: 'pdf_report', label: 'PDF Report' },
   {
     value: 'json_manifest',
     label: 'JSON Manifest',
+  },
+  {
+    value: 'court_bundle',
+    label: 'Court Bundle (PDF + manifest)',
+    description:
+      'Cover page, timeline report, exhibit index, chain-of-custody ' +
+      'appendix, and MANIFEST.sha256.',
   },
 ];
 

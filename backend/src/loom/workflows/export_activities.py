@@ -54,6 +54,8 @@ async def build_export(export_id: str) -> str:
                     await _build_pdf_report(session, export, case_id)
                 elif fmt == "json_manifest":
                     await _build_json_manifest(session, export, case_id)
+                elif fmt == "court_bundle":
+                    await _build_court_bundle(session, export, case_id)
                 else:
                     await _build_zip_bundle(session, export, case_id)
 
@@ -155,3 +157,37 @@ async def _build_zip_bundle(
     except Exception:
         logger.warning("could not upload zip, storing manifest only")
         export.manifest = manifest
+
+
+async def _build_court_bundle(
+    session: Any,
+    export: Any,
+    case_id: str,
+) -> None:
+    """build the court-admissible bundle (cover + report + exhibit
+    index + MANIFEST.sha256 + optional signature) and upload.
+    """
+    from loom.config import get_settings
+    from loom.services.court_bundle import build_court_bundle
+    from loom.services.storage import StorageService
+
+    options = export.manifest or {}
+    settings = get_settings()
+
+    try:
+        storage = StorageService(get_minio_client())
+        output_key = f"exports/{export.id}/court_bundle.zip"
+        key, sha256 = await build_court_bundle(
+            session,
+            case_id,
+            options,
+            storage,
+            output_key,
+            preparer=str(export.created_by),
+            signing_key_pem=getattr(settings, "bundle_signing_key", None),
+        )
+        export.storage_key = key
+        export.sha256_hash = sha256
+    except Exception:
+        logger.exception("failed to build court bundle")
+        raise
