@@ -133,12 +133,8 @@ class TestApplyClockAnchor:
         updated = await apply_clock_anchor(
             session,
             asset_id,
-            reported_time=datetime(
-                2026, 4, 20, 12, 0, 0, tzinfo=UTC
-            ),
-            actual_time=datetime(
-                2026, 4, 20, 12, 0, 17, tzinfo=UTC
-            ),
+            reported_time=datetime(2026, 4, 20, 12, 0, 0, tzinfo=UTC),
+            actual_time=datetime(2026, 4, 20, 12, 0, 17, tzinfo=UTC),
             actor_id=str(uuid4()),
             note="overlay off by 17s",
         )
@@ -162,12 +158,8 @@ class TestApplyClockAnchor:
         await apply_clock_anchor(
             session,
             asset_id,
-            reported_time=datetime(
-                2026, 4, 20, 12, 0, 0, tzinfo=UTC
-            ),
-            actual_time=datetime(
-                2026, 4, 20, 12, 0, 0, tzinfo=UTC
-            ),
+            reported_time=datetime(2026, 4, 20, 12, 0, 0, tzinfo=UTC),
+            actual_time=datetime(2026, 4, 20, 12, 0, 0, tzinfo=UTC),
             actor_id=actor_id,
         )
 

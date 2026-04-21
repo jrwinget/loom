@@ -132,9 +132,9 @@ async def extract_asset_metadata(
             )
             normalized = dict(metadata.get("normalized", {}))
             normalized["clock_drift_sources"] = drift["sources"]
-            normalized["clock_drift_max_delta_seconds"] = (
-                drift["max_delta_seconds"]
-            )
+            normalized["clock_drift_max_delta_seconds"] = drift[
+                "max_delta_seconds"
+            ]
 
             asset.metadata_raw = metadata.get("raw", {})
             asset.metadata_extracted = normalized

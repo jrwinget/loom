@@ -87,9 +87,7 @@ def parse_filename_timestamp(filename: str) -> datetime | None:
             continue
         try:
             joined = "".join(match.groups())
-            return datetime.strptime(joined, fmt).replace(
-                tzinfo=UTC
-            )
+            return datetime.strptime(joined, fmt).replace(tzinfo=UTC)
         except ValueError:
             continue
     return None
