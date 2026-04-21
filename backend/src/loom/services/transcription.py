@@ -6,8 +6,17 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.transcript import TranscriptSegment
+from loom.services.model_metadata import (
+    UNKNOWN_VERSION,
+    build_provenance,
+)
 
 logger = logging.getLogger(__name__)
+
+_WHISPER_PACKAGE = "faster-whisper"
+_WHISPER_MODEL_NAME = "faster-whisper"
+_PYANNOTE_PACKAGE = "pyannote.audio"
+_PYANNOTE_MODEL_NAME = "pyannote/speaker-diarization-3.1"
 
 
 def transcribe_audio(
@@ -17,8 +26,9 @@ def transcribe_audio(
     """transcribe audio using faster-whisper.
 
     returns list of segment dicts with keys:
-    start, end, text, language, confidence.
-    if faster-whisper is not installed, returns a stub result.
+    start, end, text, language, confidence, model_name,
+    model_version, model_params. if faster-whisper is not
+    installed, returns a stub result with 'unknown' provenance.
     """
     try:
         from faster_whisper import WhisperModel
@@ -33,8 +43,17 @@ def transcribe_audio(
                 "text": "[transcription unavailable]",
                 "language": None,
                 "confidence": None,
+                "model_name": _WHISPER_MODEL_NAME,
+                "model_version": UNKNOWN_VERSION,
+                "model_params": {"model_size": model_size},
             }
         ]
+
+    provenance = build_provenance(
+        _WHISPER_MODEL_NAME,
+        _WHISPER_PACKAGE,
+        {"model_size": model_size, "compute_type": "int8"},
+    )
 
     model = WhisperModel(model_size, compute_type="int8")
     segments_iter, info = model.transcribe(audio_path)
@@ -48,6 +67,7 @@ def transcribe_audio(
                 "text": segment.text.strip(),
                 "language": info.language,
                 "confidence": segment.avg_log_prob,
+                **provenance,
             }
         )
     return results
@@ -56,8 +76,9 @@ def transcribe_audio(
 def diarize_audio(audio_path: str) -> list[dict[str, Any]]:
     """run speaker diarization using pyannote.audio.
 
-    returns list of dicts with keys: speaker, start, end.
-    if pyannote is not installed, returns empty list.
+    returns list of dicts with keys: speaker, start, end,
+    model_name, model_version. if pyannote is not installed,
+    returns empty list.
     """
     try:
         from pyannote.audio import Pipeline
@@ -72,6 +93,7 @@ def diarize_audio(audio_path: str) -> list[dict[str, Any]]:
         logger.warning("failed to load pyannote pipeline")
         return []
     diarization = pipeline(audio_path)
+    provenance = build_provenance(_PYANNOTE_MODEL_NAME, _PYANNOTE_PACKAGE)
 
     results: list[dict[str, Any]] = []
     for turn, _, speaker in diarization.itertracks(
@@ -82,6 +104,7 @@ def diarize_audio(audio_path: str) -> list[dict[str, Any]]:
                 "speaker": speaker,
                 "start": turn.start,
                 "end": turn.end,
+                **provenance,
             }
         )
     return results
@@ -135,6 +158,9 @@ async def store_transcript_segments(
             text=seg["text"],
             confidence=seg.get("confidence"),
             language=seg.get("language"),
+            model_name=seg.get("model_name"),
+            model_version=seg.get("model_version"),
+            model_params=seg.get("model_params"),
         )
         session.add(record)
         records.append(record)

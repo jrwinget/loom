@@ -115,6 +115,33 @@ class TestStoreTranscriptSegments:
         assert records[1].text == "world"
         assert records[1].speaker_label is None
 
+    @pytest.mark.asyncio
+    async def test_persists_model_provenance(self) -> None:
+        """model name/version/params flow from segment dict to row."""
+        session = AsyncMock()
+        session.add = MagicMock()
+        session.flush = AsyncMock()
+
+        segments = [
+            {
+                "start": 0.0,
+                "end": 5.0,
+                "text": "hi",
+                "model_name": "faster-whisper",
+                "model_version": "1.2.3",
+                "model_params": {"model_size": "base"},
+            },
+        ]
+        records = await store_transcript_segments(
+            session,
+            "01912345-6789-7abc-8def-0123456789ab",
+            segments,
+        )
+
+        assert records[0].model_name == "faster-whisper"
+        assert records[0].model_version == "1.2.3"
+        assert records[0].model_params == {"model_size": "base"}
+
 
 class TestTranscribeAudio:
     """tests for transcribe_audio graceful fallback."""
@@ -127,6 +154,9 @@ class TestTranscribeAudio:
 
         assert len(result) == 1
         assert "unavailable" in result[0]["text"]
+        # stub still records model name so ui can flag provenance
+        assert result[0]["model_name"] == "faster-whisper"
+        assert result[0]["model_version"] == "unknown"
 
     def test_with_faster_whisper_installed(self) -> None:
         mock_segment = MagicMock()
@@ -148,11 +178,16 @@ class TestTranscribeAudio:
         mock_fw.WhisperModel.return_value = mock_model
 
         with patch.dict("sys.modules", {"faster_whisper": mock_fw}):
-            result = transcribe_audio("/fake/path.wav")
+            result = transcribe_audio("/fake/path.wav", model_size="tiny")
 
         assert len(result) == 1
         assert result[0]["text"] == "hello world"
         assert result[0]["language"] == "en"
+        assert result[0]["model_name"] == "faster-whisper"
+        assert result[0]["model_params"] == {
+            "model_size": "tiny",
+            "compute_type": "int8",
+        }
 
 
 class TestDiarizeAudio:

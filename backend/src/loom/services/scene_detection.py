@@ -8,10 +8,16 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.scene import Scene
+from loom.services.model_metadata import (
+    UNKNOWN_VERSION,
+    build_provenance,
+)
 
 logger = logging.getLogger(__name__)
 
 _FFMPEG = shutil.which("ffmpeg")
+_SCENEDETECT_MODEL_NAME = "scenedetect.ContentDetector"
+_SCENEDETECT_PACKAGE = "scenedetect"
 
 
 def detect_scenes(
@@ -53,9 +59,14 @@ def detect_scenes(
     scene_manager.add_detector(ContentDetector(threshold=threshold))
     scene_manager.detect_scenes(video)
     scene_list = scene_manager.get_scene_list()
+    provenance = build_provenance(
+        _SCENEDETECT_MODEL_NAME,
+        _SCENEDETECT_PACKAGE,
+        {"threshold": threshold},
+    )
 
     if not scene_list:
-        return _single_scene_fallback(video_path)
+        return _single_scene_fallback(video_path, provenance)
 
     results: list[dict[str, Any]] = []
     for i, (start, end) in enumerate(scene_list):
@@ -67,14 +78,28 @@ def detect_scenes(
                 "start_frame": start.get_frames(),
                 "end_frame": end.get_frames(),
                 "duration": (end.get_seconds() - start.get_seconds()),
+                **provenance,
             }
         )
     return results
 
 
-def _single_scene_fallback(video_path: str) -> list[dict[str, Any]]:
-    """return a single scene covering the full video."""
+def _single_scene_fallback(
+    video_path: str,
+    provenance: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """return a single scene covering the full video.
+
+    used when scenedetect is unavailable or finds no boundaries;
+    records 'unknown' provenance so the ui can flag the row as
+    not model-backed.
+    """
     duration = _get_duration(video_path)
+    meta = provenance or {
+        "model_name": _SCENEDETECT_MODEL_NAME,
+        "model_version": UNKNOWN_VERSION,
+        "model_params": None,
+    }
     return [
         {
             "scene_number": 1,
@@ -83,6 +108,7 @@ def _single_scene_fallback(video_path: str) -> list[dict[str, Any]]:
             "start_frame": 0,
             "end_frame": 0,
             "duration": duration,
+            **meta,
         }
     ]
 
@@ -188,6 +214,9 @@ async def store_scenes(
             end_frame=scene_data["end_frame"],
             duration=scene_data["duration"],
             thumbnail_key=scene_data.get("thumbnail_key"),
+            model_name=scene_data.get("model_name"),
+            model_version=scene_data.get("model_version"),
+            model_params=scene_data.get("model_params"),
         )
         session.add(scene)
         records.append(scene)

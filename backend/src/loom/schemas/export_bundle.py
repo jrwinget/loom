@@ -7,7 +7,9 @@ from pydantic import BaseModel, Field
 
 class ExportCreate(BaseModel):
     name: str = Field(min_length=1)
-    format: str = Field(pattern=r"^(zip|pdf_report|json_manifest)$")
+    format: str = Field(
+        pattern=r"^(zip|pdf_report|json_manifest|court_bundle)$"
+    )
     include_originals: bool = False
     event_ids: list[str] | None = None
     asset_ids: list[str] | None = None

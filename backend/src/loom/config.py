@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     debug: bool = False
     log_level: str = "info"
 
+    # optional Ed25519 private key (PEM) for detached bundle
+    # signatures on court exports. leave unset to skip signing.
+    bundle_signing_key: str | None = None
+
     # observability
     otel_enabled: bool = False
     otel_service_name: str = "loom-api"

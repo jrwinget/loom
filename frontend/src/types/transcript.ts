@@ -1,4 +1,12 @@
-export interface TranscriptSegment {
+// provenance fields present on every ai-produced row.
+// null = row predates migration 007 or provenance not recorded.
+export interface AiProvenance {
+  modelName: string | null;
+  modelVersion: string | null;
+  modelParams: Record<string, unknown> | null;
+}
+
+export interface TranscriptSegment extends AiProvenance {
   id: string;
   assetId: string;
   speakerLabel: string | null;
@@ -16,7 +24,7 @@ export interface TranscriptResponse {
   speakerCount: number;
 }
 
-export interface SceneInfo {
+export interface SceneInfo extends AiProvenance {
   id: string;
   assetId: string;
   sceneNumber: number;
@@ -26,7 +34,7 @@ export interface SceneInfo {
   duration: number;
 }
 
-export interface OcrRegion {
+export interface OcrRegion extends AiProvenance {
   id: string;
   assetId: string;
   frameNumber: number | null;

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ case.name }} — Exhibit Index</title>
+<style>
+  @page { size: letter; margin: 0.75in; }
+  body {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 10pt;
+    line-height: 1.4;
+    color: #1a1a1a;
+  }
+  h1 {
+    font-size: 20pt;
+    border-bottom: 2px solid #333;
+    padding-bottom: 6px;
+  }
+  h2 {
+    font-size: 14pt;
+    color: #333;
+    margin-top: 24px;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 2px;
+  }
+  .meta {
+    color: #666;
+    font-size: 10pt;
+    margin-bottom: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+  }
+  th, td {
+    border: 1px solid #bbb;
+    padding: 5px 7px;
+    vertical-align: top;
+  }
+  th {
+    background: #f3f3f3;
+    font-weight: 600;
+    text-align: left;
+  }
+  .ex-num {
+    font-weight: 700;
+    white-space: nowrap;
+    width: 60px;
+  }
+  .hash {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 8.5pt;
+    word-break: break-all;
+    color: #444;
+  }
+  .refs {
+    color: #555;
+    font-size: 9pt;
+  }
+  .empty {
+    color: #999;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<h1>Exhibit Index</h1>
+<div class="meta">
+  <p>Case: {{ case.name }}</p>
+  <p>Generated: {{ generated_at }}</p>
+</div>
+
+<h2>Exhibits</h2>
+{% if exhibits %}
+<table>
+  <thead>
+    <tr>
+      <th class="ex-num">#</th>
+      <th>Filename</th>
+      <th>Type</th>
+      <th>Captured</th>
+      <th>SHA-256</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for ex in exhibits %}
+    <tr>
+      <td class="ex-num">E{{ ex.number }}</td>
+      <td>{{ ex.original_filename }}</td>
+      <td>{{ ex.media_type }}</td>
+      <td>{{ ex.capture_time or "-" }}</td>
+      <td class="hash">{{ ex.sha256_hash }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">No exhibits included in this bundle.</p>
+{% endif %}
+
+<h2>Timeline Event Cross-Reference</h2>
+{% if events %}
+<table>
+  <thead>
+    <tr>
+      <th>Event</th>
+      <th>Time</th>
+      <th>Exhibits cited</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for ev in events %}
+    <tr>
+      <td>{{ ev.title }}</td>
+      <td>{{ ev.event_time_start }}</td>
+      <td class="refs">
+        {% if ev.exhibit_numbers %}
+          {% for n in ev.exhibit_numbers %}E{{ n }}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% else %}<span class="empty">none</span>{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">No timeline events in the selected range.</p>
+{% endif %}
+
+</body>
+</html>
