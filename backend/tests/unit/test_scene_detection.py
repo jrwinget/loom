@@ -34,8 +34,44 @@ class TestDetectScenes:
             "start_frame",
             "end_frame",
             "duration",
+            "model_name",
+            "model_version",
+            "model_params",
         }
         assert set(scene.keys()) == expected_keys
+
+    def test_fallback_records_unknown_provenance(self) -> None:
+        """fallback path flags provenance as unknown."""
+        with patch.dict("sys.modules", {"scenedetect": None}):
+            result = detect_scenes("/fake/video.mp4")
+        scene = result[0]
+        assert scene["model_name"] == "scenedetect.ContentDetector"
+        assert scene["model_version"] == "unknown"
+        assert scene["model_params"] is None
+
+    def test_successful_detection_attaches_provenance(self) -> None:
+        """real detection results carry model name and params."""
+        mock_start = MagicMock()
+        mock_start.get_seconds.return_value = 0.0
+        mock_start.get_frames.return_value = 0
+        mock_end = MagicMock()
+        mock_end.get_seconds.return_value = 10.0
+        mock_end.get_frames.return_value = 300
+
+        mock_scene_manager = MagicMock()
+        mock_scene_manager.get_scene_list.return_value = [
+            (mock_start, mock_end),
+        ]
+        mock_sd = MagicMock()
+        mock_sd.SceneManager.return_value = mock_scene_manager
+        mock_sd.ContentDetector.return_value = MagicMock()
+        mock_sd.open_video.return_value = MagicMock()
+
+        with patch.dict("sys.modules", {"scenedetect": mock_sd}):
+            result = detect_scenes("/fake/video.mp4", threshold=42.0)
+
+        assert result[0]["model_name"] == "scenedetect.ContentDetector"
+        assert result[0]["model_params"] == {"threshold": 42.0}
 
     def test_successful_detection(self) -> None:
         """returns scene list from scenedetect."""

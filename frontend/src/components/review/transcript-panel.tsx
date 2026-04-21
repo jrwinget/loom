@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TranscriptSegment } from '@/types/transcript';
+import { WhyPopover } from './why-popover';
 
 interface TranscriptPanelProps {
   segments: TranscriptSegment[];
@@ -101,6 +102,13 @@ export function TranscriptPanel(
       {/* header with speaker filter */}
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <span className="text-xs font-medium text-foreground">Transcript</span>
+        <span
+          data-testid="ai-generated-badge"
+          aria-label="AI-generated content"
+          className="rounded bg-amber-100 px-1.5 py-0 text-[10px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+        >
+          AI-generated
+        </span>
         {speakers.length > 0 && (
           <select
             data-testid="speaker-filter"
@@ -194,6 +202,23 @@ export function TranscriptPanel(
                     ?
                   </span>
                 )}
+                <div
+                  className="ml-auto"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  role="presentation"
+                >
+                  <WhyPopover
+                    modelName={seg.modelName}
+                    modelVersion={seg.modelVersion}
+                    modelParams={seg.modelParams}
+                    confidence={seg.confidence}
+                    scope={
+                      `Transcript ${formatTimestamp(seg.startTime)}` +
+                      ` - ${formatTimestamp(seg.endTime)}`
+                    }
+                  />
+                </div>
               </div>
               <p className="mt-0.5 text-sm text-foreground">{seg.text}</p>
             </div>

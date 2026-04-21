@@ -14,6 +14,9 @@ class OcrRegionResponse(BaseModel):
     text: str
     confidence: float | None
     language: str | None
+    model_name: str | None = None
+    model_version: str | None = None
+    model_params: dict[str, Any] | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

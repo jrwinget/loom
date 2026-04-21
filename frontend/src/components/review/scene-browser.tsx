@@ -1,5 +1,6 @@
 import { useMemo, useRef, useEffect } from 'react';
 import type { SceneInfo } from '@/types/transcript';
+import { WhyPopover } from './why-popover';
 
 interface SceneBrowserProps {
   scenes: SceneInfo[];
@@ -60,53 +61,77 @@ export function SceneBrowser(props: SceneBrowserProps): React.ReactElement {
   return (
     <div
       data-testid="scene-browser"
-      className="flex gap-2 overflow-x-auto px-2 py-2"
+      className="flex flex-col gap-1"
     >
-      {scenes.map((scene) => {
-        const isActive = scene.id === activeSceneId;
-        return (
-          <button
-            key={scene.id}
-            ref={isActive ? activeRef : undefined}
-            type="button"
-            data-testid={`scene-${scene.id}`}
-            data-active={isActive}
-            onClick={() => onSeek(scene.startTime)}
-            aria-label={`Scene ${scene.sceneNumber}: ${formatTimestamp(scene.startTime)} to ${formatTimestamp(scene.endTime)}`}
-            aria-current={isActive ? 'true' : undefined}
-            title={
-              `Scene ${scene.sceneNumber}: ` +
-              `${formatTimestamp(scene.startTime)} - ` +
-              `${formatTimestamp(scene.endTime)}`
-            }
-            className={`flex-shrink-0 rounded border transition-colors ${
-              isActive
-                ? 'border-primary ring-2 ring-primary/50'
-                : 'border-border hover:border-primary/50'
-            }`}
-          >
-            {/* thumbnail or placeholder */}
-            <div className="flex h-12 w-20 items-center justify-center rounded-t bg-muted text-xs text-muted-foreground">
-              {scene.thumbnailUrl ? (
-                <img
-                  src={scene.thumbnailUrl}
-                  alt={`Scene ${scene.sceneNumber}`}
-                  className="h-full w-full rounded-t object-cover"
+      <div className="flex items-center gap-2 px-2">
+        <span className="text-[10px] font-medium text-muted-foreground">
+          Scenes
+        </span>
+        <span
+          data-testid="ai-generated-badge"
+          aria-label="AI-generated content"
+          className="rounded bg-amber-100 px-1.5 py-0 text-[10px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+        >
+          AI-generated
+        </span>
+      </div>
+      <div className="flex gap-2 overflow-x-auto px-2 py-2">
+        {scenes.map((scene) => {
+          const isActive = scene.id === activeSceneId;
+          return (
+            <div key={scene.id} className="relative flex-shrink-0">
+              <button
+                ref={isActive ? activeRef : undefined}
+                type="button"
+                data-testid={`scene-${scene.id}`}
+                data-active={isActive}
+                onClick={() => onSeek(scene.startTime)}
+                aria-label={`Scene ${scene.sceneNumber}: ${formatTimestamp(scene.startTime)} to ${formatTimestamp(scene.endTime)}`}
+                aria-current={isActive ? 'true' : undefined}
+                title={
+                  `Scene ${scene.sceneNumber}: ` +
+                  `${formatTimestamp(scene.startTime)} - ` +
+                  `${formatTimestamp(scene.endTime)}`
+                }
+                className={`rounded border transition-colors ${
+                  isActive
+                    ? 'border-primary ring-2 ring-primary/50'
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                {/* thumbnail or placeholder */}
+                <div className="flex h-12 w-20 items-center justify-center rounded-t bg-muted text-xs text-muted-foreground">
+                  {scene.thumbnailUrl ? (
+                    <img
+                      src={scene.thumbnailUrl}
+                      alt={`Scene ${scene.sceneNumber}`}
+                      className="h-full w-full rounded-t object-cover"
+                    />
+                  ) : (
+                    <span>S{scene.sceneNumber}</span>
+                  )}
+                </div>
+                {!compact && (
+                  <div className="px-1 py-0.5 text-center text-[10px] text-muted-foreground">
+                    {formatTimestamp(scene.startTime)}
+                    <span className="mx-0.5">-</span>
+                    {formatTimestamp(scene.endTime)}
+                  </div>
+                )}
+              </button>
+              <div className="absolute right-0.5 top-0.5">
+                <WhyPopover
+                  modelName={scene.modelName}
+                  modelVersion={scene.modelVersion}
+                  modelParams={scene.modelParams}
+                  confidence={null}
+                  scope={`Scene ${scene.sceneNumber}`}
                 />
-              ) : (
-                <span>S{scene.sceneNumber}</span>
-              )}
-            </div>
-            {!compact && (
-              <div className="px-1 py-0.5 text-center text-[10px] text-muted-foreground">
-                {formatTimestamp(scene.startTime)}
-                <span className="mx-0.5">-</span>
-                {formatTimestamp(scene.endTime)}
               </div>
-            )}
-          </button>
-        );
-      })}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

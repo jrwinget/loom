@@ -8,8 +8,12 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.ocr import OcrRegion
+from loom.services.model_metadata import build_provenance
 
 logger = logging.getLogger(__name__)
+
+_TESSERACT_MODEL_NAME = "pytesseract"
+_TESSERACT_PACKAGE = "pytesseract"
 
 
 def extract_key_frames(
@@ -110,6 +114,11 @@ def run_ocr_on_image(
     img_width, img_height = img.size
     regions: list[dict[str, Any]] = []
     n_boxes = len(data["text"])
+    provenance = build_provenance(
+        _TESSERACT_MODEL_NAME,
+        _TESSERACT_PACKAGE,
+        {"language": language},
+    )
 
     for i in range(n_boxes):
         text = data["text"][i].strip()
@@ -136,6 +145,7 @@ def run_ocr_on_image(
                     "width": round(w, 6),
                     "height": round(h, 6),
                 },
+                **provenance,
             }
         )
 
@@ -209,6 +219,9 @@ async def store_ocr_regions(
             text=region["text"],
             confidence=region.get("confidence"),
             language=region.get("language"),
+            model_name=region.get("model_name"),
+            model_version=region.get("model_version"),
+            model_params=region.get("model_params"),
         )
         session.add(record)
         ocr_records.append(record)
