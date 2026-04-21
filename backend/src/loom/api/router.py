@@ -7,6 +7,7 @@ from loom.api.v1.auth import router as auth_router
 from loom.api.v1.cases import router as cases_router
 from loom.api.v1.clusters import router as clusters_router
 from loom.api.v1.conflicts import router as conflicts_router
+from loom.api.v1.correlations import router as correlations_router
 from loom.api.v1.custody import router as custody_router
 from loom.api.v1.duplicates import router as duplicates_router
 from loom.api.v1.exports import router as exports_router
@@ -44,6 +45,7 @@ api_router.include_router(scenes_router)
 api_router.include_router(search_router)
 api_router.include_router(transcripts_router)
 api_router.include_router(duplicates_router)
+api_router.include_router(correlations_router)
 api_router.include_router(provenance_router)
 api_router.include_router(redactions_router)
 api_router.include_router(organizations_router)

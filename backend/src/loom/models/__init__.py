@@ -5,6 +5,10 @@ from loom.models.base import Base
 from loom.models.case import Case, CaseMembership
 from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.models.conflict import ConflictResolution
+from loom.models.correlation import (
+    CorrelationCandidate,
+    CorrelationCandidateMember,
+)
 from loom.models.derivative import Derivative
 from loom.models.duplicate import DuplicateCluster, DuplicateClusterMember
 from loom.models.event_cluster import EventCluster, EventClusterItem
@@ -33,6 +37,8 @@ __all__ = [
     "CaseMembership",
     "ChainOfCustodyEntry",
     "ConflictResolution",
+    "CorrelationCandidate",
+    "CorrelationCandidateMember",
     "Derivative",
     "DuplicateCluster",
     "DuplicateClusterMember",

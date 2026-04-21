@@ -4,6 +4,10 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 
 from loom.config import get_settings
+from loom.workflows.correlation_activities import (
+    correlate_case_assets,
+)
+from loom.workflows.correlation_workflow import CorrelationWorkflow
 from loom.workflows.export_activities import build_export
 from loom.workflows.export_workflow import ExportWorkflow
 from loom.workflows.ingest_activities import (
@@ -50,6 +54,7 @@ async def main() -> None:  # pragma: no cover
             TranscriptionWorkflow,
             OcrWorkflow,
             SceneDetectionWorkflow,
+            CorrelationWorkflow,
         ],
         activities=[
             verify_asset_hash,
@@ -68,6 +73,7 @@ async def main() -> None:  # pragma: no cover
             detect_asset_scenes,
             generate_scene_thumbs,
             store_scene_results,
+            correlate_case_assets,
         ],
     )
     await worker.run()
