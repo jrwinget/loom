@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ case.name }} — Court Bundle</title>
+<style>
+  @page { size: letter; margin: 1in; }
+  body {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: #1a1a1a;
+    line-height: 1.5;
+  }
+  h1 {
+    font-size: 28pt;
+    margin-bottom: 0;
+    border-bottom: 3px double #333;
+    padding-bottom: 8px;
+  }
+  .subtitle {
+    font-size: 14pt;
+    color: #555;
+    margin-top: 4px;
+  }
+  .meta {
+    margin-top: 48px;
+    font-size: 11pt;
+  }
+  .meta-row {
+    display: flex;
+    padding: 6px 0;
+    border-bottom: 1px solid #eee;
+  }
+  .meta-label {
+    width: 180px;
+    font-weight: 600;
+    color: #333;
+  }
+  .meta-value {
+    flex: 1;
+    color: #111;
+  }
+  .hash {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 9pt;
+    word-break: break-all;
+  }
+  .footer {
+    margin-top: 80px;
+    padding: 16px;
+    border: 1px solid #999;
+    background: #f8f8f8;
+    font-size: 10pt;
+    color: #333;
+  }
+  .footer strong { display: block; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<h1>{{ case.name }}</h1>
+<div class="subtitle">Court-Admissible Evidence Bundle</div>
+
+<div class="meta">
+  <div class="meta-row">
+    <div class="meta-label">Case</div>
+    <div class="meta-value">{{ case.name }}</div>
+  </div>
+  {% if case.description %}
+  <div class="meta-row">
+    <div class="meta-label">Description</div>
+    <div class="meta-value">{{ case.description }}</div>
+  </div>
+  {% endif %}
+  <div class="meta-row">
+    <div class="meta-label">Date range</div>
+    <div class="meta-value">
+      {{ date_range_start or "(start)" }}
+      &nbsp;to&nbsp;
+      {{ date_range_end or "(present)" }}
+    </div>
+  </div>
+  <div class="meta-row">
+    <div class="meta-label">Prepared by</div>
+    <div class="meta-value">{{ preparer }}</div>
+  </div>
+  <div class="meta-row">
+    <div class="meta-label">Generated</div>
+    <div class="meta-value">{{ generated_at }}</div>
+  </div>
+  <div class="meta-row">
+    <div class="meta-label">Exhibits</div>
+    <div class="meta-value">{{ exhibits | length }}</div>
+  </div>
+  <div class="meta-row">
+    <div class="meta-label">Timeline events</div>
+    <div class="meta-value">{{ events | length }}</div>
+  </div>
+  <div class="meta-row">
+    <div class="meta-label">Custody entries</div>
+    <div class="meta-value">{{ chain_of_custody | length }}</div>
+  </div>
+  <div class="meta-row">
+    <div class="meta-label">Bundle attestation SHA-256</div>
+    <div class="meta-value hash">{{ bundle_sha256 }}</div>
+  </div>
+</div>
+
+<div class="footer">
+  <strong>Integrity attestation</strong>
+  Every file in this bundle is listed in <code>MANIFEST.sha256</code>
+  with its SHA-256 digest. The value above is the SHA-256 of the
+  concatenated manifest of every file other than this cover page.
+  Recompute with <code>sha256sum *.pdf MANIFEST.sha256</code> to
+  verify nothing has been altered since generation. If a detached
+  signature (<code>MANIFEST.sha256.sig</code>) is present, verify it
+  against the preparer's Ed25519 public key before relying on the
+  manifest.
+</div>
+
+</body>
+</html>

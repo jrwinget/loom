@@ -13,7 +13,7 @@ export interface ExportBundle {
 
 export interface CreateExportPayload {
   name: string;
-  format: 'zip' | 'pdf_report' | 'json_manifest';
+  format: 'zip' | 'pdf_report' | 'json_manifest' | 'court_bundle';
   include_originals?: boolean;
   event_ids?: string[];
   asset_ids?: string[];
