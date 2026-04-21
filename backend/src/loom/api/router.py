@@ -10,6 +10,7 @@ from loom.api.v1.conflicts import router as conflicts_router
 from loom.api.v1.custody import router as custody_router
 from loom.api.v1.duplicates import router as duplicates_router
 from loom.api.v1.exports import router as exports_router
+from loom.api.v1.first_run import router as first_run_router
 from loom.api.v1.geo import router as geo_router
 from loom.api.v1.health import router as health_router
 from loom.api.v1.integrity import router as integrity_router
@@ -29,6 +30,7 @@ from loom.api.v1.workflows import router as workflows_router
 api_router = APIRouter()
 api_router.include_router(health_router, tags=["health"])
 api_router.include_router(audit_router)
+api_router.include_router(first_run_router)
 api_router.include_router(auth_router)
 api_router.include_router(mfa_router)
 api_router.include_router(cases_router)

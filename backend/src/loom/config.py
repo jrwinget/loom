@@ -1,5 +1,7 @@
 import logging
 from functools import lru_cache
+from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -8,9 +10,20 @@ logger = logging.getLogger(__name__)
 _INSECURE_DEFAULT = "change-me-in-production"
 _MIN_SECRET_LENGTH = 32
 
+DeploymentProfile = Literal["server", "lite"]
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="LOOM_")
+
+    # server = dockerized postgres + minio + temporal (default).
+    # lite  = sqlite + local filesystem + in-process worker; used
+    # by the Tauri desktop shell (see docs/desktop-lite.md).
+    deployment_profile: DeploymentProfile = "server"
+
+    # root directory for lite-profile data (originals, derivatives,
+    # sqlite db). resolved at startup; unused for server profile.
+    data_dir: Path | None = None
 
     database_url: str = "postgresql+asyncpg://loom:loom_dev@localhost:5432/loom"
     minio_endpoint: str = "localhost:9000"
@@ -41,6 +54,31 @@ class Settings(BaseSettings):
     db_pool_recycle: int = 3600
     db_pool_pre_ping: bool = True
     db_pool_timeout: int = 30
+
+    @property
+    def is_lite(self) -> bool:
+        """true when running as a single-user desktop install."""
+        return self.deployment_profile == "lite"
+
+    def resolved_data_dir(self) -> Path:
+        """absolute path of the lite-profile data directory.
+
+        defaults to ``~/.loom/data`` when data_dir is unset; the
+        directory is NOT created here so callers can decide when.
+        """
+        if self.data_dir is not None:
+            return self.data_dir.expanduser().resolve()
+        return (Path.home() / ".loom" / "data").resolve()
+
+    def validate_deployment_profile(self) -> None:
+        """sanity-check lite-only configuration at startup."""
+        if not self.is_lite:
+            return
+        if not self.database_url.startswith(("sqlite+", "sqlite:")):
+            raise ValueError(
+                "lite profile requires a sqlite database_url "
+                "(e.g. sqlite+aiosqlite:///~/.loom/data/loom.db)"
+            )
 
     def validate_secret_key(self) -> None:
         """reject insecure or short secret keys.
