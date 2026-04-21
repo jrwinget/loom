@@ -16,9 +16,7 @@ describe('WhyPopover', () => {
         scope="Transcript 0:00 - 0:05"
       />,
     );
-    expect(
-      screen.queryByTestId('why-popover-content'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('why-popover-content')).not.toBeInTheDocument();
   });
 
   it('opens and shows provenance fields when trigger is clicked', async () => {
@@ -71,8 +69,6 @@ describe('WhyPopover', () => {
     await user.click(screen.getByTestId('why-popover-trigger'));
     expect(screen.getByTestId('why-popover-content')).toBeInTheDocument();
     await user.keyboard('{Escape}');
-    expect(
-      screen.queryByTestId('why-popover-content'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('why-popover-content')).not.toBeInTheDocument();
   });
 });

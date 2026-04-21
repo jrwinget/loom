@@ -59,10 +59,7 @@ export function SceneBrowser(props: SceneBrowserProps): React.ReactElement {
   }
 
   return (
-    <div
-      data-testid="scene-browser"
-      className="flex flex-col gap-1"
-    >
+    <div data-testid="scene-browser" className="flex flex-col gap-1">
       <div className="flex items-center gap-2 px-2">
         <span className="text-[10px] font-medium text-muted-foreground">
           Scenes

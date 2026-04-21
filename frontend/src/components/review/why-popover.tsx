@@ -76,7 +76,7 @@ export function WhyPopover(props: WhyPopoverProps): React.ReactElement {
         }}
         className={cn(
           'rounded border border-border px-1.5 py-0 text-[10px] font-medium',
-          'text-muted-foreground hover:text-foreground hover:border-foreground/40',
+          'text-muted-foreground hover:border-foreground/40 hover:text-foreground',
           'focus:outline-none focus:ring-1 focus:ring-primary',
         )}
       >
@@ -88,8 +88,8 @@ export function WhyPopover(props: WhyPopoverProps): React.ReactElement {
           data-testid="why-popover-content"
           aria-label="AI output provenance"
           className={cn(
-            'absolute z-50 mt-1 w-72 rounded border border-border bg-popover p-3',
-            'text-xs text-popover-foreground shadow-md',
+            'bg-popover absolute z-50 mt-1 w-72 rounded border border-border p-3',
+            'text-popover-foreground text-xs shadow-md',
           )}
         >
           <p className="mb-2 text-[11px] font-semibold text-muted-foreground">
@@ -98,11 +98,11 @@ export function WhyPopover(props: WhyPopoverProps): React.ReactElement {
           <dl className="space-y-1">
             <div className="flex justify-between gap-2">
               <dt className="text-muted-foreground">Model</dt>
-              <dd className="font-mono text-right">{displayModel}</dd>
+              <dd className="text-right font-mono">{displayModel}</dd>
             </div>
             <div className="flex justify-between gap-2">
               <dt className="text-muted-foreground">Version</dt>
-              <dd className="font-mono text-right">{displayVersion}</dd>
+              <dd className="text-right font-mono">{displayVersion}</dd>
             </div>
             <div className="flex justify-between gap-2">
               <dt className="text-muted-foreground">Confidence</dt>
@@ -112,7 +112,7 @@ export function WhyPopover(props: WhyPopoverProps): React.ReactElement {
               Object.entries(modelParams).map(([key, value]) => (
                 <div key={key} className="flex justify-between gap-2">
                   <dt className="text-muted-foreground">{key}</dt>
-                  <dd className="font-mono text-right">{String(value)}</dd>
+                  <dd className="text-right font-mono">{String(value)}</dd>
                 </div>
               ))}
           </dl>
