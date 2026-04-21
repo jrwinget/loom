@@ -20,6 +20,8 @@ from loom.schemas.asset import (
     AssetListResponse,
     AssetResponse,
     AssetUploadResponse,
+    ClockAnchorRequest,
+    ClockAnchorResponse,
     PresignedUrlRequest,
     PresignedUrlResponse,
 )
@@ -33,6 +35,7 @@ from loom.services.asset import get_asset as get_asset_svc
 from loom.services.asset import list_assets as list_assets_svc
 from loom.services.asset import restore_asset, soft_delete_asset
 from loom.services.case import check_case_access
+from loom.services.clock_drift import apply_clock_anchor
 from loom.services.hashing import compute_hashes_from_bytes
 from loom.services.ingest import (
     create_asset_record,
@@ -502,6 +505,67 @@ async def delete_asset(
     await db.commit()
     await db.refresh(asset)
     return AssetResponse.model_validate(asset)
+
+
+@router.post(
+    "/{asset_id}/clock-anchor",
+    response_model=ClockAnchorResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def set_clock_anchor(
+    case_id: str,
+    asset_id: str,
+    body: ClockAnchorRequest,
+    request: Request,
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_authenticated
+    ),
+    session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
+        get_db_session
+    ),
+) -> ClockAnchorResponse:
+    """assert a clock correction for an asset (editor+).
+
+    takes a (reported, actual) time pair, writes the offset onto
+    the asset, and records an append-only chain-of-custody entry
+    so the correction is defensible. clock_confidence is set to
+    1.0 — a human claim is stronger than any automatic detection.
+    """
+    db: AsyncSession = session  # type: ignore[assignment]
+    user_id = get_current_user_id(token_payload)
+    await _check_access(db, case_id, user_id, "editor")
+
+    asset = await get_asset_svc(db, case_id, asset_id)
+    if asset is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="asset not found",
+        )
+
+    ip_address = request.client.host if request.client else None
+    try:
+        updated = await apply_clock_anchor(
+            db,
+            asset_id,
+            reported_time=body.reported_time,
+            actual_time=body.actual_time,
+            actor_id=user_id,
+            note=body.note,
+            ip_address=ip_address,
+        )
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(err),
+        ) from err
+
+    await db.commit()
+    await db.refresh(updated)
+    return ClockAnchorResponse(
+        asset_id=updated.id,
+        clock_offset_seconds=updated.clock_offset_seconds or 0.0,
+        clock_confidence=updated.clock_confidence or 0.0,
+    )
 
 
 @router.post(

@@ -48,6 +48,8 @@ def _make_asset(
     a.capture_time = None
     a.capture_location_lat = None
     a.capture_location_lon = None
+    a.clock_offset_seconds = None
+    a.clock_confidence = None
     a.processing_status = "pending"
     a.created_at = _NOW
     a.updated_at = _NOW
@@ -687,6 +689,97 @@ async def test_list_assets_pagination(
     data = resp.json()
     assert data["total"] == 5
     assert len(data["items"]) == 1
+
+
+async def test_clock_anchor_applies_offset_and_bumps_confidence(
+    mock_settings: Settings,
+) -> None:
+    """post /clock-anchor records offset, sets confidence to 1.0."""
+    app = _create_app(mock_settings)
+    asset = _make_asset()
+
+    async def _apply_anchor_stub(
+        session, asset_id, *, reported_time, actual_time, **kwargs
+    ):
+        asset.clock_offset_seconds = (
+            actual_time - reported_time
+        ).total_seconds()
+        asset.clock_confidence = 1.0
+        return asset
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC}.get_asset_svc",
+            new_callable=AsyncMock,
+            return_value=asset,
+        ),
+        patch(
+            f"{_SVC}.apply_clock_anchor",
+            side_effect=_apply_anchor_stub,
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/clock-anchor",
+                json={
+                    "reported_time": "2026-04-20T12:00:00Z",
+                    "actual_time": "2026-04-20T12:00:17Z",
+                    "note": "overlay off by 17s",
+                },
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["clock_offset_seconds"] == 17.0
+    assert data["clock_confidence"] == 1.0
+
+
+async def test_clock_anchor_forbidden_for_viewer_only(
+    mock_settings: Settings,
+) -> None:
+    """viewer role cannot post /clock-anchor (editor+ required)."""
+    app = _create_app(mock_settings)
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+    ):
+        token = create_access_token(str(_USER_ID), "viewer")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/clock-anchor",
+                json={
+                    "reported_time": "2026-04-20T12:00:00Z",
+                    "actual_time": "2026-04-20T12:00:17Z",
+                },
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 403
 
 
 async def test_get_asset_nonexistent_returns_404(

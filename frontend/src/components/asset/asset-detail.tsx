@@ -52,6 +52,86 @@ function MetaRow(props: MetaRowProps): React.ReactElement {
   );
 }
 
+function confidenceLabel(value: number): string {
+  if (value >= 0.9) return 'High';
+  if (value >= 0.4) return 'Medium';
+  return 'Low';
+}
+
+function confidenceBadgeClass(value: number): string {
+  if (value >= 0.9) {
+    return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+  }
+  if (value >= 0.4) {
+    return (
+      'bg-yellow-100 text-yellow-800 ' +
+      'dark:bg-yellow-900 dark:text-yellow-200'
+    );
+  }
+  return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+}
+
+function formatOffset(seconds: number): string {
+  const sign = seconds >= 0 ? '+' : '-';
+  const abs = Math.abs(seconds);
+  if (abs < 60) return `${sign}${abs.toFixed(1)}s`;
+  const m = Math.floor(abs / 60);
+  const s = Math.round(abs - m * 60);
+  return `${sign}${m}m ${s}s`;
+}
+
+interface ClockDriftBadgeProps {
+  offsetSeconds: number | null;
+  confidence: number | null;
+}
+
+function ClockDriftBadge(
+  props: ClockDriftBadgeProps,
+): React.ReactElement | null {
+  const { offsetSeconds, confidence } = props;
+  if (offsetSeconds === null && confidence === null) return null;
+
+  const label = confidence === null ? 'unknown' : confidenceLabel(confidence);
+  const badgeClass =
+    confidence === null
+      ? 'bg-muted text-muted-foreground'
+      : confidenceBadgeClass(confidence);
+
+  return (
+    <div
+      data-testid="clock-drift-row"
+      className="flex items-center justify-between py-1.5"
+    >
+      <span className="text-xs text-muted-foreground">Clock</span>
+      <span className="flex items-center gap-2">
+        {offsetSeconds !== null && (
+          <span
+            data-testid="clock-offset"
+            className="text-xs font-medium text-foreground"
+          >
+            {formatOffset(offsetSeconds)}
+          </span>
+        )}
+        <span
+          data-testid="clock-confidence-badge"
+          className={
+            'inline-flex items-center rounded-full px-2 py-0.5 ' +
+            'text-[10px] font-medium' +
+            badgeClass
+          }
+          title={
+            confidence === null
+              ? 'Too few time sources to assess drift'
+              : `Confidence: ${Math.round(confidence * 100)}%`
+          }
+        >
+          {label}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 function formatCustodyAction(action: string): string {
   return action.replace(/_/g, ' ');
 }
@@ -125,6 +205,10 @@ export function AssetDetail(props: AssetDetailProps): React.ReactElement {
         {asset.captureTime && (
           <MetaRow label="Capture time" value={formatDate(asset.captureTime)} />
         )}
+        <ClockDriftBadge
+          offsetSeconds={asset.clockOffsetSeconds}
+          confidence={asset.clockConfidence}
+        />
       </div>
 
       <div>

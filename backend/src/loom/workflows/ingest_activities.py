@@ -19,6 +19,7 @@ from loom.metrics import ingest_workflow_duration
 from loom.models.asset import Asset
 from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.models.derivative import Derivative
+from loom.services.clock_drift import detect_clock_drift
 from loom.services.hashing import (
     compute_hashes_from_file,
 )
@@ -125,8 +126,21 @@ async def extract_asset_metadata(
 
                 metadata = extract_metadata_from_file(dest)
 
+            drift = detect_clock_drift(
+                asset.original_filename,
+                metadata.get("raw", {}),
+            )
+            normalized = dict(metadata.get("normalized", {}))
+            normalized["clock_drift_sources"] = drift["sources"]
+            normalized["clock_drift_max_delta_seconds"] = (
+                drift["max_delta_seconds"]
+            )
+
             asset.metadata_raw = metadata.get("raw", {})
-            asset.metadata_extracted = metadata.get("normalized", {})
+            asset.metadata_extracted = normalized
+            asset.clock_confidence = drift["confidence"]
+            # offset is only set via the user-anchor endpoint; we do
+            # not guess which source is "correct" from detection alone.
             await session.commit()
 
         logger.info("metadata extracted for asset %s", asset_id)

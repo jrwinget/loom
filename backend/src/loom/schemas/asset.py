@@ -34,6 +34,8 @@ class AssetResponse(BaseModel):
     capture_time: datetime | None = None
     capture_location_lat: float | None = None
     capture_location_lon: float | None = None
+    clock_offset_seconds: float | None = None
+    clock_confidence: float | None = None
     processing_status: str
     created_at: datetime
     updated_at: datetime
@@ -56,3 +58,21 @@ class PresignedUrlResponse(BaseModel):
 class PresignedUrlRequest(BaseModel):
     filename: str
     content_type: str
+
+
+class ClockAnchorRequest(BaseModel):
+    # the time the device claims in its own timeline (exif, overlay,
+    # or filename timestamp the reviewer is anchoring against)
+    reported_time: datetime
+    # the ground-truth time the reviewer asserts it actually was
+    actual_time: datetime
+    # free-form context recorded into chain-of-custody
+    note: str | None = None
+
+
+class ClockAnchorResponse(BaseModel):
+    asset_id: UUID
+    clock_offset_seconds: float
+    clock_confidence: float
+
+    model_config = {"from_attributes": True}
