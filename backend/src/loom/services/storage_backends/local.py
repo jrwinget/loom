@@ -43,7 +43,7 @@ class LocalStorageBackend:
     """
 
     def __init__(self, data_dir: Path, signing_secret: str | None = None):
-        self._root = data_dir / _BUCKETS_DIRNAME
+        self._root = (data_dir / _BUCKETS_DIRNAME).resolve()
         # signing secret for loopback presigned urls. when absent,
         # we derive a deterministic per-install value from the data
         # dir path — not cryptographically perfect but sufficient
@@ -55,8 +55,25 @@ class LocalStorageBackend:
     # --- path helpers ---------------------------------------------
 
     def _object_path(self, bucket: str, key: str) -> Path:
+        """resolve bucket/key into an absolute path, jailed under root.
+
+        rejects keys that escape the bucket root via traversal (``..``),
+        absolute paths, or symlink tricks. raises ``ValueError`` on any
+        escape attempt so callers treat a malformed key the same as a
+        malformed filename.
+        """
         safe_key = key.lstrip("/")
-        return self._root / bucket / safe_key
+        bucket_root = (self._root / bucket).resolve()
+        # resolve(strict=False) normalizes ``..`` without requiring the
+        # file to exist; we then assert the result is under bucket_root.
+        candidate = (bucket_root / safe_key).resolve()
+        try:
+            candidate.relative_to(bucket_root)
+        except ValueError as exc:
+            raise ValueError(
+                f"object key escapes bucket root: {bucket}/{key!r}"
+            ) from exc
+        return candidate
 
     def _ensure_parent(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -68,9 +68,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     log = structlog.get_logger()
 
-    # validate secret key before anything else
+    # validate secret key and deployment profile before anything else
     try:
         settings.validate_secret_key()
+        settings.validate_deployment_profile()
     except ValueError as exc:
         logging.critical("configuration error: %s", exc)
         raise

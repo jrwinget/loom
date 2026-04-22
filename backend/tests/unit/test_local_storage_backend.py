@@ -160,6 +160,60 @@ class TestDeleteObject:
         backend.delete_object(ORIGINALS_BUCKET, "ghost")
 
 
+class TestPathTraversalJail:
+    """a malicious key must never escape the bucket root."""
+
+    @pytest.mark.parametrize(
+        "bad_key",
+        [
+            "../escape.bin",
+            "../../etc/passwd",
+            "a/../../b",
+            "/../../../etc/passwd",
+        ],
+    )
+    def test_rejects_traversal_on_upload_bytes(
+        self, backend: LocalStorageBackend, bad_key: str
+    ) -> None:
+        with pytest.raises(ValueError, match="escapes bucket root"):
+            backend.upload_bytes(
+                ORIGINALS_BUCKET, bad_key, b"x", "application/octet-stream"
+            )
+
+    def test_rejects_traversal_on_download(
+        self, backend: LocalStorageBackend, tmp_path: Path
+    ) -> None:
+        with pytest.raises(ValueError, match="escapes bucket root"):
+            backend.download_file(
+                ORIGINALS_BUCKET, "../../etc/passwd", str(tmp_path / "o")
+            )
+
+    def test_rejects_traversal_on_exists(
+        self, backend: LocalStorageBackend
+    ) -> None:
+        with pytest.raises(ValueError, match="escapes bucket root"):
+            backend.object_exists(ORIGINALS_BUCKET, "../../../etc/passwd")
+
+    def test_nested_keys_still_work(
+        self, backend: LocalStorageBackend, tmp_path: Path
+    ) -> None:
+        backend.upload_bytes(
+            ORIGINALS_BUCKET,
+            "case-123/asset-456/original.bin",
+            b"ok",
+            "application/octet-stream",
+        )
+        stored = (
+            tmp_path
+            / "buckets"
+            / ORIGINALS_BUCKET
+            / "case-123"
+            / "asset-456"
+            / "original.bin"
+        )
+        assert stored.read_bytes() == b"ok"
+
+
 class TestPresignedLoopbackUrls:
     def test_upload_url_format(self, backend: LocalStorageBackend) -> None:
         url = backend.get_presigned_upload_url(
