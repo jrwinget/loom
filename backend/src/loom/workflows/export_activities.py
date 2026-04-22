@@ -13,7 +13,7 @@ from temporalio import activity
 
 from loom.metrics import ingest_workflow_duration
 from loom.models.export_bundle import ExportBundle
-from loom.workflows.shared import get_db_session, get_minio_client
+from loom.workflows.shared import get_db_session, get_storage_backend
 
 logger = logging.getLogger(__name__)
 
@@ -83,10 +83,7 @@ async def _build_pdf_report(
 ) -> None:
     """generate pdf report and upload to storage."""
     from loom.services.report import generate_report
-    from loom.services.storage import (
-        DERIVATIVES_BUCKET,
-        StorageService,
-    )
+    from loom.services.storage_backends import DERIVATIVES_BUCKET
 
     options = export.manifest or {}
     html, pdf_bytes = await generate_report(session, case_id, options)
@@ -96,7 +93,7 @@ async def _build_pdf_report(
         key = f"exports/{export.id}/report.pdf"
 
         try:
-            storage = StorageService(get_minio_client())
+            storage = get_storage_backend()
             storage.upload_bytes(
                 DERIVATIVES_BUCKET,
                 key,
@@ -143,12 +140,11 @@ async def _build_zip_bundle(
         build_export_manifest,
         package_export_bundle,
     )
-    from loom.services.storage import StorageService
 
     manifest = await build_export_manifest(session, case_id, {})
 
     try:
-        storage = StorageService(get_minio_client())
+        storage = get_storage_backend()
         output_key = f"exports/{export.id}/bundle.zip"
         key, sha256 = package_export_bundle(manifest, storage, output_key)
         export.storage_key = key
@@ -169,13 +165,12 @@ async def _build_court_bundle(
     """
     from loom.config import get_settings
     from loom.services.court_bundle import build_court_bundle
-    from loom.services.storage import StorageService
 
     options = export.manifest or {}
     settings = get_settings()
 
     try:
-        storage = StorageService(get_minio_client())
+        storage = get_storage_backend()
         output_key = f"exports/{export.id}/court_bundle.zip"
         key, sha256 = await build_court_bundle(
             session,

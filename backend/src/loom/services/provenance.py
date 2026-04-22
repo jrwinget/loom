@@ -11,10 +11,10 @@ from loom.models.asset import Asset
 from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.models.export_bundle import ExportBundle
 from loom.models.provenance import ProvenanceRecord
-from loom.services.storage import (
+from loom.services.storage_backends import (
     DERIVATIVES_BUCKET,
     ORIGINALS_BUCKET,
-    StorageService,
+    StorageBackend,
 )
 
 logger = logging.getLogger(__name__)
@@ -244,7 +244,7 @@ async def embed_provenance_in_export(
     session: AsyncSession,
     export_id: str,
     case_id: str,
-    storage_service: StorageService,
+    storage_service: StorageBackend,
 ) -> bool:
     """embed c2pa manifests into each asset of an export.
 

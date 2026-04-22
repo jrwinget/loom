@@ -7,10 +7,9 @@ from fastapi import (
     HTTPException,
     status,
 )
-from minio import Minio
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from loom.dependencies import get_db_session, get_minio_client
+from loom.dependencies import get_db_session, get_storage_backend
 from loom.schemas.provenance import (
     ProvenanceListResponse,
     ProvenanceRecordResponse,
@@ -25,7 +24,7 @@ from loom.services.provenance import (
     get_asset_provenance,
     get_export_provenance,
 )
-from loom.services.storage import StorageService
+from loom.services.storage_backends import StorageBackend
 
 router = APIRouter(
     prefix="/cases/{case_id}",
@@ -111,8 +110,8 @@ async def embed_provenance_endpoint(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-    minio_client: Minio = Depends(  # noqa: B008
-        get_minio_client
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
     ),
 ) -> dict[str, str]:
     """trigger c2pa provenance embedding for an export.
@@ -133,8 +132,6 @@ async def embed_provenance_endpoint(
             detail="c2pa-python is not installed; "
             "provenance embedding unavailable",
         )
-
-    storage = StorageService(minio_client)
 
     result = await embed_provenance_in_export(db, export_id, case_id, storage)
 

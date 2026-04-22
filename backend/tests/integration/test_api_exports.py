@@ -203,10 +203,10 @@ async def test_get_export_detail(
     app = _create_app(mock_settings)
     export = _make_export()
 
-    # stub minio client dependency
-    from loom.dependencies import get_minio_client
+    # stub storage backend dependency
+    from loom.dependencies import get_storage_backend
 
-    mock_minio = MagicMock()
+    mock_storage = MagicMock()
 
     with (
         patch(
@@ -224,7 +224,7 @@ async def test_get_export_detail(
             return_value=export,
         ),
     ):
-        app.dependency_overrides[get_minio_client] = lambda: mock_minio
+        app.dependency_overrides[get_storage_backend] = lambda: mock_storage
         token = create_access_token(str(_ADMIN_ID), "admin")
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app),

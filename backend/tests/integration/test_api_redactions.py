@@ -52,6 +52,7 @@ def _create_app(settings: Settings) -> object:
     application.dependency_overrides[get_db_session] = override_db
     application.state.db_session_factory = None
     application.state.minio_client = MagicMock()
+    application.state.storage_backend = MagicMock()
     return application
 
 
@@ -308,6 +309,12 @@ async def test_apply_redaction(
     redaction = _make_redaction(status="pending")
     applied = _make_redaction(status="complete")
 
+    # configure the shared storage backend to yield bytes
+    app.state.storage_backend.get_object_stream.return_value = (
+        4,
+        iter([b"fake"]),
+    )
+
     with (
         patch(
             "loom.security.auth.get_settings",
@@ -327,10 +334,6 @@ async def test_apply_redaction(
             f"{_SVC}.apply_redaction",
             new_callable=AsyncMock,
             return_value=applied,
-        ),
-        patch(
-            "loom.services.storage.StorageService.get_object_stream",
-            return_value=(4, iter([b"fake"])),
         ),
     ):
         token = create_access_token(str(_USER_ID), "analyst")

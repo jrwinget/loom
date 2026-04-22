@@ -3,11 +3,10 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from minio import Minio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from loom.dependencies import get_db_session, get_minio_client
+from loom.dependencies import get_db_session, get_storage_backend
 from loom.models.asset import Asset
 from loom.schemas.redaction import (
     RedactionCreate,
@@ -25,7 +24,7 @@ from loom.services.redaction import (
     get_redaction,
     get_redactions,
 )
-from loom.services.storage import ORIGINALS_BUCKET, StorageService
+from loom.services.storage_backends import ORIGINALS_BUCKET, StorageBackend
 
 router = APIRouter(
     prefix="/cases/{case_id}/assets/{asset_id}/redactions",
@@ -160,8 +159,8 @@ async def apply_asset_redaction(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-    minio_client: Minio = Depends(  # noqa: B008
-        get_minio_client
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
     ),
 ) -> RedactionResponse:
     """trigger redaction processing (editor+)."""
@@ -197,7 +196,6 @@ async def apply_asset_redaction(
     image_bytes: bytes | None = None
     rtype = redaction.redaction_type
     if rtype in ("blur", "black_box", "pixelate"):
-        storage = StorageService(minio_client)
         _size, chunks = storage.get_object_stream(
             ORIGINALS_BUCKET, asset.storage_key
         )

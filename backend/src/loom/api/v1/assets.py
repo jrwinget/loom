@@ -14,7 +14,11 @@ from fastapi import (
 from minio import Minio
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from loom.dependencies import get_db_session, get_minio_client
+from loom.dependencies import (
+    get_db_session,
+    get_minio_client,
+    get_storage_backend,
+)
 from loom.metrics import active_uploads
 from loom.schemas.asset import (
     AssetListResponse,
@@ -44,10 +48,7 @@ from loom.services.ingest import (
     record_upload_custody,
     validate_file_type,
 )
-from loom.services.storage import (
-    ORIGINALS_BUCKET,
-    StorageService,
-)
+from loom.services.storage_backends import ORIGINALS_BUCKET, StorageBackend
 
 router = APIRouter(
     prefix="/cases/{case_id}/assets",
@@ -90,8 +91,8 @@ async def upload_asset(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-    minio_client: Minio = Depends(  # noqa: B008
-        get_minio_client
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
     ),
 ) -> AssetUploadResponse:
     """upload a file (<=100mb) to a case."""
@@ -155,8 +156,7 @@ async def upload_asset(
                 ip_address,
             )
 
-        # upload to minio (sync call via executor)
-        storage = StorageService(minio_client)
+        # upload via the shared storage backend (sync call via executor)
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
             None,
@@ -197,8 +197,8 @@ async def get_upload_url(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-    minio_client: Minio = Depends(  # noqa: B008
-        get_minio_client
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
     ),
 ) -> PresignedUrlResponse:
     """get a presigned upload url for direct upload."""
@@ -212,7 +212,6 @@ async def get_upload_url(
     placeholder_id = str(uuid7())
     storage_key = generate_storage_key(case_id, placeholder_id, body.filename)
 
-    storage = StorageService(minio_client)
     loop = asyncio.get_running_loop()
     url = await loop.run_in_executor(
         None,
@@ -239,16 +238,23 @@ async def complete_presigned_upload(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
+    ),
     minio_client: Minio = Depends(  # noqa: B008
         get_minio_client
     ),
 ) -> AssetUploadResponse:
-    """finalize a presigned upload."""
+    """finalize a presigned upload.
+
+    ``minio_client`` is kept as a separate dep because the prefix
+    scan (``list_objects``) is minio-specific; it has no
+    equivalent on the lite-profile backend and is server-only.
+    """
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id, "editor")
 
-    storage = StorageService(minio_client)
     loop = asyncio.get_running_loop()
 
     # find files with this asset_id prefix
@@ -331,12 +337,13 @@ async def complete_presigned_upload(
 
 
 def _find_object_key(
-    storage: StorageService,
+    storage: StorageBackend,
     bucket: str,
     prefix: str,
     minio_client: Minio,
 ) -> tuple[str, str] | None:
-    """find the first object under a prefix."""
+    """find the first object under a prefix (server-profile only)."""
+    del storage  # unused; kept for callsite readability
     objects = minio_client.list_objects(bucket, prefix=prefix)
     for obj in objects:
         key = obj.object_name
@@ -427,8 +434,8 @@ async def get_download_url(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-    minio_client: Minio = Depends(  # noqa: B008
-        get_minio_client
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
     ),
 ) -> PresignedUrlResponse:
     """get a presigned download url (15 min expiry)."""
@@ -443,7 +450,6 @@ async def get_download_url(
             detail="asset not found",
         )
 
-    storage = StorageService(minio_client)
     loop = asyncio.get_running_loop()
     url = await loop.run_in_executor(
         None,

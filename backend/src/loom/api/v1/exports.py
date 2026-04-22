@@ -10,10 +10,9 @@ from fastapi import (
     Query,
     status,
 )
-from minio import Minio
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from loom.dependencies import get_db_session, get_minio_client
+from loom.dependencies import get_db_session, get_storage_backend
 from loom.schemas.export_bundle import (
     ExportCreate,
     ExportListResponse,
@@ -29,10 +28,7 @@ from loom.services.export import (
     get_export,
     list_exports,
 )
-from loom.services.storage import (
-    DERIVATIVES_BUCKET,
-    StorageService,
-)
+from loom.services.storage_backends import DERIVATIVES_BUCKET, StorageBackend
 
 logger = logging.getLogger(__name__)
 
@@ -145,8 +141,8 @@ async def get_export_endpoint(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-    minio_client: Minio = Depends(  # noqa: B008
-        get_minio_client
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
     ),
 ) -> ExportResponse:
     """get export detail with download url if complete."""
@@ -165,7 +161,6 @@ async def get_export_endpoint(
 
     # generate download url if export is complete
     if export.status == "complete" and export.storage_key:
-        storage = StorageService(minio_client)
         loop = asyncio.get_running_loop()
         url = await loop.run_in_executor(
             None,

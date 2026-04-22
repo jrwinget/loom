@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from loom.config import Settings, get_settings
-from loom.dependencies import get_db_session, get_minio_client
+from loom.dependencies import get_db_session, get_storage_backend
 from loom.schemas.integrity import (
     CaseIntegrityResult,
     IntegrityReportResponse,
@@ -54,7 +54,7 @@ def _create_app(settings: Settings) -> object:
         yield _StubSession()
 
     application.dependency_overrides[get_db_session] = override_db
-    application.dependency_overrides[get_minio_client] = lambda: MagicMock()
+    application.dependency_overrides[get_storage_backend] = lambda: MagicMock()
     application.state.db_session_factory = None
     return application
 

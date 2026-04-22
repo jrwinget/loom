@@ -45,14 +45,14 @@ class TestIngestActivityMetrics:
     """verify ingest activities observe the histogram."""
 
     @patch("loom.workflows.ingest_activities.ingest_workflow_duration")
-    @patch("loom.workflows.ingest_activities.get_minio_client")
+    @patch("loom.workflows.ingest_activities.get_storage_backend")
     @patch("loom.workflows.ingest_activities.get_db_session")
     @patch("loom.workflows.ingest_activities.compute_hashes_from_file")
     async def test_verify_hash_observes_metric(
         self,
         mock_hash: MagicMock,
         mock_session_ctx: MagicMock,
-        mock_minio: MagicMock,
+        mock_storage: MagicMock,
         mock_metric: MagicMock,
     ) -> None:
         from loom.workflows.ingest_activities import (
@@ -63,11 +63,9 @@ class TestIngestActivityMetrics:
         ctx, _session = _mock_session(asset)
         mock_session_ctx.return_value = ctx
         mock_hash.return_value = ("aaa", "bbb")
+        mock_storage.return_value = MagicMock()
 
-        with (
-            patch("loom.workflows.ingest_activities.StorageService"),
-            patch("loom.workflows.ingest_activities.tempfile") as mock_tmp,
-        ):
+        with patch("loom.workflows.ingest_activities.tempfile") as mock_tmp:
             mock_tmp.TemporaryDirectory.return_value.__enter__ = (
                 MagicMock(return_value="/tmp/test")  # noqa: S108
             )
@@ -165,12 +163,12 @@ class TestOcrActivityMetrics:
     """verify ocr activities observe the histogram."""
 
     @patch("loom.workflows.ocr_activities.ingest_workflow_duration")
-    @patch("loom.workflows.ocr_activities.get_minio_client")
+    @patch("loom.workflows.ocr_activities.get_storage_backend")
     @patch("loom.workflows.ocr_activities.get_db_session")
     async def test_prepare_ocr_observes_metric(
         self,
         mock_session_ctx: MagicMock,
-        mock_minio: MagicMock,
+        mock_storage: MagicMock,
         mock_metric: MagicMock,
     ) -> None:
         from loom.workflows.ocr_activities import (
@@ -180,9 +178,9 @@ class TestOcrActivityMetrics:
         asset = _make_asset()
         ctx, _ = _mock_session(asset)
         mock_session_ctx.return_value = ctx
+        mock_storage.return_value = MagicMock()
 
-        with patch("loom.workflows.ocr_activities.StorageService"):
-            await prepare_ocr_input(_ASSET_ID)
+        await prepare_ocr_input(_ASSET_ID)
 
         mock_metric.labels.assert_called_with(activity="ocr_prepare")
         mock_metric.labels.return_value.observe.assert_called_once()

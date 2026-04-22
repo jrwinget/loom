@@ -69,7 +69,7 @@ async def test_upload_rejects_oversized_file_early() -> None:
     mock_request.headers = {}
     mock_request.state = MagicMock()
     db = _StubSession()
-    minio = MagicMock()
+    storage = MagicMock()
 
     token_payload = {"sub": "user-1", "role": "analyst"}
 
@@ -87,7 +87,7 @@ async def test_upload_rejects_oversized_file_early() -> None:
                 request=mock_request,
                 token_payload=token_payload,
                 session=db,  # type: ignore[arg-type]
-                minio_client=minio,
+                storage=storage,
             )
 
         assert exc_info.value.status_code == 413
@@ -105,7 +105,7 @@ async def test_upload_reads_in_chunks() -> None:
     mock_request.state = MagicMock()
     db = AsyncMock()
     db.begin_nested = MagicMock(return_value=_SavepointStub())
-    minio = MagicMock()
+    storage = MagicMock()
 
     token_payload = {"sub": "user-1", "role": "analyst"}
 
@@ -143,7 +143,6 @@ async def test_upload_reads_in_chunks() -> None:
             f"{_SVC}.record_upload_custody",
             new_callable=AsyncMock,
         ),
-        patch(f"{_SVC}.StorageService"),
     ):
         await upload_asset(
             case_id="case-1",
@@ -151,7 +150,7 @@ async def test_upload_reads_in_chunks() -> None:
             request=mock_request,
             token_payload=token_payload,
             session=db,  # type: ignore[arg-type]
-            minio_client=minio,
+            storage=storage,
         )
 
     # current code reads file once via await file.read()
@@ -176,6 +175,7 @@ async def test_presigned_temp_file_cleaned_on_error() -> None:
     minio.list_objects.return_value = iter(
         [MagicMock(object_name="case/asset/file.mp4")]
     )
+    storage = MagicMock()
 
     token_payload = {"sub": "user-1", "role": "analyst"}
 
@@ -185,24 +185,21 @@ async def test_presigned_temp_file_cleaned_on_error() -> None:
             new_callable=AsyncMock,
             return_value=True,
         ),
-        patch(f"{_SVC}.StorageService") as mock_storage_cls,
         patch(
             "loom.services.hashing.compute_hashes_from_file",
             side_effect=OSError("disk failure"),
         ),
+        pytest.raises(OSError, match="disk failure"),
     ):
-        mock_storage = MagicMock()
-        mock_storage_cls.return_value = mock_storage
-
-        with pytest.raises(OSError, match="disk failure"):
-            await complete_presigned_upload(
-                case_id="case-1",
-                asset_id="asset-1",
-                request=mock_request,
-                token_payload=token_payload,
-                session=db,  # type: ignore[arg-type]
-                minio_client=minio,
-            )
+        await complete_presigned_upload(
+            case_id="case-1",
+            asset_id="asset-1",
+            request=mock_request,
+            token_payload=token_payload,
+            session=db,  # type: ignore[arg-type]
+            storage=storage,
+            minio_client=minio,
+        )
 
     # clean up the file we created (the function's own
     # tempfile is separate and managed by the os)
@@ -222,6 +219,7 @@ async def test_presigned_temp_file_cleaned_on_success() -> None:
     minio.list_objects.return_value = iter(
         [MagicMock(object_name="case/asset/file.jpg")]
     )
+    storage = MagicMock()
 
     token_payload = {"sub": "user-1", "role": "analyst"}
 
@@ -238,7 +236,6 @@ async def test_presigned_temp_file_cleaned_on_success() -> None:
             f"{_SVC}._check_access",
             new_callable=AsyncMock,
         ),
-        patch(f"{_SVC}.StorageService") as mock_storage_cls,
         patch(
             "loom.services.hashing.compute_hashes_from_file",
             return_value=("a" * 64, "b" * 128),
@@ -253,15 +250,13 @@ async def test_presigned_temp_file_cleaned_on_success() -> None:
             return_value=mock_asset,
         ),
     ):
-        mock_storage = MagicMock()
-        mock_storage_cls.return_value = mock_storage
-
         result = await complete_presigned_upload(
             case_id="case-1",
             asset_id="asset-1",
             request=mock_request,
             token_payload=token_payload,
             session=db,  # type: ignore[arg-type]
+            storage=storage,
             minio_client=minio,
         )
 

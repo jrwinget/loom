@@ -14,7 +14,7 @@ from loom.models.asset import Asset
 from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.models.export_bundle import ExportBundle
 from loom.models.timeline import TimelineEvent
-from loom.services.storage import DERIVATIVES_BUCKET, StorageService
+from loom.services.storage_backends import DERIVATIVES_BUCKET, StorageBackend
 
 
 async def create_export_record(
@@ -191,7 +191,7 @@ async def build_export_manifest(
 
 def package_export_bundle(
     manifest: dict[str, Any],
-    storage_service: StorageService,
+    storage_service: StorageBackend,
     output_key: str,
 ) -> tuple[str, str]:
     """create a zip bundle from manifest and upload to storage.

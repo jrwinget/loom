@@ -21,12 +21,11 @@ from loom.services.scene_detection import (
     generate_scene_thumbnails,
     store_scenes,
 )
-from loom.services.storage import (
+from loom.services.storage_backends import (
     DERIVATIVES_BUCKET,
     ORIGINALS_BUCKET,
-    StorageService,
 )
-from loom.workflows.shared import get_db_session, get_minio_client
+from loom.workflows.shared import get_db_session, get_storage_backend
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +60,7 @@ async def detect_asset_scenes(
                 )
                 return []
 
-            storage = StorageService(get_minio_client())
+            storage = get_storage_backend()
 
             with tempfile.TemporaryDirectory(prefix="loom_scene_") as tmp_dir:
                 suffix = Path(asset.original_filename).suffix
@@ -117,7 +116,7 @@ async def generate_scene_thumbs(
             if asset.media_type != "video":
                 return []
 
-            storage = StorageService(get_minio_client())
+            storage = get_storage_backend()
             keys: list[str] = []
 
             with tempfile.TemporaryDirectory(
@@ -188,7 +187,7 @@ async def store_scene_results(
             if asset.media_type != "video":
                 return
 
-            storage = StorageService(get_minio_client())
+            storage = get_storage_backend()
 
             with tempfile.TemporaryDirectory(
                 prefix="loom_scene_store_"

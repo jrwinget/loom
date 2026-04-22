@@ -8,10 +8,9 @@ from fastapi import (
     Request,
     status,
 )
-from minio import Minio
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from loom.dependencies import get_db_session, get_minio_client
+from loom.dependencies import get_db_session, get_storage_backend
 from loom.schemas.integrity import (
     CaseIntegrityResult,
     IntegrityReportResponse,
@@ -28,6 +27,7 @@ from loom.services.integrity import (
     verify_asset_integrity,
     verify_case_integrity,
 )
+from loom.services.storage_backends import StorageBackend
 
 router = APIRouter(
     prefix="/cases/{case_id}",
@@ -66,8 +66,8 @@ async def verify_single_asset(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-    minio_client: Minio = Depends(  # noqa: B008
-        get_minio_client
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
     ),
 ) -> IntegrityResult:
     """verify integrity of a single asset's stored file."""
@@ -79,7 +79,7 @@ async def verify_single_asset(
 
     try:
         result = await verify_asset_integrity(
-            db, minio_client, asset_id, user_id, ip_address
+            db, storage, asset_id, user_id, ip_address
         )
     except IntegrityError as exc:
         raise HTTPException(
@@ -104,8 +104,8 @@ async def verify_case_assets(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-    minio_client: Minio = Depends(  # noqa: B008
-        get_minio_client
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
     ),
 ) -> CaseIntegrityResult:
     """verify integrity of all assets in a case."""
@@ -116,7 +116,7 @@ async def verify_case_assets(
     ip_address = request.client.host if request.client else None
 
     result = await verify_case_integrity(
-        db, minio_client, case_id, user_id, ip_address
+        db, storage, case_id, user_id, ip_address
     )
     await db.commit()
     return result
@@ -136,8 +136,8 @@ async def get_integrity_report(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-    minio_client: Minio = Depends(  # noqa: B008
-        get_minio_client
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
     ),
 ) -> IntegrityReportResponse:
     """generate a court-ready integrity report for an asset."""
@@ -149,7 +149,7 @@ async def get_integrity_report(
 
     try:
         report = await generate_integrity_report(
-            db, minio_client, asset_id, user_id, ip_address
+            db, storage, asset_id, user_id, ip_address
         )
     except IntegrityError as exc:
         raise HTTPException(

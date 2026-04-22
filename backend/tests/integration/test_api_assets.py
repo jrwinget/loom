@@ -10,7 +10,11 @@ import httpx
 import pytest_asyncio
 
 from loom.config import Settings, get_settings
-from loom.dependencies import get_db_session, get_minio_client
+from loom.dependencies import (
+    get_db_session,
+    get_minio_client,
+    get_storage_backend,
+)
 from loom.models.asset import Asset
 from loom.security.auth import create_access_token
 
@@ -107,8 +111,10 @@ def _create_app(settings: Settings) -> object:
         yield _StubSession()
 
     mock_minio = MagicMock()
+    mock_storage = MagicMock()
     application.dependency_overrides[get_db_session] = override_db
     application.dependency_overrides[get_minio_client] = lambda: mock_minio
+    application.dependency_overrides[get_storage_backend] = lambda: mock_storage
     # prevent audit middleware from writing to db
     application.state.db_session_factory = None
 
@@ -168,13 +174,7 @@ async def test_upload_asset(
             f"{_SVC}.record_upload_custody",
             new_callable=AsyncMock,
         ),
-        patch(
-            f"{_SVC}.StorageService",
-        ) as mock_storage_cls,
     ):
-        mock_storage = MagicMock()
-        mock_storage_cls.return_value = mock_storage
-
         token = create_access_token(str(_USER_ID), "analyst")
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app),
@@ -396,11 +396,11 @@ async def test_download_url(
 
     app.dependency_overrides[get_db_session] = _override_db
 
-    mock_minio = MagicMock()
-    mock_minio.presigned_get_object.return_value = (
+    mock_storage = MagicMock()
+    mock_storage.get_presigned_download_url.return_value = (
         "https://minio.local/download"
     )
-    app.dependency_overrides[get_minio_client] = lambda: mock_minio
+    app.dependency_overrides[get_storage_backend] = lambda: mock_storage
 
     with (
         patch(
@@ -498,11 +498,11 @@ async def test_presigned_upload_url(
     """presigned url endpoint returns url and key."""
     app = _create_app(mock_settings)
 
-    mock_minio = MagicMock()
-    mock_minio.presigned_put_object.return_value = "https://minio.local/upload"
-    from loom.dependencies import get_minio_client
-
-    app.dependency_overrides[get_minio_client] = lambda: mock_minio
+    mock_storage = MagicMock()
+    mock_storage.get_presigned_upload_url.return_value = (
+        "https://minio.local/upload"
+    )
+    app.dependency_overrides[get_storage_backend] = lambda: mock_storage
 
     with (
         patch(
@@ -514,16 +514,7 @@ async def test_presigned_upload_url(
             new_callable=AsyncMock,
             return_value=True,
         ),
-        patch(
-            f"{_SVC}.StorageService",
-        ) as mock_storage_cls,
     ):
-        mock_storage = MagicMock()
-        mock_storage.get_presigned_upload_url.return_value = (
-            "https://minio.local/upload"
-        )
-        mock_storage_cls.return_value = mock_storage
-
         token = create_access_token(str(_USER_ID), "analyst")
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app),
@@ -553,9 +544,10 @@ async def test_complete_nonexistent_asset_returns_404(
 
     mock_minio = MagicMock()
     mock_minio.list_objects.return_value = iter([])
-    from loom.dependencies import get_minio_client
+    mock_storage = MagicMock()
 
     app.dependency_overrides[get_minio_client] = lambda: mock_minio
+    app.dependency_overrides[get_storage_backend] = lambda: mock_storage
 
     with (
         patch(
@@ -567,13 +559,7 @@ async def test_complete_nonexistent_asset_returns_404(
             new_callable=AsyncMock,
             return_value=True,
         ),
-        patch(
-            f"{_SVC}.StorageService",
-        ) as mock_storage_cls,
     ):
-        mock_storage = MagicMock()
-        mock_storage_cls.return_value = mock_storage
-
         token = create_access_token(str(_USER_ID), "analyst")
         fake_asset_id = "01912345-6789-7abc-8def-999999999999"
         async with httpx.AsyncClient(

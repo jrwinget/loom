@@ -16,8 +16,8 @@ from temporalio import activity
 from loom.metrics import ingest_workflow_duration
 from loom.models.asset import Asset
 from loom.services.ocr import run_ocr_on_asset, store_ocr_regions
-from loom.services.storage import ORIGINALS_BUCKET, StorageService
-from loom.workflows.shared import get_db_session, get_minio_client
+from loom.services.storage_backends import ORIGINALS_BUCKET
+from loom.workflows.shared import get_db_session, get_storage_backend
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ async def prepare_ocr_input(
                 msg = f"asset {asset_id} not found"
                 raise ValueError(msg)
 
-            storage = StorageService(get_minio_client())
+            storage = get_storage_backend()
 
             tmp_dir = tempfile.mkdtemp(prefix="loom_ocr_")
             suffix = Path(asset.original_filename).suffix
@@ -90,7 +90,7 @@ async def run_ocr(
                 msg = f"asset {asset_id} not found"
                 raise ValueError(msg)
 
-            storage = StorageService(get_minio_client())
+            storage = get_storage_backend()
 
             with tempfile.TemporaryDirectory(prefix="loom_ocr_run_") as tmp_dir:
                 suffix = Path(asset.original_filename).suffix
@@ -141,7 +141,7 @@ async def store_ocr_results(
                 msg = f"asset {asset_id} not found"
                 raise ValueError(msg)
 
-            storage = StorageService(get_minio_client())
+            storage = get_storage_backend()
 
             with tempfile.TemporaryDirectory(
                 prefix="loom_ocr_store_"
