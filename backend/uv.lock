@@ -1450,6 +1450,21 @@ wheels = [
 ]
 
 [[package]]
+name = "internetarchive"
+version = "5.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jsonpatch" },
+    { name = "requests" },
+    { name = "tqdm" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/68/e6/594ecd2469fca16f92e9538c40c010c87cc1d5b166dea67d266b405b08e3/internetarchive-5.8.0.tar.gz", hash = "sha256:0dff14d51bafa3da587f32a8cb6478327e20c2d040a61fbfb4ad30d592062cc2", size = 135263, upload-time = "2026-02-18T22:54:17.196Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/70/6f/22c2a8ced6c0c5e2786c14ad15871567ac4cbe4511cb38f3f7d5b8c47878/internetarchive-5.8.0-py3-none-any.whl", hash = "sha256:2f86eed71e11ad0c8f7ac3a339a2e0d0ee8316151be1257950df5e472ff62d8b", size = 119781, upload-time = "2026-02-18T22:54:15.909Z" },
+]
+
+[[package]]
 name = "jinja2"
 version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1468,6 +1483,27 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/41/f2/d34e8b3a08a9cc79a50b2208a93dce981fe615b64d5a4d4abee421d898df/joblib-1.5.3.tar.gz", hash = "sha256:8561a3269e6801106863fd0d6d84bb737be9e7631e33aaed3fb9ce5953688da3", size = 331603, upload-time = "2025-12-15T08:41:46.427Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7b/91/984aca2ec129e2757d1e4e3c81c3fcda9d0f85b74670a094cc443d9ee949/joblib-1.5.3-py3-none-any.whl", hash = "sha256:5fc3c5039fc5ca8c0276333a188bbd59d6b7ab37fe6632daa76bc7f9ec18e713", size = 309071, upload-time = "2025-12-15T08:41:44.973Z" },
+]
+
+[[package]]
+name = "jsonpatch"
+version = "1.33"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jsonpointer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/42/78/18813351fe5d63acad16aec57f94ec2b70a09e53ca98145589e185423873/jsonpatch-1.33.tar.gz", hash = "sha256:9fcd4009c41e6d12348b4a0ff2563ba56a2923a7dfee731d004e212e1ee5030c", size = 21699, upload-time = "2023-06-26T12:07:29.144Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/73/07/02e16ed01e04a374e644b575638ec7987ae846d25ad97bcc9945a3ee4b0e/jsonpatch-1.33-py2.py3-none-any.whl", hash = "sha256:0ae28c0cd062bbd8b8ecc26d7d164fbbea9652a1a3693f3b956c1eae5145dade", size = 12898, upload-time = "2023-06-16T21:01:28.466Z" },
+]
+
+[[package]]
+name = "jsonpointer"
+version = "3.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/18/c7/af399a2e7a67fd18d63c40c5e62d3af4e67b836a2107468b6a5ea24c4304/jsonpointer-3.1.1.tar.gz", hash = "sha256:0b801c7db33a904024f6004d526dcc53bbb8a4a0f4e32bfd10beadf60adf1900", size = 9068, upload-time = "2026-03-23T22:32:32.458Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9e/6a/a83720e953b1682d2d109d3c2dbb0bc9bf28cc1cbc205be4ef4be5da709d/jsonpointer-3.1.1-py3-none-any.whl", hash = "sha256:8ff8b95779d071ba472cf5bc913028df06031797532f08a7d5b602d8b2a488ca", size = 7659, upload-time = "2026-03-23T22:32:31.568Z" },
 ]
 
 [[package]]
@@ -1746,6 +1782,11 @@ report = [
     { name = "jinja2" },
     { name = "weasyprint" },
 ]
+url-ingest = [
+    { name = "internetarchive" },
+    { name = "savepagenow" },
+    { name = "yt-dlp" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1758,6 +1799,7 @@ requires-dist = [
     { name = "faster-whisper", marker = "extra == 'ai'", specifier = ">=1.0.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
+    { name = "internetarchive", marker = "extra == 'url-ingest'", specifier = ">=4.0.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "jinja2", marker = "extra == 'report'", specifier = ">=3.1.0" },
     { name = "minio", specifier = ">=7.2.0" },
@@ -1785,6 +1827,7 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.6" },
     { name = "qrcode", extras = ["pil"], specifier = ">=7.4.0,<8" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
+    { name = "savepagenow", marker = "extra == 'url-ingest'", specifier = ">=1.0.0" },
     { name = "scenedetect", extras = ["opencv"], marker = "extra == 'ai'", specifier = ">=0.6.0" },
     { name = "slowapi", specifier = ">=0.1.9" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.23" },
@@ -1793,8 +1836,9 @@ requires-dist = [
     { name = "uuid7", specifier = ">=0.1.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
     { name = "weasyprint", marker = "extra == 'report'", specifier = ">=62.0" },
+    { name = "yt-dlp", marker = "extra == 'url-ingest'", specifier = ">=2024.0.0" },
 ]
-provides-extras = ["ai", "provenance", "observability", "report", "dev"]
+provides-extras = ["ai", "provenance", "observability", "report", "url-ingest", "dev"]
 
 [[package]]
 name = "mako"
@@ -3630,6 +3674,19 @@ wheels = [
 ]
 
 [[package]]
+name = "savepagenow"
+version = "1.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/23/c8/3b8a398b6c05dd97ab4b83e2df01462b24a28e159d2ef799221c20386127/savepagenow-1.3.1.tar.gz", hash = "sha256:27a0f4957d6628f0b62ed5bedbc30397b6ecd931fcec8d0a19065272e60f3450", size = 48931, upload-time = "2026-01-19T11:56:48.64Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4e/bc/6ef82cb932613aa36011d9698a08e9386cf77324fbc1d125f946fd7be8c6/savepagenow-1.3.1-py2.py3-none-any.whl", hash = "sha256:1343ec8f97c4ba77d6ea2075be985f25aa798c9a9daf239890a81aad078d00f7", size = 5876, upload-time = "2026-01-19T11:56:47.709Z" },
+]
+
+[[package]]
 name = "scenedetect"
 version = "0.6.7.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4640,6 +4697,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e1/19/3774d162f6732d1cfb0b47b4140a942a35ca82bb19b6db1f80e9e7bdc8f8/yarl-1.23.0-cp314-cp314t-win_amd64.whl", hash = "sha256:4503053d296bc6e4cbd1fad61cf3b6e33b939886c4f249ba7c78b602214fabe2", size = 97610, upload-time = "2026-03-01T22:07:45.773Z" },
     { url = "https://files.pythonhosted.org/packages/51/47/3fa2286c3cb162c71cdb34c4224d5745a1ceceb391b2bd9b19b668a8d724/yarl-1.23.0-cp314-cp314t-win_arm64.whl", hash = "sha256:44bb7bef4ea409384e3f8bc36c063d77ea1b8d4a5b2706956c0d6695f07dcc25", size = 86041, upload-time = "2026-03-01T22:07:49.026Z" },
     { url = "https://files.pythonhosted.org/packages/69/68/c8739671f5699c7dc470580a4f821ef37c32c4cb0b047ce223a7f115757f/yarl-1.23.0-py3-none-any.whl", hash = "sha256:a2df6afe50dea8ae15fa34c9f824a3ee958d785fd5d089063d960bae1daa0a3f", size = 48288, upload-time = "2026-03-01T22:07:51.388Z" },
+]
+
+[[package]]
+name = "yt-dlp"
+version = "2026.3.17"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8b/34/7c6b4e3f89cb6416d2cd7ab6dab141a1df97ab0fb22d15816db2c92148c9/yt_dlp-2026.3.17.tar.gz", hash = "sha256:ba7aa31d533f1ffccfe70e421596d7ca8ff0bf1398dc6bb658b7d9dec057d2c9", size = 3119221, upload-time = "2026-03-17T23:43:00.244Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cd/13/5093bcb954878e50f7217fd2ab94282b53934022e4e4a03265582da83bf5/yt_dlp-2026.3.17-py3-none-any.whl", hash = "sha256:32992db94303a8a5d211a183f2174834fe7f8c29d83ed2e7a324eae97a8f26d8", size = 3315134, upload-time = "2026-03-17T23:42:57.863Z" },
 ]
 
 [[package]]

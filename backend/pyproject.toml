@@ -53,6 +53,11 @@ report = [
     "weasyprint>=62.0",
     "jinja2>=3.1.0",
 ]
+url-ingest = [
+    "yt-dlp>=2024.0.0",
+    "internetarchive>=4.0.0",
+    "savepagenow>=1.0.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
@@ -119,7 +124,7 @@ warn_unused_configs = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["minio.*", "temporalio.*", "av.*", "pytesseract.*", "PIL.*", "scenedetect.*", "uuid_extensions.*", "faster_whisper.*", "pyannote.*", "weasyprint.*", "jinja2.*", "c2pa.*", "slowapi.*", "opentelemetry.*", "prometheus_client.*", "prometheus_fastapi_instrumentator.*"]
+module = ["minio.*", "temporalio.*", "av.*", "pytesseract.*", "PIL.*", "scenedetect.*", "uuid_extensions.*", "faster_whisper.*", "pyannote.*", "weasyprint.*", "jinja2.*", "c2pa.*", "slowapi.*", "opentelemetry.*", "prometheus_client.*", "prometheus_fastapi_instrumentator.*", "yt_dlp.*", "internetarchive.*", "savepagenow.*", "magic.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
