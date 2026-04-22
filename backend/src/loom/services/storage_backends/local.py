@@ -42,15 +42,19 @@ class LocalStorageBackend:
     minio-free environments importable.
     """
 
-    def __init__(self, data_dir: Path, signing_secret: str | None = None):
+    def __init__(self, data_dir: Path, signing_secret: str | None):
         self._root = (data_dir / _BUCKETS_DIRNAME).resolve()
-        # signing secret for loopback presigned urls. when absent,
-        # we derive a deterministic per-install value from the data
-        # dir path — not cryptographically perfect but sufficient
-        # for single-user loopback where network exposure is zero.
-        self._signing_secret = (
-            signing_secret or f"loom-local::{data_dir}"
-        ).encode("utf-8")
+        # signing secret must be supplied explicitly. a deterministic
+        # fallback (e.g. derived from data_dir) would be predictable
+        # by any local user and is deliberately rejected — see #57.
+        # the Tauri shell persists a random per-install value via
+        # tauri-plugin-store and passes it in through settings.
+        if not signing_secret:
+            raise ValueError(
+                "signing_secret is required; pass a random per-install "
+                "value (see Settings.storage_signing_secret)."
+            )
+        self._signing_secret = signing_secret.encode("utf-8")
 
     # --- path helpers ---------------------------------------------
 

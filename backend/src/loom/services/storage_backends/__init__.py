@@ -34,7 +34,16 @@ def build_storage_backend(settings: Settings) -> StorageBackend:
     server -> a fresh ``StorageService`` wrapping a minio client.
     """
     if settings.is_lite:
-        return LocalStorageBackend(settings.resolved_data_dir())
+        if not settings.storage_signing_secret:
+            raise ValueError(
+                "lite profile requires LOOM_STORAGE_SIGNING_SECRET "
+                "(a random per-install value) to sign loopback "
+                "presigned urls; see Settings.storage_signing_secret."
+            )
+        return LocalStorageBackend(
+            settings.resolved_data_dir(),
+            signing_secret=settings.storage_signing_secret,
+        )
 
     # deferred import so lite deployments do not require minio.
     from minio import Minio

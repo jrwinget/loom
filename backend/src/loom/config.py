@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
     cors_origins: list[str] = ["http://localhost:3000"]
+
+    # signing secret for lite-profile loopback presigned urls. must be
+    # persisted per-install (e.g. via tauri-plugin-store) so it stays
+    # stable across launches but differs between installs. unused in
+    # server profile, which uses minio's own signing path.
+    storage_signing_secret: str | None = None
     debug: bool = False
     log_level: str = "info"
 
@@ -78,6 +84,13 @@ class Settings(BaseSettings):
             raise ValueError(
                 "lite profile requires a sqlite database_url "
                 "(e.g. sqlite+aiosqlite:///~/.loom/data/loom.db)"
+            )
+        if not self.storage_signing_secret:
+            raise ValueError(
+                "lite profile requires LOOM_STORAGE_SIGNING_SECRET "
+                "(a random per-install value) to sign loopback "
+                "presigned urls. The Tauri shell generates this on "
+                "first run via tauri-plugin-store."
             )
 
     def validate_secret_key(self) -> None:

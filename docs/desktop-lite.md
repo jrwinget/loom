@@ -182,3 +182,20 @@ Desktop Lite is local-only by design:
 - No face recognition, no suspicion scoring, and no automated
   identity resolution are performed. These are non-negotiable
   project principles regardless of deployment mode.
+
+### Bootstrap secrets
+
+On first run the Tauri shell generates two cryptographically random
+32-byte secrets and persists them via `tauri-plugin-store`:
+
+- `LOOM_SECRET_KEY` — signs JWT access and refresh tokens.
+- `LOOM_STORAGE_SIGNING_SECRET` — signs the loopback presigned URLs
+  used by the in-process storage backend.
+
+Both are unique per install (two installs on the same machine do
+not share either secret) and are read back on every subsequent
+launch so sessions and stored URLs remain valid. The secrets never
+leave the machine and never appear in logs. To rotate them, quit
+Loom and delete `secrets.json` from the Tauri app-data directory;
+the next launch will regenerate both and invalidate any URL / token
+signed by the old values.
