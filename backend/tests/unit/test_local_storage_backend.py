@@ -280,6 +280,7 @@ class TestConfig:
         s = Settings(
             deployment_profile="lite",
             database_url="postgresql+asyncpg://x/y",
+            storage_signing_secret="test-secret",
         )
         with pytest.raises(ValueError, match="sqlite"):
             s.validate_deployment_profile()
@@ -291,7 +292,28 @@ class TestConfig:
             deployment_profile="lite",
             database_url="sqlite+aiosqlite:///:memory:",
             data_dir=tmp_path,
+            storage_signing_secret="test-secret",
         )
+        s.validate_deployment_profile()
+
+    def test_validate_requires_signing_secret_in_lite(
+        self, tmp_path: Path
+    ) -> None:
+        from loom.config import Settings
+
+        s = Settings(
+            deployment_profile="lite",
+            database_url="sqlite+aiosqlite:///:memory:",
+            data_dir=tmp_path,
+        )
+        with pytest.raises(ValueError, match=r"(?i)storage_signing_secret"):
+            s.validate_deployment_profile()
+
+    def test_server_profile_does_not_require_signing_secret(self) -> None:
+        from loom.config import Settings
+
+        s = Settings(deployment_profile="server")
+        # server profile uses minio and has no lite-profile preconditions.
         s.validate_deployment_profile()
 
 
@@ -304,10 +326,68 @@ class TestFactory:
             deployment_profile="lite",
             database_url="sqlite+aiosqlite:///:memory:",
             data_dir=tmp_path,
+            storage_signing_secret="factory-secret",
         )
         backend = build_storage_backend(s)
         assert isinstance(backend, LocalStorageBackend)
         assert isinstance(backend, StorageBackend)
+
+    def test_lite_factory_passes_signing_secret_through(
+        self, tmp_path: Path
+    ) -> None:
+        """two installs with different secrets must not verify each
+        other's presigned URLs — this is what #57 closes."""
+        from loom.config import Settings
+        from loom.services.storage_backends import build_storage_backend
+
+        s_a = Settings(
+            deployment_profile="lite",
+            database_url="sqlite+aiosqlite:///:memory:",
+            data_dir=tmp_path,
+            storage_signing_secret="secret-A",
+        )
+        s_b = Settings(
+            deployment_profile="lite",
+            database_url="sqlite+aiosqlite:///:memory:",
+            data_dir=tmp_path,
+            storage_signing_secret="secret-B",
+        )
+        backend_a = build_storage_backend(s_a)
+        backend_b = build_storage_backend(s_b)
+        url_a = backend_a.get_presigned_download_url(
+            ORIGINALS_BUCKET, "k.bin", expires=60
+        )
+        url_b = backend_b.get_presigned_download_url(
+            ORIGINALS_BUCKET, "k.bin", expires=60
+        )
+        # a url signed by A must not verify under B (and vice versa).
+        assert not backend_b.verify_loopback_url(url_a)
+        assert not backend_a.verify_loopback_url(url_b)
+
+    def test_lite_factory_raises_without_signing_secret(
+        self, tmp_path: Path
+    ) -> None:
+        from loom.config import Settings
+        from loom.services.storage_backends import build_storage_backend
+
+        s = Settings(
+            deployment_profile="lite",
+            database_url="sqlite+aiosqlite:///:memory:",
+            data_dir=tmp_path,
+            # no storage_signing_secret -> factory must refuse to build.
+        )
+        with pytest.raises(ValueError, match=r"(?i)storage_signing_secret"):
+            build_storage_backend(s)
+
+
+class TestLocalStorageBackendRequiresSigningSecret:
+    def test_rejects_none(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="signing_secret"):
+            LocalStorageBackend(tmp_path, signing_secret=None)
+
+    def test_rejects_empty_string(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="signing_secret"):
+            LocalStorageBackend(tmp_path, signing_secret="")
 
 
 def test_stream_file_closes_handle(tmp_path: Path) -> None:
