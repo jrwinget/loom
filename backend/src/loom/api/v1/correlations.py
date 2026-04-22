@@ -1,5 +1,5 @@
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import (
@@ -103,7 +103,9 @@ async def _build_candidate_response(
 @router.get("", response_model=CorrelationCandidateListResponse)
 async def list_correlation_candidates(
     case_id: str,
-    candidate_status: str | None = Query(None, alias="status"),
+    candidate_status: Literal["pending", "accepted", "rejected"] | None = Query(
+        None, alias="status"
+    ),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     token_payload: dict[str, Any] = Depends(  # noqa: B008
@@ -217,7 +219,15 @@ async def decide_correlation_candidate(
             detail="correlation candidate not found",
         )
 
-    updated = await decide_candidate(db, candidate_id, user_id, body.status)
+    try:
+        updated = await decide_candidate(db, candidate_id, user_id, body.status)
+    except ValueError as exc:
+        # service raises ValueError for already-decided candidates;
+        # surface as 409 so clients can distinguish from 404.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
     await db.commit()
     await db.refresh(updated)
 
