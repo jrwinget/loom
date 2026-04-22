@@ -65,9 +65,7 @@ describe('FirstRunPage', () => {
 
     renderWithProviders();
 
-    expect(
-      await screen.findByText('Welcome to Loom'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Welcome to Loom')).toBeInTheDocument();
     expect(screen.getByText('/home/user/.loom/data')).toBeInTheDocument();
   });
 
@@ -84,15 +82,18 @@ describe('FirstRunPage', () => {
 
     await user.type(screen.getByLabelText(/Full name/i), 'Ada Lovelace');
     await user.type(screen.getByLabelText(/Email/i), 'ada@example.org');
-    await user.type(screen.getByLabelText('Password (minimum 12 characters)'), 'short');
+    await user.type(
+      screen.getByLabelText('Password (minimum 12 characters)'),
+      'short',
+    );
     await user.type(screen.getByLabelText(/Confirm password/i), 'short');
     await user.click(
       screen.getByRole('button', { name: /Create admin account/i }),
     );
 
-    expect(
-      await screen.findByRole('alert'),
-    ).toHaveTextContent('at least 12 characters');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'at least 12 characters',
+    );
     expect(mockedPost).not.toHaveBeenCalled();
   });
 
@@ -121,9 +122,7 @@ describe('FirstRunPage', () => {
       screen.getByRole('button', { name: /Create admin account/i }),
     );
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'do not match',
-    );
+    expect(await screen.findByRole('alert')).toHaveTextContent('do not match');
     expect(mockedPost).not.toHaveBeenCalled();
   });
 
@@ -174,9 +173,7 @@ describe('FirstRunPage', () => {
       deployment_profile: 'server',
       data_dir: null,
     });
-    mockedPost.mockRejectedValueOnce(
-      new Error('first-run already completed'),
-    );
+    mockedPost.mockRejectedValueOnce(new Error('first-run already completed'));
     const user = userEvent.setup();
 
     renderWithProviders();

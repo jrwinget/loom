@@ -52,19 +52,10 @@ export function App(): React.ReactElement {
               <Route element={<ProtectedRoute />}>
                 <Route element={<Shell />}>
                   <Route index element={<Dashboard />} />
-                  <Route
-                    path="organizations"
-                    element={<OrganizationsPage />}
-                  />
+                  <Route path="organizations" element={<OrganizationsPage />} />
                   <Route path="cases" element={<CaseListPage />} />
-                  <Route
-                    path="cases/:caseId"
-                    element={<CaseDetailPage />}
-                  />
-                  <Route
-                    path="cases/:caseId/assets"
-                    element={<AssetsPage />}
-                  />
+                  <Route path="cases/:caseId" element={<CaseDetailPage />} />
+                  <Route path="cases/:caseId/assets" element={<AssetsPage />} />
                   <Route
                     path="cases/:caseId/timeline"
                     element={<TimelinePage />}
@@ -78,10 +69,7 @@ export function App(): React.ReactElement {
                     element={<ClustersPage />}
                   />
                   <Route path="cases/:caseId/map" element={<MapPage />} />
-                  <Route
-                    path="cases/:caseId/export"
-                    element={<ExportPage />}
-                  />
+                  <Route path="cases/:caseId/export" element={<ExportPage />} />
                   <Route
                     path="cases/:caseId/review/:assetId"
                     element={<ReviewPage />}

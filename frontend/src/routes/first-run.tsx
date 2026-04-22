@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '@/lib/api-client';
-import {
-  useCompleteFirstRun,
-  useFirstRunStatus,
-} from '@/hooks/use-first-run';
+import { useCompleteFirstRun, useFirstRunStatus } from '@/hooks/use-first-run';
 import { useAuthStore } from '@/stores/auth-store';
 import type { User } from '@/types';
 
@@ -30,16 +27,12 @@ export function FirstRunPage(): React.ReactElement {
     }
   }, [status, navigate]);
 
-  const handleSubmit = async (
-    e: React.FormEvent,
-  ): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError('');
 
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(
-        `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
-      );
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
       return;
     }
     if (password !== confirm) {
@@ -62,9 +55,7 @@ export function FirstRunPage(): React.ReactElement {
       if (err instanceof Error) {
         const msg = err.message.toLowerCase();
         if (msg.includes('already completed')) {
-          setError(
-            'This install is already set up. Redirecting to sign in.',
-          );
+          setError('This install is already set up. Redirecting to sign in.');
           setTimeout(() => navigate('/login'), 1500);
           return;
         }

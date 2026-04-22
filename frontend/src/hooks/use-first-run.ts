@@ -36,17 +36,10 @@ export function useFirstRunStatus(): ReturnType<
 }
 
 export function useCompleteFirstRun(): ReturnType<
-  typeof useMutation<
-    FirstRunCompleteResponse,
-    Error,
-    FirstRunCompletePayload
-  >
+  typeof useMutation<FirstRunCompleteResponse, Error, FirstRunCompletePayload>
 > {
   return useMutation({
     mutationFn: (payload: FirstRunCompletePayload) =>
-      apiClient.post<FirstRunCompleteResponse>(
-        '/first-run/complete',
-        payload,
-      ),
+      apiClient.post<FirstRunCompleteResponse>('/first-run/complete', payload),
   });
 }
