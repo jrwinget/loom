@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MfaChallenge } from '@/components/auth/MfaChallenge';
+import { useFirstRunStatus } from '@/hooks/use-first-run';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import type { User } from '@/types';
@@ -19,6 +20,14 @@ export function LoginPage(): React.ReactElement {
   const [submitting, setSubmitting] = useState(false);
   const { setAuth, setMfaChallenge, requiresMfa } = useAuthStore();
   const navigate = useNavigate();
+  const { data: firstRun } = useFirstRunStatus();
+
+  // fresh deploy with no users: send the operator through onboarding.
+  useEffect(() => {
+    if (firstRun?.first_run_required) {
+      navigate('/first-run', { replace: true });
+    }
+  }, [firstRun, navigate]);
 
   if (requiresMfa()) {
     return <MfaChallenge />;

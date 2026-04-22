@@ -1,0 +1,15 @@
+{
+  "name": "loom-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Tauri v2 desktop shell for the Loom evidence OS",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:unsigned": "tauri build --bundles app,dmg,msi,nsis,appimage,deb",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

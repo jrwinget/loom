@@ -1,0 +1,275 @@
+name: Desktop
+
+# Produces unsigned desktop installers for Loom across Linux, macOS,
+# and Windows. Signing steps are env-gated: if the relevant secrets
+# are not configured, the job logs a skip message and continues with
+# an unsigned artifact. Tag builds (v*) also attach artifacts to a
+# GitHub release.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            bundles: appimage,deb
+            artifact_glob: |
+              desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+              desktop/src-tauri/target/release/bundle/deb/*.deb
+          - os: macos-latest
+            platform: macos
+            bundles: dmg
+            artifact_glob: |
+              desktop/src-tauri/target/release/bundle/dmg/*.dmg
+              desktop/src-tauri/target/release/bundle/macos/*.app
+          - os: windows-latest
+            platform: windows
+            bundles: msi,nsis
+            artifact_glob: |
+              desktop/src-tauri/target/release/bundle/msi/*.msi
+              desktop/src-tauri/target/release/bundle/nsis/*.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # node + pnpm for the frontend build and the tauri CLI invocation
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      # python + uv for the backend sidecar build
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: >-
+            uv-${{ runner.os }}-${{ hashFiles('backend/uv.lock') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      # rust toolchain + cargo cache for the tauri build
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop/src-tauri/target
+          key: >-
+            cargo-${{ runner.os }}-${{ hashFiles('desktop/src-tauri/Cargo.toml') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      # linux-only system deps required by tauri v2 / webkit2gtk
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            build-essential
+
+      # frontend bundle becomes the static webview payload for tauri
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+        continue-on-error: false
+
+      - name: Build frontend
+        working-directory: frontend
+        run: pnpm build
+        continue-on-error: false
+
+      # backend sidecar: pyinstaller --onefile, single invocation.
+      # hidden-imports cover modules pyinstaller's static analyzer
+      # tends to miss (fastapi deep imports, sqlalchemy dialects,
+      # uvicorn logging handlers). keep this as one command.
+      - name: Build backend sidecar
+        working-directory: backend
+        shell: bash
+        run: >-
+          uv sync --all-extras &&
+          uv run pyinstaller --onefile src/loom/main.py
+          --name loom-backend
+          --distpath dist
+          --hidden-import fastapi
+          --hidden-import fastapi.routing
+          --hidden-import sqlalchemy
+          --hidden-import sqlalchemy.dialects.sqlite
+          --hidden-import sqlalchemy.dialects.postgresql
+          --hidden-import uvicorn
+          --hidden-import uvicorn.logging
+          --hidden-import uvicorn.protocols
+          --hidden-import uvicorn.protocols.http
+          --hidden-import uvicorn.protocols.http.auto
+          --hidden-import uvicorn.lifespan
+          --hidden-import uvicorn.lifespan.on
+        continue-on-error: false
+
+      # tauri bundle: per-os bundle flags, --ci suppresses prompts
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm install
+        continue-on-error: false
+
+      - name: Build Tauri bundles
+        working-directory: desktop
+        shell: bash
+        run: npx tauri build --bundles ${{ matrix.bundles }} --ci
+        continue-on-error: false
+
+      # ------------------------------------------------------------------
+      # signing (env-gated). each signing step is guarded by an `if:`
+      # expression that short-circuits when the secret is empty, and
+      # sets continue-on-error: true so a missing secret can never
+      # fail the job. unsigned artifacts ship as-is.
+      # ------------------------------------------------------------------
+
+      - name: Windows - sign installers
+        if: >-
+          matrix.platform == 'windows' &&
+          secrets.WINDOWS_CERT_BASE64 != '' &&
+          secrets.WINDOWS_CERT_PASSWORD != ''
+        continue-on-error: true
+        shell: pwsh
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          $certPath = Join-Path $env:RUNNER_TEMP "loom-signing.pfx"
+          [IO.File]::WriteAllBytes(
+            $certPath,
+            [Convert]::FromBase64String($env:WINDOWS_CERT_BASE64)
+          )
+          $signtool = (Get-ChildItem `
+            "C:/Program Files (x86)/Windows Kits/10/bin" `
+            -Recurse -Filter signtool.exe |
+            Where-Object { $_.FullName -match 'x64' } |
+            Select-Object -First 1).FullName
+          $bundleRoot = "desktop/src-tauri/target/release/bundle"
+          Get-ChildItem -Path $bundleRoot -Recurse `
+            -Include *.msi,*.exe | ForEach-Object {
+              & $signtool sign `
+                /f $certPath `
+                /p $env:WINDOWS_CERT_PASSWORD `
+                /tr http://timestamp.digicert.com `
+                /td sha256 `
+                /fd sha256 `
+                $_.FullName
+            }
+
+      - name: Windows - signing skipped notice
+        if: >-
+          matrix.platform == 'windows' &&
+          (secrets.WINDOWS_CERT_BASE64 == '' ||
+           secrets.WINDOWS_CERT_PASSWORD == '')
+        shell: bash
+        run: |
+          echo "signing skipped (no secrets present) — artifact is unsigned"
+
+      - name: macOS - codesign + notarize + staple
+        if: >-
+          matrix.platform == 'macos' &&
+          secrets.APPLE_SIGNING_IDENTITY != '' &&
+          secrets.APPLE_ID != '' &&
+          secrets.APPLE_TEAM_ID != '' &&
+          secrets.APPLE_PASSWORD != ''
+        continue-on-error: true
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          BUNDLE_ROOT="desktop/src-tauri/target/release/bundle"
+          # sign any .app bundles produced by tauri
+          find "$BUNDLE_ROOT" -name "*.app" -type d | while read -r app; do
+            codesign --force --deep --options runtime \
+              --sign "$APPLE_SIGNING_IDENTITY" "$app"
+          done
+          # submit each .dmg to notarytool, then staple
+          find "$BUNDLE_ROOT/dmg" -name "*.dmg" | while read -r dmg; do
+            xcrun notarytool submit "$dmg" \
+              --apple-id "$APPLE_ID" \
+              --team-id "$APPLE_TEAM_ID" \
+              --password "$APPLE_PASSWORD" \
+              --wait
+            xcrun stapler staple "$dmg"
+          done
+
+      - name: macOS - signing skipped notice
+        if: >-
+          matrix.platform == 'macos' &&
+          (secrets.APPLE_SIGNING_IDENTITY == '' ||
+           secrets.APPLE_ID == '' ||
+           secrets.APPLE_TEAM_ID == '' ||
+           secrets.APPLE_PASSWORD == '')
+        run: |
+          echo "signing skipped (no secrets present) — artifact is unsigned"
+
+      # linux ships unsigned by policy — appimage and deb do not
+      # participate in a publisher-trust chain the way msi/dmg do.
+      - name: Linux - signing not required
+        if: matrix.platform == 'linux'
+        run: |
+          echo "linux builds ship unsigned by design (AppImage + .deb)"
+
+      # ------------------------------------------------------------------
+      # artifact upload + (on tag) attach to github release
+      # ------------------------------------------------------------------
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: loom-desktop-${{ matrix.platform }}
+          path: ${{ matrix.artifact_glob }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach to GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact_glob }}
+          fail_on_unmatched_files: true

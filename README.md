@@ -111,6 +111,17 @@ make test-frontend  # frontend only
 make lint           # all linters
 ```
 
+## Desktop Lite (beta)
+
+For National Lawyers Guild legal observers and attorneys who need Loom
+on a single laptop without running Docker, Postgres, or a terminal,
+we ship a local-only Desktop Lite build. It uses SQLite, stores files
+on the local disk with WORM read-only semantics, and never opens an
+external network listener. See
+[docs/desktop-lite.md](docs/desktop-lite.md) for installation,
+first-run setup, the data directory layout, and what Lite does vs.
+what requires the server deploy.
+
 ## Core Principles
 
 1. **Originals are sacred**: the system preserves original files, filenames,

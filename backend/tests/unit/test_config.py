@@ -1,10 +1,11 @@
 """tests for secret key validation at startup."""
 
 import logging
+from unittest.mock import patch
 
 import pytest
 
-from loom.config import Settings
+from loom.config import Settings, get_settings
 
 
 def test_startup_rejects_default_secret() -> None:
@@ -80,3 +81,29 @@ class TestValidateProductionSettings:
         with caplog.at_level(logging.WARNING):
             settings.validate_production_settings()
         assert len(caplog.records) == 0
+
+
+class TestLifespanWiring:
+    """``_lifespan`` must invoke every startup validator."""
+
+    async def test_lifespan_rejects_lite_profile_with_postgres(self) -> None:
+        """lite profile + postgres URL must abort startup."""
+        bad = Settings(
+            secret_key="a-sufficiently-long-secret-key-for-production-use",
+            deployment_profile="lite",
+            database_url="postgresql+asyncpg://x:y@h/db",
+        )
+        get_settings.cache_clear()
+
+        # main.py does ``from loom.config import get_settings``, so the
+        # patch target is the name as bound inside loom.main.
+        with (
+            patch("loom.main.get_settings", return_value=bad),
+            patch("loom.config.get_settings", return_value=bad),
+        ):
+            from loom.main import _lifespan, create_app
+
+            application = create_app()
+            with pytest.raises(ValueError, match="sqlite"):
+                async with _lifespan(application):
+                    pass
