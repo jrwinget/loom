@@ -19,14 +19,14 @@ from temporalio import activity
 
 from loom.metrics import ingest_workflow_duration
 from loom.models.asset import Asset
-from loom.services.storage import ORIGINALS_BUCKET, StorageService
+from loom.services.storage_backends import ORIGINALS_BUCKET
 from loom.services.transcription import (
     align_transcript_with_speakers,
     diarize_audio,
     store_transcript_segments,
     transcribe_audio,
 )
-from loom.workflows.shared import get_db_session, get_minio_client
+from loom.workflows.shared import get_db_session, get_storage_backend
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ async def extract_audio(asset_id: str) -> str:
                 msg = f"asset {asset_id} not found"
                 raise ValueError(msg)
 
-            storage = StorageService(get_minio_client())
+            storage = get_storage_backend()
 
             tmp_dir = tempfile.mkdtemp(prefix="loom_audio_")
             suffix = Path(asset.original_filename).suffix
@@ -192,7 +192,7 @@ async def store_transcript(asset_id: str) -> None:
                 msg = f"asset {asset_id} not found"
                 raise ValueError(msg)
 
-            storage = StorageService(get_minio_client())
+            storage = get_storage_backend()
 
             with tempfile.TemporaryDirectory(
                 prefix="loom_transcript_"

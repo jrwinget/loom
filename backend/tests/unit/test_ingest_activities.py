@@ -99,14 +99,14 @@ class TestActivityDecorators:
 class TestVerifyAssetHash:
     """verify_asset_hash downloads and re-hashes."""
 
-    @patch("loom.workflows.ingest_activities.get_minio_client")
+    @patch("loom.workflows.ingest_activities.get_storage_backend")
     @patch("loom.workflows.ingest_activities.get_db_session")
     @patch("loom.workflows.ingest_activities.compute_hashes_from_file")
     async def test_returns_true_on_match(
         self,
         mock_hash: MagicMock,
         mock_session_ctx: MagicMock,
-        mock_minio: MagicMock,
+        mock_storage: MagicMock,
     ) -> None:
         """returns True when hashes match."""
         asset = _make_asset(sha256="aaa", sha512="bbb")
@@ -123,12 +123,9 @@ class TestVerifyAssetHash:
         mock_hash.return_value = ("aaa", "bbb")
 
         # mock storage download (no-op)
-        mock_minio.return_value = MagicMock()
+        mock_storage.return_value = MagicMock()
 
-        with (
-            patch("loom.workflows.ingest_activities.StorageService"),
-            patch("loom.workflows.ingest_activities.tempfile") as mock_tmp,
-        ):
+        with patch("loom.workflows.ingest_activities.tempfile") as mock_tmp:
             mock_tmp.TemporaryDirectory.return_value.__enter__ = (
                 MagicMock(return_value="/tmp/test")  # noqa: S108
             )
@@ -139,12 +136,12 @@ class TestVerifyAssetHash:
 
         assert result is True
 
-    @patch("loom.workflows.ingest_activities.get_minio_client")
+    @patch("loom.workflows.ingest_activities.get_storage_backend")
     @patch("loom.workflows.ingest_activities.get_db_session")
     async def test_raises_on_missing_asset(
         self,
         mock_session_ctx: MagicMock,
-        mock_minio: MagicMock,
+        mock_storage: MagicMock,
     ) -> None:
         """raises ValueError when asset not found."""
         session = AsyncMock()
@@ -163,14 +160,14 @@ class TestVerifyAssetHash:
 class TestExtractAssetMetadata:
     """extract_asset_metadata calls service and stores result."""
 
-    @patch("loom.workflows.ingest_activities.get_minio_client")
+    @patch("loom.workflows.ingest_activities.get_storage_backend")
     @patch("loom.workflows.ingest_activities.get_db_session")
     @patch("loom.workflows.ingest_activities.extract_metadata_from_file")
     async def test_stores_metadata_on_asset(
         self,
         mock_extract: MagicMock,
         mock_session_ctx: MagicMock,
-        mock_minio: MagicMock,
+        mock_storage: MagicMock,
     ) -> None:
         """stores raw and normalized metadata."""
         asset = _make_asset()
@@ -189,10 +186,9 @@ class TestExtractAssetMetadata:
         ctx.__aenter__.return_value = session
         mock_session_ctx.return_value = ctx
 
-        with (
-            patch("loom.workflows.ingest_activities.StorageService"),
-            patch("loom.workflows.ingest_activities.tempfile") as mock_tmp,
-        ):
+        mock_storage.return_value = MagicMock()
+
+        with patch("loom.workflows.ingest_activities.tempfile") as mock_tmp:
             mock_tmp.TemporaryDirectory.return_value.__enter__ = (
                 MagicMock(return_value="/tmp/test")  # noqa: S108
             )

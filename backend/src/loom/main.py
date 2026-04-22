@@ -20,6 +20,7 @@ from loom.observability import setup_db_telemetry, setup_telemetry
 from loom.security.audit import AuditMiddleware
 from loom.security.csrf import CSRFMiddleware
 from loom.security.rate_limit import limiter
+from loom.services.storage_backends import build_storage_backend
 
 
 def _add_otel_context(
@@ -98,19 +99,27 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.otel_enabled:
         setup_db_telemetry(engine.sync_engine)
 
-    # minio / object storage
-    minio_client = Minio(
-        settings.minio_endpoint,
-        access_key=settings.minio_access_key,
-        secret_key=settings.minio_secret_key,
-        secure=settings.minio_secure,
-    )
-    app.state.minio_client = minio_client
+    # object storage. the backend is the single source of truth for
+    # every caller; the minio client is retained on app state only
+    # for the health check and a handful of legacy call sites.
+    storage_backend = build_storage_backend(settings)
+    app.state.storage_backend = storage_backend
+
+    if not settings.is_lite:
+        minio_client = Minio(
+            settings.minio_endpoint,
+            access_key=settings.minio_access_key,
+            secret_key=settings.minio_secret_key,
+            secure=settings.minio_secure,
+        )
+        app.state.minio_client = minio_client
+    else:
+        app.state.minio_client = None
 
     await log.ainfo(
         "startup complete",
         database=settings.database_url,
-        minio=settings.minio_endpoint,
+        deployment_profile=settings.deployment_profile,
     )
 
     yield

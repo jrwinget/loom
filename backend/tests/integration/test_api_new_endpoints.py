@@ -13,7 +13,11 @@ import httpx
 import pytest_asyncio
 
 from loom.config import Settings, get_settings
-from loom.dependencies import get_db_session, get_minio_client
+from loom.dependencies import (
+    get_db_session,
+    get_minio_client,
+    get_storage_backend,
+)
 from loom.security.auth import create_access_token
 
 _USER_ID = UUID("01912345-6789-7abc-8def-0123456789ab")
@@ -95,6 +99,7 @@ def _create_app(
 
     app.dependency_overrides[get_db_session] = override_db
     app.dependency_overrides[get_minio_client] = lambda: MagicMock()
+    app.dependency_overrides[get_storage_backend] = lambda: MagicMock()
     app.state.db_session_factory = None
     return app
 

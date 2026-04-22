@@ -2,7 +2,7 @@
 
 import hashlib
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID
 
 import pytest
@@ -57,7 +57,7 @@ def _make_asset(
 
 
 def _mock_storage_stream() -> MagicMock:
-    """mock StorageService.get_object_stream to yield chunks."""
+    """mock StorageBackend.get_object_stream to yield chunks."""
     chunks = []
     for i in range(0, len(_TEST_DATA), _CHUNK_SIZE):
         chunks.append(_TEST_DATA[i : i + _CHUNK_SIZE])
@@ -66,6 +66,13 @@ def _mock_storage_stream() -> MagicMock:
         return len(_TEST_DATA), iter(chunks)
 
     return get_object_stream
+
+
+def _make_storage(stream=None) -> MagicMock:
+    """build a mock StorageBackend with a configured get_object_stream."""
+    storage = MagicMock()
+    storage.get_object_stream = stream or _mock_storage_stream()
+    return storage
 
 
 def _make_session(
@@ -161,15 +168,11 @@ class TestVerifyAssetIntegrity:
         """matching hashes produce a passing result."""
         asset = _make_asset()
         session = _make_session(asset=asset)
-        minio_client = MagicMock()
+        storage = _make_storage()
 
-        with patch("loom.services.integrity.StorageService") as mock_cls:
-            instance = mock_cls.return_value
-            instance.get_object_stream = _mock_storage_stream()
-
-            result = await verify_asset_integrity(
-                session, minio_client, _ASSET_ID, _USER_ID
-            )
+        result = await verify_asset_integrity(
+            session, storage, _ASSET_ID, _USER_ID
+        )
 
         assert result.sha256_match is True
         assert result.sha512_match is True
@@ -181,15 +184,11 @@ class TestVerifyAssetIntegrity:
         """tampered sha256 is detected."""
         asset = _make_asset(sha256="a" * 64)
         session = _make_session(asset=asset)
-        minio_client = MagicMock()
+        storage = _make_storage()
 
-        with patch("loom.services.integrity.StorageService") as mock_cls:
-            instance = mock_cls.return_value
-            instance.get_object_stream = _mock_storage_stream()
-
-            result = await verify_asset_integrity(
-                session, minio_client, _ASSET_ID, _USER_ID
-            )
+        result = await verify_asset_integrity(
+            session, storage, _ASSET_ID, _USER_ID
+        )
 
         assert result.sha256_match is False
         assert result.sha512_match is True
@@ -200,15 +199,11 @@ class TestVerifyAssetIntegrity:
         """tampered sha512 is detected."""
         asset = _make_asset(sha512="b" * 128)
         session = _make_session(asset=asset)
-        minio_client = MagicMock()
+        storage = _make_storage()
 
-        with patch("loom.services.integrity.StorageService") as mock_cls:
-            instance = mock_cls.return_value
-            instance.get_object_stream = _mock_storage_stream()
-
-            result = await verify_asset_integrity(
-                session, minio_client, _ASSET_ID, _USER_ID
-            )
+        result = await verify_asset_integrity(
+            session, storage, _ASSET_ID, _USER_ID
+        )
 
         assert result.sha256_match is True
         assert result.sha512_match is False
@@ -218,15 +213,11 @@ class TestVerifyAssetIntegrity:
         """both hashes tampered are both detected."""
         asset = _make_asset(sha256="a" * 64, sha512="b" * 128)
         session = _make_session(asset=asset)
-        minio_client = MagicMock()
+        storage = _make_storage()
 
-        with patch("loom.services.integrity.StorageService") as mock_cls:
-            instance = mock_cls.return_value
-            instance.get_object_stream = _mock_storage_stream()
-
-            result = await verify_asset_integrity(
-                session, minio_client, _ASSET_ID, _USER_ID
-            )
+        result = await verify_asset_integrity(
+            session, storage, _ASSET_ID, _USER_ID
+        )
 
         assert result.sha256_match is False
         assert result.sha512_match is False
@@ -238,7 +229,7 @@ class TestVerifyAssetIntegrity:
 
         with pytest.raises(IntegrityError, match="not found"):
             await verify_asset_integrity(
-                session, MagicMock(), _ASSET_ID, _USER_ID
+                session, _make_storage(), _ASSET_ID, _USER_ID
             )
 
     @pytest.mark.asyncio
@@ -248,36 +239,27 @@ class TestVerifyAssetIntegrity:
 
         asset = _make_asset()
         session = _make_session(asset=asset)
-        minio_client = MagicMock()
+        storage = MagicMock()
+        storage.get_object_stream.side_effect = S3Error(
+            "NoSuchKey", "not found", "", "", "", ""
+        )
 
-        with patch("loom.services.integrity.StorageService") as mock_cls:
-            instance = mock_cls.return_value
-            instance.get_object_stream.side_effect = S3Error(
-                "NoSuchKey", "not found", "", "", "", ""
+        with pytest.raises(IntegrityError, match="cannot read"):
+            await verify_asset_integrity(
+                session,
+                storage,
+                _ASSET_ID,
+                _USER_ID,
             )
-
-            with pytest.raises(IntegrityError, match="cannot read"):
-                await verify_asset_integrity(
-                    session,
-                    minio_client,
-                    _ASSET_ID,
-                    _USER_ID,
-                )
 
     @pytest.mark.asyncio
     async def test_creates_custody_entry(self) -> None:
         """verification creates a custody entry."""
         asset = _make_asset()
         session = _make_session(asset=asset)
-        minio_client = MagicMock()
+        storage = _make_storage()
 
-        with patch("loom.services.integrity.StorageService") as mock_cls:
-            instance = mock_cls.return_value
-            instance.get_object_stream = _mock_storage_stream()
-
-            await verify_asset_integrity(
-                session, minio_client, _ASSET_ID, _USER_ID
-            )
+        await verify_asset_integrity(session, storage, _ASSET_ID, _USER_ID)
 
         # session.add was called with a custody entry
         session.add.assert_called_once()
@@ -294,15 +276,9 @@ class TestVerifyAssetIntegrity:
         """failed verification records failure in custody."""
         asset = _make_asset(sha256="a" * 64)
         session = _make_session(asset=asset)
-        minio_client = MagicMock()
+        storage = _make_storage()
 
-        with patch("loom.services.integrity.StorageService") as mock_cls:
-            instance = mock_cls.return_value
-            instance.get_object_stream = _mock_storage_stream()
-
-            await verify_asset_integrity(
-                session, minio_client, _ASSET_ID, _USER_ID
-            )
+        await verify_asset_integrity(session, storage, _ASSET_ID, _USER_ID)
 
         entry = session.add.call_args[0][0]
         assert entry.detail["result"] == "fail"
@@ -313,19 +289,15 @@ class TestVerifyAssetIntegrity:
         """ip address is stored in custody entry."""
         asset = _make_asset()
         session = _make_session(asset=asset)
-        minio_client = MagicMock()
+        storage = _make_storage()
 
-        with patch("loom.services.integrity.StorageService") as mock_cls:
-            instance = mock_cls.return_value
-            instance.get_object_stream = _mock_storage_stream()
-
-            await verify_asset_integrity(
-                session,
-                minio_client,
-                _ASSET_ID,
-                _USER_ID,
-                ip_address="192.168.1.1",
-            )
+        await verify_asset_integrity(
+            session,
+            storage,
+            _ASSET_ID,
+            _USER_ID,
+            ip_address="192.168.1.1",
+        )
 
         entry = session.add.call_args[0][0]
         assert entry.ip_address == "192.168.1.1"
@@ -364,15 +336,11 @@ class TestVerifyCaseIntegrity:
         session.add = MagicMock()
         session.flush = AsyncMock()
 
-        minio_client = MagicMock()
+        storage = _make_storage()
 
-        with patch("loom.services.integrity.StorageService") as mock_cls:
-            instance = mock_cls.return_value
-            instance.get_object_stream = _mock_storage_stream()
-
-            result = await verify_case_integrity(
-                session, minio_client, _CASE_ID, _USER_ID
-            )
+        result = await verify_case_integrity(
+            session, storage, _CASE_ID, _USER_ID
+        )
 
         assert result.case_id == UUID(_CASE_ID)
         assert result.total_assets == 2
@@ -409,15 +377,11 @@ class TestVerifyCaseIntegrity:
         session.execute = AsyncMock(side_effect=execute_side_effect)
         session.add = MagicMock()
         session.flush = AsyncMock()
-        minio_client = MagicMock()
+        storage = _make_storage()
 
-        with patch("loom.services.integrity.StorageService") as mock_cls:
-            instance = mock_cls.return_value
-            instance.get_object_stream = _mock_storage_stream()
-
-            result = await verify_case_integrity(
-                session, minio_client, _CASE_ID, _USER_ID
-            )
+        result = await verify_case_integrity(
+            session, storage, _CASE_ID, _USER_ID
+        )
 
         assert result.total_assets == 2
         assert result.passed_count == 1
@@ -427,10 +391,10 @@ class TestVerifyCaseIntegrity:
     async def test_empty_case(self) -> None:
         """case with no assets returns zero counts."""
         session = _make_session(assets=[])
-        minio_client = MagicMock()
+        storage = _make_storage()
 
         result = await verify_case_integrity(
-            session, minio_client, _CASE_ID, _USER_ID
+            session, storage, _CASE_ID, _USER_ID
         )
 
         assert result.total_assets == 0
@@ -464,17 +428,14 @@ class TestVerifyCaseIntegrity:
         session.execute = AsyncMock(side_effect=execute_side_effect)
         session.add = MagicMock()
         session.flush = AsyncMock()
-        minio_client = MagicMock()
+        storage = MagicMock()
+        storage.get_object_stream.side_effect = S3Error(
+            "NoSuchKey", "not found", "", "", "", ""
+        )
 
-        with patch("loom.services.integrity.StorageService") as mock_cls:
-            instance = mock_cls.return_value
-            instance.get_object_stream.side_effect = S3Error(
-                "NoSuchKey", "not found", "", "", "", ""
-            )
-
-            result = await verify_case_integrity(
-                session, minio_client, _CASE_ID, _USER_ID
-            )
+        result = await verify_case_integrity(
+            session, storage, _CASE_ID, _USER_ID
+        )
 
         assert result.total_assets == 1
         assert result.verified_count == 0
@@ -519,15 +480,11 @@ class TestGenerateIntegrityReport:
         session.execute = AsyncMock(side_effect=execute_side_effect)
         session.add = MagicMock()
         session.flush = AsyncMock()
-        minio_client = MagicMock()
+        storage = _make_storage()
 
-        with patch("loom.services.integrity.StorageService") as mock_cls:
-            instance = mock_cls.return_value
-            instance.get_object_stream = _mock_storage_stream()
-
-            report = await generate_integrity_report(
-                session, minio_client, _ASSET_ID, _USER_ID
-            )
+        report = await generate_integrity_report(
+            session, storage, _ASSET_ID, _USER_ID
+        )
 
         assert report.asset_id == UUID(_ASSET_ID)
         assert report.case_id == UUID(_CASE_ID)

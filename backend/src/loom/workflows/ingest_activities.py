@@ -24,12 +24,12 @@ from loom.services.hashing import (
     compute_hashes_from_file,
 )
 from loom.services.metadata import extract_metadata_from_file
-from loom.services.storage import (
+from loom.services.storage_backends import (
     DERIVATIVES_BUCKET,
     ORIGINALS_BUCKET,
-    StorageService,
+    StorageBackend,
 )
-from loom.workflows.shared import get_db_session, get_minio_client
+from loom.workflows.shared import get_db_session, get_storage_backend
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ async def verify_asset_hash(asset_id: str) -> bool:
                 msg = f"asset {asset_id} not found"
                 raise ValueError(msg)
 
-            storage = StorageService(get_minio_client())
+            storage = get_storage_backend()
 
             with tempfile.TemporaryDirectory(prefix="loom_hash_") as tmp_dir:
                 dest = str(Path(tmp_dir) / "original")
@@ -113,7 +113,7 @@ async def extract_asset_metadata(
                 msg = f"asset {asset_id} not found"
                 raise ValueError(msg)
 
-            storage = StorageService(get_minio_client())
+            storage = get_storage_backend()
 
             with tempfile.TemporaryDirectory(prefix="loom_meta_") as tmp_dir:
                 suffix = Path(asset.original_filename).suffix
@@ -174,7 +174,7 @@ async def generate_asset_proxies(
                 msg = f"asset {asset_id} not found"
                 raise ValueError(msg)
 
-            storage = StorageService(get_minio_client())
+            storage = get_storage_backend()
             derivative_keys: list[str] = []
 
             with tempfile.TemporaryDirectory(prefix="loom_proxy_") as tmp_dir:
@@ -240,7 +240,7 @@ async def generate_asset_proxies(
 
 def _generate_video_derivatives(
     session: Any,
-    storage: StorageService,
+    storage: StorageBackend,
     asset_id: str,
     src: str,
     tmp_dir: str,
@@ -311,7 +311,7 @@ def _generate_video_derivatives(
 
 def _generate_image_derivatives(
     session: Any,
-    storage: StorageService,
+    storage: StorageBackend,
     asset_id: str,
     src: str,
     tmp_dir: str,
@@ -350,7 +350,7 @@ def _generate_image_derivatives(
 
 def _generate_audio_derivatives(
     session: Any,
-    storage: StorageService,
+    storage: StorageBackend,
     asset_id: str,
     src: str,
     tmp_dir: str,

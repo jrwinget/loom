@@ -6,6 +6,12 @@ from typing import Any
 from minio import Minio
 from minio.error import S3Error
 
+from loom.services.storage_backends.base import (
+    DERIVATIVES_BUCKET,
+    ORIGINALS_BUCKET,
+    StorageBackend,
+)
+
 
 def _stream_chunks(
     response: Any,
@@ -23,12 +29,23 @@ def _stream_chunks(
         response.release_conn()
 
 
-ORIGINALS_BUCKET = "loom-originals"
-DERIVATIVES_BUCKET = "loom-derivatives"
+# re-export so the old import path ``from loom.services.storage import
+# ORIGINALS_BUCKET`` keeps working for existing call sites.
+__all__ = [
+    "DERIVATIVES_BUCKET",
+    "ORIGINALS_BUCKET",
+    "MinioStorageBackend",
+    "StorageService",
+]
 
 
-class StorageService:
-    """minio abstraction for object storage."""
+class StorageService(StorageBackend):
+    """minio-backed implementation of :class:`StorageBackend`.
+
+    explicit subclass of the protocol so mypy + isinstance checks
+    agree with the duck-typed ``LocalStorageBackend`` used by the
+    lite profile. see issue #58.
+    """
 
     def __init__(self, client: Minio) -> None:
         self._client = client
@@ -131,3 +148,8 @@ class StorageService:
     def delete_object(self, bucket: str, key: str) -> None:
         """delete an object from minio."""
         self._client.remove_object(bucket, key)
+
+
+# canonical server-profile backend name (issue #58). the legacy
+# ``StorageService`` alias is kept because many imports use it.
+MinioStorageBackend = StorageService

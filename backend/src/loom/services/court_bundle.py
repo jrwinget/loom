@@ -42,7 +42,7 @@ from loom.models.timeline import (
     TimelineEventEvidence,
 )
 from loom.services.report import render_report_pdf
-from loom.services.storage import DERIVATIVES_BUCKET, StorageService
+from loom.services.storage_backends import DERIVATIVES_BUCKET, StorageBackend
 
 logger = logging.getLogger(__name__)
 
@@ -338,7 +338,7 @@ async def build_court_bundle(
     session: AsyncSession,
     case_id: str,
     options: dict[str, Any],
-    storage: StorageService,
+    storage: StorageBackend,
     output_key: str,
     *,
     preparer: str | None = None,

@@ -2,7 +2,6 @@ import hmac
 from datetime import UTC, datetime
 from uuid import UUID
 
-from minio import Minio
 from minio.error import S3Error
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,9 +15,9 @@ from loom.schemas.integrity import (
     IntegrityResult,
 )
 from loom.services.hashing import compute_hashes_from_iterator
-from loom.services.storage import (
+from loom.services.storage_backends import (
     ORIGINALS_BUCKET,
-    StorageService,
+    StorageBackend,
 )
 
 
@@ -28,12 +27,12 @@ class IntegrityError(Exception):
 
 async def verify_asset_integrity(
     session: AsyncSession,
-    minio_client: Minio,
+    storage: StorageBackend,
     asset_id: str,
     actor_id: str,
     ip_address: str | None = None,
 ) -> IntegrityResult:
-    """verify an asset's stored hashes against its file in minio.
+    """verify an asset's stored hashes against its file in storage.
 
     streams the file in chunks to avoid loading into memory.
     records result as a chain of custody entry.
@@ -47,16 +46,17 @@ async def verify_asset_integrity(
     if not asset:
         raise IntegrityError(f"asset {asset_id} not found")
 
-    storage = StorageService(minio_client)
     verified_at = datetime.now(UTC)
 
-    # stream file from minio and compute hashes
+    # stream file from storage and compute hashes. both the minio
+    # (S3Error) and local (FileNotFoundError) backends can signal a
+    # missing object; treat either as a fatal integrity failure.
     try:
         _file_size, chunks = storage.get_object_stream(
             ORIGINALS_BUCKET,
             asset.storage_key,
         )
-    except S3Error as exc:
+    except (S3Error, FileNotFoundError) as exc:
         raise IntegrityError(
             f"cannot read {asset.storage_key} from storage: {exc}"
         ) from exc
@@ -103,7 +103,7 @@ async def verify_asset_integrity(
 
 async def verify_case_integrity(
     session: AsyncSession,
-    minio_client: Minio,
+    storage: StorageBackend,
     case_id: str,
     actor_id: str,
     ip_address: str | None = None,
@@ -122,7 +122,7 @@ async def verify_case_integrity(
         try:
             ir = await verify_asset_integrity(
                 session,
-                minio_client,
+                storage,
                 str(asset.id),
                 actor_id,
                 ip_address,
@@ -148,7 +148,7 @@ async def verify_case_integrity(
 
 async def generate_integrity_report(
     session: AsyncSession,
-    minio_client: Minio,
+    storage: StorageBackend,
     asset_id: str,
     actor_id: str,
     ip_address: str | None = None,
@@ -160,7 +160,7 @@ async def generate_integrity_report(
     """
     # verify integrity first
     verification = await verify_asset_integrity(
-        session, minio_client, asset_id, actor_id, ip_address
+        session, storage, asset_id, actor_id, ip_address
     )
 
     # fetch asset record for metadata
