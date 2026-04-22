@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -25,10 +26,18 @@ const mockedPost = vi.mocked(apiClient.post);
 const mockedGet = vi.mocked(apiClient.get);
 
 function renderLogin(): void {
+  // LoginPage calls useFirstRunStatus() which needs a QueryClient in
+  // scope. mocking apiClient means the query never resolves, so the
+  // redirect effect is inert — existing MFA assertions hold.
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   render(
-    <MemoryRouter>
-      <LoginPage />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
