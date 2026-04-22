@@ -111,16 +111,33 @@ def hamming_distance(hash1: str, hash2: str) -> int:
     return bin(xor).count("1")
 
 
+def _provenance_bucket(asset: Asset) -> str:
+    """Bucket assets by provenance so url-sourced and upload-
+    sourced are never collapsed.
+
+    Per issue #46, provenance differs even when bytes match — an
+    uploaded copy and a URL-ingested copy are distinct artifacts
+    because the chain of custody differs. The two url-sourced
+    copies of the same resource (same URL, same bytes) can still
+    cluster with each other.
+    """
+    method = asset.source_method or "upload"
+    if method.startswith("url_"):
+        return f"url::{asset.source_uri or ''}"
+    return "upload"
+
+
 def _find_exact_duplicates(
     assets: list[Asset],
 ) -> list[dict[str, Any]]:
-    """group assets with identical sha256 hashes."""
-    hash_groups: dict[str, list[Asset]] = {}
+    """group assets with identical sha256 hashes and provenance."""
+    hash_groups: dict[tuple[str, str], list[Asset]] = {}
     for asset in assets:
-        hash_groups.setdefault(asset.sha256_hash, []).append(asset)
+        key = (asset.sha256_hash, _provenance_bucket(asset))
+        hash_groups.setdefault(key, []).append(asset)
 
     clusters: list[dict[str, Any]] = []
-    for _sha256, group in hash_groups.items():
+    for _key, group in hash_groups.items():
         if len(group) >= 2:
             clusters.append(
                 {
@@ -156,11 +173,21 @@ def _find_near_duplicate_clusters(
     phash_map: dict[str, str],
     existing_clusters: list[dict[str, Any]],
     threshold: int,
+    provenance_by_id: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
-    """find near-duplicate clusters from phash comparisons."""
+    """find near-duplicate clusters from phash comparisons.
+
+    When provenance_by_id is provided, pairs across different
+    provenance buckets are skipped so URL-sourced and upload-
+    sourced assets never cluster together (issue #46).
+    """
     phash_ids = list(phash_map.keys())
     near_dup_pairs: list[tuple[str, str]] = []
     for id1, id2 in combinations(phash_ids, 2):
+        if provenance_by_id is not None and provenance_by_id.get(
+            id1
+        ) != provenance_by_id.get(id2):
+            continue
         dist = hamming_distance(phash_map[id1], phash_map[id2])
         if dist <= threshold:
             near_dup_pairs.append((id1, id2))
@@ -211,8 +238,9 @@ async def find_duplicates(
 
     clusters = _find_exact_duplicates(assets)
     phash_map = await _load_phash_map(session, assets)
+    provenance_by_id = {str(a.id): _provenance_bucket(a) for a in assets}
     near_clusters = _find_near_duplicate_clusters(
-        phash_map, clusters, threshold
+        phash_map, clusters, threshold, provenance_by_id
     )
     clusters.extend(near_clusters)
 
