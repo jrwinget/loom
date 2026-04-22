@@ -39,6 +39,11 @@ from loom.workflows.transcription_activities import (
 from loom.workflows.transcription_workflow import (
     TranscriptionWorkflow,
 )
+from loom.workflows.url_ingest_activities import (
+    attempt_wayback_snapshot,
+    download_url_and_record_provenance,
+)
+from loom.workflows.url_ingest_workflow import UrlIngestWorkflow
 
 
 async def main() -> None:  # pragma: no cover
@@ -55,6 +60,7 @@ async def main() -> None:  # pragma: no cover
             OcrWorkflow,
             SceneDetectionWorkflow,
             CorrelationWorkflow,
+            UrlIngestWorkflow,
         ],
         activities=[
             verify_asset_hash,
@@ -74,6 +80,8 @@ async def main() -> None:  # pragma: no cover
             generate_scene_thumbs,
             store_scene_results,
             correlate_case_assets,
+            download_url_and_record_provenance,
+            attempt_wayback_snapshot,
         ],
     )
     await worker.run()
