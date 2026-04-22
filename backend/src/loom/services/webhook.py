@@ -32,25 +32,37 @@ _BLOCKED_NETWORKS = [
 ]
 
 
-def _validate_url_at_delivery(url: str) -> None:
-    """validate webhook url does not resolve to private IP.
+def assert_public_url(url: str) -> None:
+    """assert url resolves only to public, routable IPs.
 
-    raises ValueError if the url resolves to a blocked network.
-    this catches DNS rebinding attacks where a hostname resolves
-    to a public IP at registration but a private IP at delivery.
+    raises ValueError if the scheme is non-http(s), if the hostname
+    is missing, or if DNS resolution yields a loopback, private,
+    link-local, or reserved address. catches DNS rebinding attacks
+    where a hostname resolves to a public IP at registration but a
+    private IP at delivery.
     """
     parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(
+            f"url scheme '{parsed.scheme}' is not permitted; "
+            "only http(s) is allowed"
+        )
     hostname = parsed.hostname
     if not hostname:
-        raise ValueError("webhook url has no hostname")
+        raise ValueError("url has no hostname")
     addr_infos = socket.getaddrinfo(hostname, parsed.port or 443)
     for info in addr_infos:
         addr = ipaddress.ip_address(info[4][0])
         for network in _BLOCKED_NETWORKS:
             if addr in network:
                 raise ValueError(
-                    f"webhook url resolves to private/reserved address {addr}"
+                    f"url resolves to private/reserved address {addr}"
                 )
+
+
+def _validate_url_at_delivery(url: str) -> None:
+    """legacy alias retained for existing webhook call sites."""
+    assert_public_url(url)
 
 
 def compute_signature(secret: str, payload_json: str) -> str:
