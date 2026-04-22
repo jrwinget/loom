@@ -8,6 +8,9 @@ export const queryKeys = {
     byCase: (caseId: string) => ['assets', caseId] as const,
     detail: (id: string) => ['assets', 'detail', id] as const,
   },
+  ingestUrl: {
+    byCase: (caseId: string) => ['ingest-url', caseId] as const,
+  },
   annotations: {
     byAsset: (assetId: string) => ['annotations', assetId] as const,
     detail: (id: string) => ['annotations', 'detail', id] as const,
