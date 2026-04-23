@@ -6,6 +6,7 @@ from sqlalchemy import ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
+from loom.models._append_only import enforce_append_only
 from loom.models.base import Base, UUIDMixin
 
 
@@ -44,3 +45,7 @@ class ChainOfCustodyEntry(UUIDMixin, Base):
         server_default=func.now(),
         nullable=False,
     )
+
+
+# append-only policy — see loom.models.audit for the rationale.
+enforce_append_only(ChainOfCustodyEntry)

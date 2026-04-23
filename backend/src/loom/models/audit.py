@@ -6,6 +6,7 @@ from sqlalchemy import ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
+from loom.models._append_only import enforce_append_only
 from loom.models.base import Base, UUIDMixin
 
 
@@ -51,3 +52,9 @@ class AuditLogEntry(UUIDMixin, Base):
         server_default=func.now(),
         nullable=False,
     )
+
+
+# append-only policy — any UPDATE or DELETE via the ORM is a bug
+# at best and a tamper attempt at worst. server deploys also
+# reject raw-SQL mutations via triggers installed in migration 011.
+enforce_append_only(AuditLogEntry)
