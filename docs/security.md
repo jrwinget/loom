@@ -40,10 +40,16 @@ Threat actors may include parties who want to:
 ## Storage Security
 
 - Originals in WORM-enabled MinIO bucket (object lock)
+- Server-side encryption (SSE-S3 / AES-256-GCM) enforced on
+  every bucket at bootstrap; SSE-KMS supported for external
+  KMS deployments
 - Presigned URLs are time-limited (15 minutes)
 - No direct public access to storage buckets
 - File uploads validated by magic bytes, not extension
 - Cryptographic hashes (SHA-256 + SHA-512) on all files
+
+See [Encryption](security/encryption.md) for algorithms, key
+management, rotation, and the full threat model.
 
 ## Input Validation
 
