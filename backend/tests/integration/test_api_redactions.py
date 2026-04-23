@@ -226,6 +226,69 @@ async def test_list_redactions(
     assert data["items"][0]["redaction_type"] == "blur"
 
 
+async def test_list_redactions_rejects_negative_skip(
+    mock_settings: Settings,
+) -> None:
+    """skip must be non-negative — previously accepted any int."""
+    app = _create_app(mock_settings)
+
+    with patch("loom.security.auth.get_settings", return_value=mock_settings):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/redactions"
+                "?skip=-1",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 422
+
+
+async def test_list_redactions_rejects_over_limit(
+    mock_settings: Settings,
+) -> None:
+    """limit must be ≤100 — previously unbounded."""
+    app = _create_app(mock_settings)
+
+    with patch("loom.security.auth.get_settings", return_value=mock_settings):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/redactions"
+                "?limit=1000",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 422
+
+
+async def test_list_redactions_rejects_zero_limit(
+    mock_settings: Settings,
+) -> None:
+    """limit=0 must be rejected — previously accepted as 'no limit'."""
+    app = _create_app(mock_settings)
+
+    with patch("loom.security.auth.get_settings", return_value=mock_settings):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}/redactions"
+                "?limit=0",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 422
+
+
 async def test_get_single_redaction(
     mock_settings: Settings,
 ) -> None:
