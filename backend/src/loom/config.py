@@ -2,13 +2,16 @@ import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlparse
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
 _INSECURE_DEFAULT = "change-me-in-production"
 _MIN_SECRET_LENGTH = 32
+_CORS_ALLOWED_SCHEMES = {"http", "https"}
 
 DeploymentProfile = Literal["server", "lite"]
 
@@ -60,6 +63,38 @@ class Settings(BaseSettings):
     db_pool_recycle: int = 3600
     db_pool_pre_ping: bool = True
     db_pool_timeout: int = 30
+
+    @field_validator("cors_origins")
+    @classmethod
+    def _validate_cors_origins(cls, value: list[str]) -> list[str]:
+        """reject wildcards and malformed origins.
+
+        a malformed value silently disables browser protections,
+        so we fail loud at startup rather than in the browser.
+        """
+        cleaned: list[str] = []
+        for raw in value:
+            origin = raw.strip()
+            if not origin:
+                raise ValueError("cors_origins entries must be non-empty")
+            if origin == "*":
+                raise ValueError(
+                    "cors_origins may not be '*' — list each origin"
+                )
+            parsed = urlparse(origin)
+            if parsed.scheme not in _CORS_ALLOWED_SCHEMES or not parsed.netloc:
+                raise ValueError(
+                    f"cors_origins entry {origin!r} must be an absolute "
+                    "http(s) URL with no path (e.g. https://app.example.com)"
+                )
+            if parsed.path not in ("", "/"):
+                raise ValueError(
+                    f"cors_origins entry {origin!r} must not include a path"
+                )
+            # normalize: strip trailing slash so the middleware sees an
+            # exact-match origin regardless of how the operator wrote it.
+            cleaned.append(f"{parsed.scheme}://{parsed.netloc}")
+        return cleaned
 
     @property
     def is_lite(self) -> bool:

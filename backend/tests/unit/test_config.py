@@ -4,6 +4,7 @@ import logging
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from loom.config import Settings, get_settings
 
@@ -43,6 +44,51 @@ class TestCorsOriginsDefault:
         """default cors_origins is localhost:3000."""
         settings = Settings()
         assert settings.cors_origins == ["http://localhost:3000"]
+
+
+class TestCorsOriginsValidation:
+    """cors_origins must be well-formed absolute origins."""
+
+    def test_accepts_https_origin(self) -> None:
+        settings = Settings(cors_origins=["https://app.example.com"])
+        assert settings.cors_origins == ["https://app.example.com"]
+
+    def test_accepts_multiple_origins(self) -> None:
+        settings = Settings(
+            cors_origins=[
+                "https://app.example.com",
+                "http://localhost:3000",
+            ],
+        )
+        assert settings.cors_origins == [
+            "https://app.example.com",
+            "http://localhost:3000",
+        ]
+
+    def test_strips_trailing_slash(self) -> None:
+        """operators often paste URLs with a trailing slash."""
+        settings = Settings(cors_origins=["https://app.example.com/"])
+        assert settings.cors_origins == ["https://app.example.com"]
+
+    def test_rejects_wildcard(self) -> None:
+        with pytest.raises(ValidationError, match="'\\*'"):
+            Settings(cors_origins=["*"])
+
+    def test_rejects_empty_entry(self) -> None:
+        with pytest.raises(ValidationError, match="non-empty"):
+            Settings(cors_origins=["  "])
+
+    def test_rejects_missing_scheme(self) -> None:
+        with pytest.raises(ValidationError, match="absolute"):
+            Settings(cors_origins=["app.example.com"])
+
+    def test_rejects_non_http_scheme(self) -> None:
+        with pytest.raises(ValidationError, match="absolute"):
+            Settings(cors_origins=["ftp://example.com"])
+
+    def test_rejects_origin_with_path(self) -> None:
+        with pytest.raises(ValidationError, match="path"):
+            Settings(cors_origins=["https://example.com/app"])
 
 
 class TestValidateProductionSettings:
