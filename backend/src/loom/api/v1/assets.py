@@ -1,6 +1,8 @@
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
+from uuid import UUID
 
 from fastapi import (
     APIRouter,
@@ -20,12 +22,16 @@ from loom.dependencies import (
     get_storage_backend,
 )
 from loom.metrics import active_uploads
+from loom.models.asset import Asset
+from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.schemas.asset import (
     AssetListResponse,
     AssetResponse,
     AssetUploadResponse,
     ClockAnchorRequest,
     ClockAnchorResponse,
+    IngestUrlRequest,
+    IngestUrlResponse,
     PresignedUrlRequest,
     PresignedUrlResponse,
 )
@@ -49,6 +55,12 @@ from loom.services.ingest import (
     validate_file_type,
 )
 from loom.services.storage_backends import ORIGINALS_BUCKET, StorageBackend
+from loom.services.url_ingest import (
+    ExtractionError,
+    select_extractor,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/cases/{case_id}/assets",
@@ -626,3 +638,137 @@ async def restore_asset_endpoint(
     await db.commit()
     await db.refresh(asset)
     return AssetResponse.model_validate(asset)
+
+
+@router.post(
+    "/ingest-url",
+    response_model=IngestUrlResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+@user_limiter.limit("10/minute")
+async def ingest_from_url(
+    case_id: str,
+    body: IngestUrlRequest,
+    request: Request,
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_authenticated
+    ),
+    session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
+        get_db_session
+    ),
+) -> IngestUrlResponse:
+    """Queue ingestion of a public URL (editor+).
+
+    Only public content is supported — private, authenticated, or
+    paywalled URLs are out of scope. Returns 501 when the matched
+    extractor's optional dependency is not installed (the HTTP
+    fallback is always available). Returns 502 when Temporal is
+    unreachable.
+    """
+    db: AsyncSession = session  # type: ignore[assignment]
+    user_id = get_current_user_id(token_payload)
+    await _check_access(db, case_id, user_id, "editor")
+
+    submitted_url = str(body.url)
+
+    # pre-flight extractor availability: fail fast with a clear
+    # 501 before we create the row or enqueue the workflow.
+    try:
+        extractor = select_extractor(submitted_url)
+    except ExtractionError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        ) from err
+
+    if getattr(extractor, "source_method", None) != "url_http":
+        # only yt-dlp / archive extractors have optional deps;
+        # probe the extractor module's availability flag.
+        import importlib
+
+        mod = importlib.import_module(type(extractor).__module__)
+        if not getattr(mod, "_AVAILABLE", True):
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail=(
+                    f"extractor '{extractor.downloader}' is not "
+                    "available on this server; install the "
+                    "'url-ingest' extra"
+                ),
+            )
+
+    from uuid_extensions import uuid7
+
+    asset_id = uuid7()
+    placeholder_filename = f"url-ingest-{asset_id}"
+    placeholder_key = generate_storage_key(
+        case_id, str(asset_id), placeholder_filename
+    )
+
+    asset = Asset(
+        id=asset_id,
+        case_id=UUID(case_id),
+        original_filename=placeholder_filename,
+        storage_key=placeholder_key,
+        media_type="document",
+        mime_type="application/octet-stream",
+        file_size_bytes=0,
+        sha256_hash="0" * 64,
+        sha512_hash="0" * 128,
+        upload_status="pending",
+        uploaded_by=UUID(user_id),
+        processing_status="pending",
+        source_uri=submitted_url,
+    )
+    db.add(asset)
+    await db.flush()
+
+    ip_address = request.client.host if request.client else None
+    custody = ChainOfCustodyEntry(
+        asset_id=asset.id,
+        action="url_submitted",
+        actor_id=UUID(user_id),
+        detail={
+            "url": submitted_url,
+            "note": body.submission_note,
+        },
+        ip_address=ip_address,
+    )
+    db.add(custody)
+    await db.flush()
+
+    workflow_id = f"url-ingest-{asset.id}"
+    try:
+        from temporalio.client import Client
+
+        from loom.config import get_settings
+        from loom.workflows.url_ingest_workflow import (
+            UrlIngestWorkflow,
+        )
+
+        settings = get_settings()
+        client = await Client.connect(settings.temporal_host)
+        await client.start_workflow(
+            UrlIngestWorkflow.run,
+            args=[str(asset.id), submitted_url],
+            id=workflow_id,
+            task_queue="loom-ingest",
+        )
+    except Exception:
+        await db.rollback()
+        logger.error(
+            "failed to start url-ingest workflow for %s",
+            submitted_url,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="workflow service unavailable",
+        ) from None
+
+    await db.commit()
+    return IngestUrlResponse(
+        asset_id=asset.id,
+        workflow_id=workflow_id,
+        status="queued",
+    )

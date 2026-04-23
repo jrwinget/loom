@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 
 
 class AssetUploadResponse(BaseModel):
@@ -41,6 +41,15 @@ class AssetResponse(BaseModel):
     updated_at: datetime
     deleted_at: datetime | None = None
     deleted_by: UUID | None = None
+    source_uri: str | None = None
+    source_canonical_uri: str | None = None
+    source_method: str | None = None
+    source_downloader: str | None = None
+    source_downloader_version: str | None = None
+    source_retrieved_at: datetime | None = None
+    source_response_headers: Any | None = None
+    source_wayback_url: str | None = None
+    source_extractor_info: Any | None = None
 
     model_config = {"from_attributes": True}
 
@@ -76,3 +85,14 @@ class ClockAnchorResponse(BaseModel):
     clock_confidence: float
 
     model_config = {"from_attributes": True}
+
+
+class IngestUrlRequest(BaseModel):
+    url: HttpUrl
+    submission_note: str | None = None
+
+
+class IngestUrlResponse(BaseModel):
+    asset_id: UUID
+    workflow_id: str
+    status: Literal["queued"]

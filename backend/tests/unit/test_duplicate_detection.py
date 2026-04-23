@@ -119,16 +119,22 @@ async def test_find_duplicates_groups_correctly() -> None:
     asset1.id = "00000000-0000-0000-0000-000000000001"
     asset1.sha256_hash = "a" * 64
     asset1.media_type = "image"
+    asset1.source_method = None
+    asset1.source_uri = None
 
     asset2 = MagicMock()
     asset2.id = "00000000-0000-0000-0000-000000000002"
     asset2.sha256_hash = "a" * 64
     asset2.media_type = "image"
+    asset2.source_method = None
+    asset2.source_uri = None
 
     asset3 = MagicMock()
     asset3.id = "00000000-0000-0000-0000-000000000003"
     asset3.sha256_hash = "b" * 64
     asset3.media_type = "document"
+    asset3.source_method = None
+    asset3.source_uri = None
 
     # mock session
     session = AsyncMock()
@@ -173,6 +179,8 @@ async def test_find_duplicates_no_assets() -> None:
     asset1.id = "00000000-0000-0000-0000-000000000001"
     asset1.sha256_hash = "a" * 64
     asset1.media_type = "image"
+    asset1.source_method = None
+    asset1.source_uri = None
 
     session = AsyncMock()
     mock_result = MagicMock()
@@ -191,11 +199,15 @@ async def test_find_duplicates_near_duplicates() -> None:
     asset1.id = "00000000-0000-0000-0000-000000000001"
     asset1.sha256_hash = "a" * 64
     asset1.media_type = "image"
+    asset1.source_method = None
+    asset1.source_uri = None
 
     asset2 = MagicMock()
     asset2.id = "00000000-0000-0000-0000-000000000002"
     asset2.sha256_hash = "b" * 64  # different sha
     asset2.media_type = "image"
+    asset2.source_method = None
+    asset2.source_uri = None
 
     session = AsyncMock()
     call_count = 0
@@ -234,11 +246,15 @@ async def test_find_duplicates_no_duplicates() -> None:
     asset1.id = "00000000-0000-0000-0000-000000000001"
     asset1.sha256_hash = "a" * 64
     asset1.media_type = "document"
+    asset1.source_method = None
+    asset1.source_uri = None
 
     asset2 = MagicMock()
     asset2.id = "00000000-0000-0000-0000-000000000002"
     asset2.sha256_hash = "b" * 64
     asset2.media_type = "document"
+    asset2.source_method = None
+    asset2.source_uri = None
 
     session = AsyncMock()
     call_count = 0
@@ -258,6 +274,89 @@ async def test_find_duplicates_no_duplicates() -> None:
 
     clusters = await find_duplicates(session, _CASE_ID)
     assert clusters == []
+
+
+async def test_find_duplicates_never_merges_url_with_upload() -> None:
+    """Per issue #46: url-sourced and upload-sourced assets with
+    identical sha256 must stay in separate clusters because their
+    provenance differs.
+    """
+    from loom.services.duplicate_detection import find_duplicates
+
+    # same bytes, different provenance
+    upload_asset = MagicMock()
+    upload_asset.id = "00000000-0000-0000-0000-000000000001"
+    upload_asset.sha256_hash = "a" * 64
+    upload_asset.media_type = "image"
+    upload_asset.source_method = None
+    upload_asset.source_uri = None
+
+    url_asset = MagicMock()
+    url_asset.id = "00000000-0000-0000-0000-000000000002"
+    url_asset.sha256_hash = "a" * 64
+    url_asset.media_type = "image"
+    url_asset.source_method = "url_yt_dlp"
+    url_asset.source_uri = "https://example.com/video"
+
+    session = AsyncMock()
+    call_count = 0
+
+    async def mock_execute(query: object) -> MagicMock:
+        nonlocal call_count
+        call_count += 1
+        m = MagicMock()
+        if call_count == 1:
+            m.scalars.return_value.all.return_value = [
+                upload_asset,
+                url_asset,
+            ]
+        else:
+            m.scalar_one_or_none.return_value = None
+        return m
+
+    session.execute = AsyncMock(side_effect=mock_execute)
+
+    clusters = await find_duplicates(session, _CASE_ID)
+    # no cluster: identical sha256 but distinct provenance buckets
+    assert clusters == []
+
+
+async def test_find_duplicates_allows_two_url_copies() -> None:
+    """Two ingests of the same URL still cluster (same bucket)."""
+    from loom.services.duplicate_detection import find_duplicates
+
+    asset1 = MagicMock()
+    asset1.id = "00000000-0000-0000-0000-000000000003"
+    asset1.sha256_hash = "a" * 64
+    asset1.media_type = "image"
+    asset1.source_method = "url_yt_dlp"
+    asset1.source_uri = "https://example.com/video"
+
+    asset2 = MagicMock()
+    asset2.id = "00000000-0000-0000-0000-000000000004"
+    asset2.sha256_hash = "a" * 64
+    asset2.media_type = "image"
+    asset2.source_method = "url_yt_dlp"
+    asset2.source_uri = "https://example.com/video"
+
+    session = AsyncMock()
+    call_count = 0
+
+    async def mock_execute(query: object) -> MagicMock:
+        nonlocal call_count
+        call_count += 1
+        m = MagicMock()
+        if call_count == 1:
+            m.scalars.return_value.all.return_value = [asset1, asset2]
+        else:
+            m.scalar_one_or_none.return_value = None
+        return m
+
+    session.execute = AsyncMock(side_effect=mock_execute)
+
+    clusters = await find_duplicates(session, _CASE_ID)
+    assert len(clusters) == 1
+    assert clusters[0]["type"] == "exact"
 
 
 async def test_create_cluster() -> None:

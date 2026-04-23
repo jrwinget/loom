@@ -173,6 +173,13 @@ Desktop Lite is local-only by design:
   reach it.
 - No outbound network calls are made by Loom itself. Update checks,
   telemetry, and crash reporting are off.
+- The one exception is URL ingestion: when you explicitly submit a
+  URL via the ingest form, Loom fetches that URL and (best-effort)
+  requests a Wayback Machine snapshot. Depending on the URL, this
+  may contact YouTube / Twitter / other sites (via yt-dlp),
+  archive.org, or the submitted host directly. No outbound traffic
+  is generated unless you submit a URL; the dispatcher also blocks
+  URLs that resolve to private / loopback / link-local addresses.
 - Originals are stored read-only via the OS read-only flag, giving
   WORM semantics without a dedicated object store.
 - Authentication, session management, and CSRF protection use the

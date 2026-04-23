@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
+    DateTime,
     Float,
     ForeignKey,
     Index,
@@ -127,6 +128,53 @@ class Asset(UUIDMixin, TimestampMixin, Base):
     )
     deleted_by: Mapped[UUID | None] = mapped_column(
         ForeignKey("users.id"),
+        nullable=True,
+        default=None,
+    )
+    # url-ingestion provenance (issue #46). every field is nullable
+    # so legacy upload-sourced rows remain valid.
+    source_uri: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        default=None,
+    )
+    source_canonical_uri: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        default=None,
+    )
+    source_method: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        default=None,
+    )
+    source_downloader: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        default=None,
+    )
+    source_downloader_version: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        default=None,
+    )
+    source_retrieved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
+    )
+    source_response_headers: Mapped[Any | None] = mapped_column(
+        JSON,
+        nullable=True,
+        default=None,
+    )
+    source_wayback_url: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        default=None,
+    )
+    source_extractor_info: Mapped[Any | None] = mapped_column(
+        JSON,
         nullable=True,
         default=None,
     )
