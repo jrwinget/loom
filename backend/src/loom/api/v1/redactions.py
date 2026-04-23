@@ -2,7 +2,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -79,8 +79,8 @@ async def create_asset_redaction(
 async def list_asset_redactions(
     case_id: str,
     asset_id: str,
-    skip: int = 0,
-    limit: int = 20,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
@@ -88,7 +88,13 @@ async def list_asset_redactions(
         get_db_session
     ),
 ) -> RedactionListResponse:
-    """list redactions for an asset (viewer+)."""
+    """list redactions for an asset (viewer+).
+
+    redactions are a heavy payload (regions + derivative metadata),
+    so this endpoint uses the heavy-payload pagination tier (20/100)
+    — same as assets, custody, and duplicates. light-payload
+    listings use 50/200.
+    """
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
 
