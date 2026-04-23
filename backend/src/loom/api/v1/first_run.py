@@ -10,11 +10,13 @@ returns 409 Conflict once any user exists. See GitHub issue #42.
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, insert, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.config import get_settings
 from loom.dependencies import get_db_session
+from loom.models.audit import AuditLogEntry
+from loom.models.base import _generate_uuid7
 from loom.models.user import User
 from loom.schemas.first_run import (
     FirstRunCompleteRequest,
@@ -38,7 +40,9 @@ async def _user_count(db: AsyncSession) -> int:
 
 
 @router.get("/status", response_model=FirstRunStatus)
+@limiter.limit("30/minute")
 async def get_status(
+    request: Request,
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
@@ -46,7 +50,9 @@ async def get_status(
     """report whether first-run onboarding is required.
 
     no auth required by design: the caller is the desktop shell
-    (or a fresh browser) before any user account exists.
+    (or a fresh browser) before any user account exists. rate
+    limited so the unauthenticated endpoint cannot be used to
+    probe server-profile instances for enumeration.
     """
     db: AsyncSession = session  # type: ignore[assignment]
     settings = get_settings()
@@ -77,32 +83,77 @@ async def complete(
 
     no auth required by design. returns 409 Conflict if any user
     already exists — never silently overwrites an existing admin.
+
+    the insert is a single INSERT...SELECT...WHERE NOT EXISTS so
+    two racing requests cannot both end up creating an admin. the
+    rowcount check tells the loser it lost.
     """
     db: AsyncSession = session  # type: ignore[assignment]
 
-    # guard: only allowed when the users table is empty
-    count = await _user_count(db)
-    if count > 0:
+    new_id = _generate_uuid7()
+    hashed = hash_password(body.admin_password)
+
+    # atomic "insert only if no user exists" — SQLite + Postgres
+    # both evaluate the SELECT subquery and INSERT in the same
+    # statement, closing the TOCTOU between count() and add().
+    user_exists = select(literal(1)).select_from(User).exists()
+    src = select(
+        literal(new_id).label("id"),
+        literal(body.admin_email).label("email"),
+        literal(body.admin_full_name).label("display_name"),
+        literal(hashed).label("password_hash"),
+        literal("admin").label("role"),
+        literal(True).label("is_active"),
+        literal(False).label("mfa_enabled"),
+    ).where(~exists(user_exists))
+    stmt = insert(User).from_select(
+        [
+            "id",
+            "email",
+            "display_name",
+            "password_hash",
+            "role",
+            "is_active",
+            "mfa_enabled",
+        ],
+        src,
+    )
+    result = await db.execute(stmt)
+    # AsyncSession.execute returns Result; DML returns CursorResult
+    # at runtime. use getattr so mypy stays happy without a cast.
+    rows_inserted = int(getattr(result, "rowcount", 0) or 0)
+    if rows_inserted == 0:
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="first-run already completed",
         )
 
-    user = User(
-        email=body.admin_email,
-        display_name=body.admin_full_name,
-        password_hash=hash_password(body.admin_password),
-        role="admin",
+    # explicit audit entry for the bootstrap admin. the audit
+    # middleware also logs the POST, but here we tie the action to
+    # the created user_id so the tamper-evident record answers
+    # "which user became the bootstrap admin?".
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("User-Agent")
+    db.add(
+        AuditLogEntry(
+            actor_id=None,
+            action="user.bootstrap.create",
+            resource_type="users",
+            resource_id=new_id,
+            detail={"email": body.admin_email},
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
     )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
 
-    access = create_access_token(str(user.id), user.role)
-    refresh = create_refresh_token(str(user.id))
+    await db.commit()
+
+    access = create_access_token(str(new_id), "admin")
+    refresh = create_refresh_token(str(new_id))
 
     return FirstRunCompleteResponse(
-        user_id=user.id,
+        user_id=new_id,
         access_token=access,
         refresh_token=refresh,
     )
