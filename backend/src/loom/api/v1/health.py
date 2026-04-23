@@ -46,12 +46,14 @@ async def health_check(request: Request) -> dict[str, Any]:
         services["database"] = "error"
 
     # minio / storage check. lite profile uses the local filesystem
-    # backend and has no minio client to probe; treat as ok.
-    if settings.is_lite or request.app.state.minio_client is None:
+    # backend and has no minio client to probe; treat as ok. some
+    # test apps leave the attribute unset entirely, so use getattr
+    # rather than forcing an AttributeError.
+    minio_client = getattr(request.app.state, "minio_client", None)
+    if settings.is_lite or minio_client is None:
         services["storage"] = "ok"
     else:
         try:
-            minio_client = request.app.state.minio_client
             minio_client.bucket_exists(EVIDENCE_BUCKET)
             services["storage"] = "ok"
         except Exception:
