@@ -1,10 +1,21 @@
-from unittest.mock import AsyncMock, MagicMock
+from collections.abc import Iterator
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 from fastapi import FastAPI
 
 from loom.main import create_app
+
+
+@pytest.fixture(autouse=True)
+def _temporal_probe_ok() -> Iterator[AsyncMock]:
+    """default every test to a reachable temporal server."""
+    with patch(
+        "loom.api.v1.health._probe_temporal",
+        new=AsyncMock(return_value="ok"),
+    ) as mock:
+        yield mock
 
 
 @pytest.fixture
@@ -75,6 +86,7 @@ async def test_health_returns_ok(
     assert data["status"] == "ok"
     assert data["services"]["database"] == "ok"
     assert data["services"]["storage"] == "ok"
+    assert data["services"]["temporal"] == "ok"
 
 
 async def test_health_has_request_id(
@@ -105,3 +117,55 @@ async def test_health_db_down(
     assert data["services"]["database"] == "error"
     assert data["services"]["storage"] == "ok"
     assert data["status"] == "error"
+
+
+async def test_health_temporal_down_fails_overall(
+    mock_app: FastAPI,
+    _temporal_probe_ok: AsyncMock,
+) -> None:
+    """unreachable temporal flips overall status to error."""
+    _temporal_probe_ok.return_value = "error"
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=mock_app),
+        base_url="http://testserver",
+    ) as client:
+        resp = await client.get("/api/v1/health")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["services"]["temporal"] == "error"
+    assert data["services"]["database"] == "ok"
+    assert data["services"]["storage"] == "ok"
+    assert data["status"] == "error"
+
+
+async def test_health_lite_profile_skips_minio(
+    mock_app: FastAPI,
+) -> None:
+    """lite profile reports storage ok without a minio client."""
+    from loom.config import Settings, get_settings
+
+    lite_settings = Settings(
+        secret_key="test-secret-key-that-is-long-enough-for-validation",
+        database_url="sqlite+aiosqlite:///:memory:",
+        deployment_profile="lite",
+        storage_signing_secret="test-signing-secret",
+    )
+    mock_app.state.minio_client = None
+
+    get_settings.cache_clear()
+    with patch(
+        "loom.api.v1.health.get_settings",
+        return_value=lite_settings,
+    ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=mock_app),
+            base_url="http://testserver",
+        ) as client:
+            resp = await client.get("/api/v1/health")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["services"]["storage"] == "ok"
+    assert data["status"] == "ok"
