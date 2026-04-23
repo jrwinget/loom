@@ -81,6 +81,9 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 filterwarnings = ["ignore::DeprecationWarning"]
 addopts = "--strict-markers -ra"
+markers = [
+    "temporal_real: exercise the real _probe_temporal, skipping the autouse mock",
+]
 
 [tool.ruff]
 target-version = "py312"
