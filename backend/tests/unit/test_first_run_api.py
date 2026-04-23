@@ -292,8 +292,7 @@ async def test_complete_hashes_password_before_insert(
     assert payload["admin_password"] not in values
     # exactly one argon2 hash was bound, and it verifies
     hashes = [
-        v for v in values
-        if isinstance(v, str) and v.startswith("$argon2")
+        v for v in values if isinstance(v, str) and v.startswith("$argon2")
     ]
     assert len(hashes) == 1
     assert verify_password(payload["admin_password"], hashes[0])
@@ -323,9 +322,7 @@ async def test_complete_returns_409_when_user_already_exists(
 
     assert resp.status_code == 409
     # no audit entry written when the insert is rejected
-    assert [
-        o for o in session.added if isinstance(o, AuditLogEntry)
-    ] == []
+    assert [o for o in session.added if isinstance(o, AuditLogEntry)] == []
 
 
 async def test_complete_second_call_loses_race(
