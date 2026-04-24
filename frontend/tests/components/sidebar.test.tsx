@@ -14,6 +14,13 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+// sidebar reads deployment profile via useFirstRunStatus to decide
+// whether to render the Storage nav entry. stub it so the test does
+// not need a QueryClientProvider.
+vi.mock('@/hooks/use-first-run', () => ({
+  useFirstRunStatus: () => ({ data: undefined }),
+}));
+
 function renderSidebar(
   route = '/',
 ): ReturnType<typeof render> {

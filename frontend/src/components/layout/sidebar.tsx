@@ -1,4 +1,5 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
+import { useFirstRunStatus } from '@/hooks/use-first-run';
 import { useUiStore } from '@/stores/ui-store';
 
 const navItems = [
@@ -17,6 +18,9 @@ export function Sidebar(): React.ReactElement {
   const { pathname } = useLocation();
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
+  // storage management only appears on desktop (lite) installs.
+  const { data: firstRun } = useFirstRunStatus();
+  const showStorage = firstRun?.deployment_profile === 'lite';
 
   return (
     <aside
@@ -97,6 +101,18 @@ export function Sidebar(): React.ReactElement {
         >
           {sidebarOpen ? 'Settings' : 'S'}
         </Link>
+        {showStorage && (
+          <Link
+            to="/settings/storage"
+            aria-current={
+              isActive('/settings/storage', pathname) ? 'page' : undefined
+            }
+            aria-label={sidebarOpen ? undefined : 'Storage'}
+            className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            {sidebarOpen ? 'Storage' : 'D'}
+          </Link>
+        )}
       </nav>
 
       {/* collapse / expand */}

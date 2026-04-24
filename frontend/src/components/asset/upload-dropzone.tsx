@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { useUpload } from '@/hooks/use-upload';
 import type { UploadFile } from '@/hooks/use-upload';
+import { StorageAdvisory } from '@/components/asset/storage-advisory';
 import { UrlIngestForm } from '@/components/asset/url-ingest-form';
 
 function formatBytes(bytes: number): string {
@@ -76,6 +77,16 @@ export function UploadDropzone(props: UploadDropzoneProps): React.ReactElement {
 
   const hasPending = files.some((f) => f.status === 'pending');
 
+  // pass only unfinished uploads to the advisory so the banner
+  // disappears as soon as everything has landed.
+  const advisoryFiles = useMemo(
+    () =>
+      files
+        .filter((f) => f.status === 'pending' || f.status === 'uploading')
+        .map((f) => f.file),
+    [files],
+  );
+
   return (
     <div data-testid="upload-dropzone">
       <Tabs.Root defaultValue="files" data-testid="upload-tabs">
@@ -97,6 +108,7 @@ export function UploadDropzone(props: UploadDropzoneProps): React.ReactElement {
         </Tabs.List>
 
         <Tabs.Content value="files">
+          <StorageAdvisory selectedFiles={advisoryFiles} />
           {/* drop area */}
           <div
             data-testid="drop-area"

@@ -96,4 +96,9 @@ export const queryKeys = {
   mfa: {
     status: ['mfa', 'status'] as const,
   },
+  storage: {
+    usage: ['storage', 'usage'] as const,
+    relocationJob: (jobId: string) =>
+      ['storage', 'relocate', jobId] as const,
+  },
 } as const;

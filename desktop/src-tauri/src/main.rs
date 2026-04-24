@@ -5,20 +5,24 @@
 //   3. block-wait for /api/v1/health to return 200 before showing UI.
 //   4. kill the sidecar on every catchable exit path (window close,
 //      signal, panic, sidecar-death).
+//   5. expose ipc commands for the storage ux flow: pick_directory,
+//      disk_usage, persist_data_directory, restart_backend.
 #![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
 )]
 
 use std::panic;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 
 use rand::RngCore;
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
+use sysinfo::Disks;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
+use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_store::StoreExt;
@@ -36,10 +40,16 @@ const KEY_STORAGE_SIGNING_SECRET: &str = "loom_storage_signing_secret";
 // validate_secret_key() length floor with room to spare.
 const SECRET_BYTES: usize = 32;
 
+// user preferences live in their own store so they can be edited
+// (or deleted for a reset) without touching secrets.
+const CONFIG_STORE_PATH: &str = "config.json";
+const KEY_DATA_DIR: &str = "data_dir";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct LoomConfig {
     // user-chosen data dir (originals, derivatives, sqlite). none on
-    // first run; the frontend will trigger a dialog and persist it.
+    // first run; the frontend triggers a dialog and persists it via
+    // the ``persist_data_directory`` command.
     data_dir: Option<PathBuf>,
 }
 
@@ -48,8 +58,8 @@ impl LoomConfig {
         if let Some(dir) = &self.data_dir {
             return dir.clone();
         }
-        // fallback: ~/.loom/data. TODO: prompt on first run and
-        // persist via tauri-plugin-store before reaching this path.
+        // fallback: ~/.loom/data. used on first launch before the
+        // user picks a directory in the first-run flow.
         match dirs::home_dir() {
             Some(home) => home.join(".loom").join("data"),
             None => PathBuf::from(".loom/data"),
@@ -57,6 +67,7 @@ impl LoomConfig {
     }
 }
 
+#[derive(Clone)]
 struct BootstrapSecrets {
     secret_key: String,
     storage_signing_secret: String,
@@ -75,6 +86,25 @@ impl SidecarProcess {
             }
         }
     }
+
+    fn replace(&self, child: CommandChild) {
+        if let Ok(mut guard) = self.0.lock() {
+            if let Some(old) = guard.take() {
+                let _ = old.kill();
+            }
+            *guard = Some(child);
+        }
+    }
+}
+
+// shared state held across commands so ``restart_backend`` can
+// respawn the sidecar with the same secrets but a fresh config.
+struct BackendState(Mutex<BootstrapSecrets>);
+
+#[derive(Debug, Clone, Serialize)]
+struct DiskUsage {
+    free: u64,
+    total: u64,
 }
 
 fn generate_hex_secret() -> String {
@@ -115,6 +145,30 @@ fn ensure_bootstrap_secrets(
         secret_key,
         storage_signing_secret,
     })
+}
+
+fn load_config(app: &AppHandle) -> Result<LoomConfig, String> {
+    let store = app
+        .store(CONFIG_STORE_PATH)
+        .map_err(|e| format!("failed to open config store: {e}"))?;
+    let data_dir = store.get(KEY_DATA_DIR).and_then(|value| {
+        value.as_str().map(|s| PathBuf::from(s.to_string()))
+    });
+    Ok(LoomConfig { data_dir })
+}
+
+fn save_data_dir(app: &AppHandle, path: &Path) -> Result<(), String> {
+    let store = app
+        .store(CONFIG_STORE_PATH)
+        .map_err(|e| format!("failed to open config store: {e}"))?;
+    store.set(
+        KEY_DATA_DIR,
+        serde_json::Value::String(path.display().to_string()),
+    );
+    store
+        .save()
+        .map_err(|e| format!("failed to persist config: {e}"))?;
+    Ok(())
 }
 
 fn spawn_backend(
@@ -223,6 +277,94 @@ fn install_panic_hook(app_handle: AppHandle) {
     }));
 }
 
+// ipc command: open a native folder picker. returns the chosen path
+// (utf-8) or None if the user cancelled.
+#[tauri::command]
+async fn pick_directory(app: AppHandle) -> Result<Option<String>, String> {
+    // the dialog plugin's ``pick_folder`` uses a callback; wrap it in
+    // a oneshot so the async command can await the user's choice.
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog().file().pick_folder(move |path| {
+        let _ = tx.send(path);
+    });
+    let path = rx
+        .await
+        .map_err(|e| format!("folder picker channel closed: {e}"))?;
+    match path {
+        Some(p) => {
+            // FilePath can be a plain path or a uri; prefer the path
+            // form since the backend consumes filesystem paths.
+            let as_path = p.into_path().map_err(|e| e.to_string())?;
+            Ok(Some(as_path.display().to_string()))
+        }
+        None => Ok(None),
+    }
+}
+
+// ipc command: return free/total bytes for the disk that contains
+// ``path``. used as a quick local advisory before the backend's
+// /storage/check roundtrip. returns zeroed counts if no disk matches
+// rather than erroring — callers use the backend response for the
+// authoritative answer.
+#[tauri::command]
+fn disk_usage(path: String) -> Result<DiskUsage, String> {
+    let target = PathBuf::from(&path);
+    let disks = Disks::new_with_refreshed_list();
+
+    // pick the disk whose mount point is the longest prefix of the
+    // target path. longer prefixes win so nested mounts beat the
+    // root mount.
+    let mut best: Option<(&sysinfo::Disk, usize)> = None;
+    for disk in disks.list() {
+        let mount = disk.mount_point();
+        if target.starts_with(mount) {
+            let len = mount.as_os_str().len();
+            if best.map_or(true, |(_, n)| len > n) {
+                best = Some((disk, len));
+            }
+        }
+    }
+
+    let (free, total) = match best {
+        Some((disk, _)) => (disk.available_space(), disk.total_space()),
+        None => (0, 0),
+    };
+    Ok(DiskUsage { free, total })
+}
+
+// ipc command: persist the user's chosen data directory so the next
+// launch (and any subsequent restart_backend) picks it up.
+#[tauri::command]
+fn persist_data_directory(
+    app: AppHandle,
+    path: String,
+) -> Result<(), String> {
+    save_data_dir(&app, Path::new(&path))
+}
+
+// ipc command: kill the running sidecar and respawn it under the
+// latest persisted data dir. blocks until the new backend answers
+// /api/v1/health so the ui can trust the restart succeeded.
+#[tauri::command]
+async fn restart_backend(app: AppHandle) -> Result<(), String> {
+    let sidecar_state = app.state::<SidecarProcess>();
+    sidecar_state.take_and_kill();
+
+    let config = load_config(&app)?;
+    let secrets = {
+        let backend_state = app.state::<BackendState>();
+        let guard = backend_state
+            .0
+            .lock()
+            .map_err(|_| "backend state poisoned".to_string())?;
+        guard.clone()
+    };
+
+    let child = spawn_backend(&app, &config, &secrets)?;
+    app.state::<SidecarProcess>().replace(child);
+    wait_for_health().await
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -230,6 +372,12 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(SidecarProcess(Mutex::new(None)))
+        .invoke_handler(tauri::generate_handler![
+            pick_directory,
+            disk_usage,
+            persist_data_directory,
+            restart_backend,
+        ])
         .setup(|app| {
             let handle = app.handle().clone();
 
@@ -240,17 +388,14 @@ fn main() {
 
             let secrets = ensure_bootstrap_secrets(&handle)
                 .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+            app.manage(BackendState(Mutex::new(secrets.clone())));
 
-            // TODO: load LoomConfig from tauri-plugin-store instead of
-            // relying on the fallback path.
-            let config = LoomConfig { data_dir: None };
+            let config = load_config(&handle)
+                .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+
             let child = spawn_backend(&handle, &config, &secrets)
                 .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
-            app.state::<SidecarProcess>()
-                .0
-                .lock()
-                .expect("sidecar mutex poisoned")
-                .replace(child);
+            app.state::<SidecarProcess>().replace(child);
 
             // block the setup hook until the backend is healthy so
             // the webview never sees a connection refused.
@@ -287,3 +432,4 @@ fn main() {
             }
         });
 }
+
