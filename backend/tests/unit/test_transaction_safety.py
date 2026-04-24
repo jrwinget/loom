@@ -185,7 +185,9 @@ class TestCreateOrgSavepoint:
     async def test_adds_org_and_membership(self) -> None:
         """both org and membership are added."""
         session = _mock_session()
-        result = await create_org(session, "Legal Observers Chicago", "chapter", _USER_ID)
+        result = await create_org(
+            session, "Legal Observers Chicago", "chapter", _USER_ID
+        )
         assert isinstance(result, Organization)
         assert session.add.call_count == 2
         second_add = session.add.call_args_list[1][0][0]
