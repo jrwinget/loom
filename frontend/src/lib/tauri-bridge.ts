@@ -62,9 +62,7 @@ export interface DiskUsage {
   total: number;
 }
 
-export async function tauriDiskUsage(
-  path: string,
-): Promise<DiskUsage | null> {
+export async function tauriDiskUsage(path: string): Promise<DiskUsage | null> {
   if (!isTauri) return null;
   return invokeCommand<DiskUsage>('disk_usage', { path });
 }

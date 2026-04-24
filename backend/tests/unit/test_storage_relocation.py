@@ -365,3 +365,129 @@ async def test_start_relocation_rejects_concurrent_jobs(
         # let the background task drain so asyncio doesn't warn
         # about un-awaited tasks at teardown.
         await _wait_for_job(first.job_id)
+
+
+# ---------------------------------------------------------------------
+# edge-case coverage: validation + hash mismatch + auxiliary copies
+# ---------------------------------------------------------------------
+
+
+def test_start_relocation_missing_source(
+    tmp_path: Path, async_session_factory: Any
+) -> None:
+    """source dir must exist."""
+    missing = tmp_path / "does-not-exist"
+    dst = tmp_path / "dst"
+    with pytest.raises(ValueError, match="does not exist"):
+        start_relocation(async_session_factory, missing, dst, uuid4())
+
+
+def test_start_relocation_rejects_unwritable_target(
+    tmp_path: Path, async_session_factory: Any
+) -> None:
+    """probe_path_writable rejection bubbles out as ValueError."""
+    src = tmp_path / "src"
+    src.mkdir()
+    bad_dst = tmp_path / "OneDrive" / "loom"
+    with pytest.raises(ValueError, match="cloud-sync"):
+        start_relocation(async_session_factory, src, bad_dst, uuid4())
+
+
+@pytest.mark.asyncio
+async def test_relocation_fails_on_hash_mismatch(
+    tmp_path: Path,
+    async_session_factory: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """hash mismatch marks failed and wipes the bad destination copy."""
+    src_dir = tmp_path / "src"
+    dst_dir = tmp_path / "dst"
+    src_dir.mkdir()
+
+    backend = LocalStorageBackend(src_dir, signing_secret="unit")
+    backend.ensure_buckets()
+    backend.upload_bytes(
+        ORIGINALS_BUCKET,
+        f"{uuid4()}/{uuid4()}/payload.bin",
+        b"evidence" * 64,
+        "application/octet-stream",
+    )
+
+    # force a mismatch by stubbing _hash_file to return distinct values
+    # on successive calls (source vs destination pass).
+    from loom.services import storage_relocation as sr
+
+    outputs = iter(["aaaa", "bbbb"])
+    monkeypatch.setattr(sr, "_hash_file", lambda _path: next(outputs))
+
+    job = start_relocation(async_session_factory, src_dir, dst_dir, uuid4())
+    await _wait_for_job(job.job_id)
+
+    job = RELOCATION_REGISTRY[job.job_id]
+    assert job.status == "failed"
+    assert job.error is not None
+    assert "hash mismatch" in job.error
+    # bad copy must not linger on disk.
+    leftovers = list((dst_dir / "buckets" / ORIGINALS_BUCKET).rglob("*.bin"))
+    assert leftovers == []
+
+
+@pytest.mark.asyncio
+async def test_relocation_skips_custody_for_unparseable_key(
+    tmp_path: Path,
+    sync_engine: Engine,
+    async_session_factory: Any,
+) -> None:
+    """non-UUID asset segment copies the file but skips custody."""
+    src_dir = tmp_path / "src"
+    dst_dir = tmp_path / "dst"
+    src_dir.mkdir()
+
+    backend = LocalStorageBackend(src_dir, signing_secret="unit")
+    backend.ensure_buckets()
+    # deliberately malformed key: "case/not-a-uuid/file"
+    backend.upload_bytes(
+        ORIGINALS_BUCKET,
+        "case/not-a-uuid/file.bin",
+        b"payload" * 32,
+        "application/octet-stream",
+    )
+
+    job = start_relocation(async_session_factory, src_dir, dst_dir, uuid4())
+    await _wait_for_job(job.job_id)
+
+    assert RELOCATION_REGISTRY[job.job_id].status == "completed"
+    # file still copied…
+    dst = dst_dir / "buckets" / ORIGINALS_BUCKET / "case/not-a-uuid/file.bin"
+    assert dst.exists()
+    # …but no custody entry because the asset id can't be extracted.
+    with Session(sync_engine) as session:
+        entries = list(session.execute(select(ChainOfCustodyEntry)).scalars())
+    assert entries == []
+
+
+@pytest.mark.asyncio
+async def test_relocation_copies_db_and_logs(
+    tmp_path: Path,
+    async_session_factory: Any,
+) -> None:
+    """the db file and logs tree are mirrored as auxiliaries."""
+    src_dir = tmp_path / "src"
+    dst_dir = tmp_path / "dst"
+    src_dir.mkdir()
+
+    # drop a fake db file and a logs tree alongside an empty buckets dir
+    (src_dir / "buckets").mkdir()
+    (src_dir / "loom.db").write_bytes(b"sqlite-header")
+    (src_dir / "logs").mkdir()
+    (src_dir / "logs" / "backend.log").write_text("hello")
+    (src_dir / "logs" / "sub").mkdir()
+    (src_dir / "logs" / "sub" / "rotated.log").write_text("old")
+
+    job = start_relocation(async_session_factory, src_dir, dst_dir, uuid4())
+    await _wait_for_job(job.job_id)
+
+    assert RELOCATION_REGISTRY[job.job_id].status == "completed"
+    assert (dst_dir / "loom.db").read_bytes() == b"sqlite-header"
+    assert (dst_dir / "logs" / "backend.log").read_text() == "hello"
+    assert (dst_dir / "logs" / "sub" / "rotated.log").read_text() == "old"

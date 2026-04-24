@@ -14,10 +14,7 @@ import {
   restartBackend,
 } from '@/lib/tauri-bridge';
 import { useToastStore } from '@/stores/toast-store';
-import type {
-  StorageCheckResult,
-  StorageUsage,
-} from '@/types/storage';
+import type { StorageCheckResult, StorageUsage } from '@/types/storage';
 
 function UsageRow(props: { label: string; bytes: number }): React.ReactElement {
   return (
@@ -52,10 +49,10 @@ function UsageCard(props: {
       {usage.onSystemDrive && (
         <p
           role="alert"
-          className="rounded-md border border-warning/50 bg-warning/10 p-2 text-xs text-foreground"
+          className="border-warning/50 bg-warning/10 rounded-md border p-2 text-xs text-foreground"
         >
-          Data is on the system drive — consider moving to a dedicated drive
-          for large case files.
+          Data is on the system drive — consider moving to a dedicated drive for
+          large case files.
         </p>
       )}
 
@@ -207,13 +204,13 @@ function MoveDialog(props: {
             Move data directory
           </Dialog.Title>
           <Dialog.Description className="text-sm text-muted-foreground">
-            Pick a new directory. Loom will copy originals, derivatives, and
-            the database over, verify hashes, then restart.
+            Pick a new directory. Loom will copy originals, derivatives, and the
+            database over, verify hashes, then restart.
           </Dialog.Description>
 
           <div className="space-y-2 text-sm">
             <p className="text-muted-foreground">Current</p>
-            <p className="bg-muted/40 break-all rounded-md border border-border p-2 font-mono text-foreground">
+            <p className="break-all rounded-md border border-border bg-muted/40 p-2 font-mono text-foreground">
               {currentPath}
             </p>
           </div>
@@ -222,7 +219,7 @@ function MoveDialog(props: {
             <p className="text-muted-foreground">Target</p>
             <div className="flex items-center gap-2">
               <p
-                className="bg-muted/40 flex-1 break-all rounded-md border border-border p-2 font-mono text-foreground"
+                className="flex-1 break-all rounded-md border border-border bg-muted/40 p-2 font-mono text-foreground"
                 data-testid="move-target-path"
               >
                 {target ?? '(none selected)'}

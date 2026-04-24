@@ -1,10 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useFirstRunStatus } from '@/hooks/use-first-run';
-import {
-  useStorageCheck,
-  useStorageUsage,
-} from '@/hooks/use-storage';
+import { useStorageCheck, useStorageUsage } from '@/hooks/use-storage';
 
 interface StorageAdvisoryProps {
   // files the user has queued but not yet uploaded. the component
@@ -49,14 +46,12 @@ export function StorageAdvisory(
     <div
       role="alert"
       data-testid="storage-advisory"
-      className="mb-3 flex flex-col gap-2 rounded-md border border-warning/60 bg-warning/10 p-3 text-sm text-foreground sm:flex-row sm:items-center sm:justify-between"
+      className="border-warning/60 bg-warning/10 mb-3 flex flex-col gap-2 rounded-md border p-3 text-sm text-foreground sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
         <p className="font-medium">Low free space on data drive</p>
         {check.data.advisoryReason && (
-          <p className="text-muted-foreground">
-            {check.data.advisoryReason}
-          </p>
+          <p className="text-muted-foreground">{check.data.advisoryReason}</p>
         )}
       </div>
       <Link

@@ -98,7 +98,6 @@ export const queryKeys = {
   },
   storage: {
     usage: ['storage', 'usage'] as const,
-    relocationJob: (jobId: string) =>
-      ['storage', 'relocate', jobId] as const,
+    relocationJob: (jobId: string) => ['storage', 'relocate', jobId] as const,
   },
 } as const;

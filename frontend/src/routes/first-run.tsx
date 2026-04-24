@@ -202,8 +202,8 @@ export function FirstRunPage(): React.ReactElement {
 
             {changed && (
               <p className="rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
-                Requires restart to take effect — we&apos;ll restart after
-                you finish setup.
+                Requires restart to take effect — we&apos;ll restart after you
+                finish setup.
               </p>
             )}
 
