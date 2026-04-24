@@ -5,8 +5,8 @@ when working with code in this repository.
 
 ## Project Overview
 
-Loom is an **evidence operating system** for the National
-Lawyers Guild. It combines multiple source documents (video,
+Loom is an **evidence operating system** for civil-rights
+legal teams. It combines multiple source documents (video,
 photos, statements) into defensible event timelines. This is
 civil-liberties tooling, not surveillance tech.
 

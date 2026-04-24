@@ -5,9 +5,9 @@ produces a double-clickable installer (`.dmg`, `.msi`, `.AppImage`,
 `.deb`) that ships the Python backend as a sidecar binary and loads
 the compiled frontend inside a native WebView.
 
-The shell exists so that National Lawyers Guild legal observers can
-install Loom on a field laptop without touching Docker, Postgres, or
-the terminal.
+The shell exists so that legal observers and civil-rights attorneys
+can install Loom on a field laptop without touching Docker, Postgres,
+or the terminal.
 
 ## Prerequisites
 
@@ -60,8 +60,8 @@ until the CI pipeline applies real signatures.
   Apple notarization flow and the Windows EV certificate live in the
   release workflow; local signing produces artifacts that confuse
   end-users when they don't match the published hashes.
-- **Bundle identifiers are load-bearing.** Keep `org.nlg.loom` stable
-  across releases; changing it breaks auto-update on macOS.
+- **Bundle identifiers are load-bearing.** Keep `io.loom.desktop`
+  stable across releases; changing it breaks auto-update on macOS.
 - **Sidecar architecture matching.** The PyInstaller backend is
   built per-arch (arm64 / x86_64). Tauri expects the sidecar binary
   to exist at `backend/dist/loom-backend-<triple>` at bundle time;

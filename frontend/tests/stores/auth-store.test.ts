@@ -4,7 +4,7 @@ import type { User } from '@/types';
 
 const mockUser: User = {
   id: 'user-1',
-  email: 'analyst@nlg.org',
+  email: 'analyst@example.org',
   displayName: 'Jane Doe',
   role: 'analyst',
 };
@@ -53,7 +53,7 @@ describe('auth-store', () => {
   it('preserves user data across setAuth calls', () => {
     const admin: User = {
       id: 'admin-1',
-      email: 'admin@nlg.org',
+      email: 'admin@example.org',
       displayName: 'Admin',
       role: 'admin',
     };

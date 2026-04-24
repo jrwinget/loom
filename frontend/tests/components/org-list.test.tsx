@@ -6,16 +6,16 @@ import type { Organization } from '@/types/organization';
 const mockOrgs: Organization[] = [
   {
     id: '1',
-    name: 'NLG Portland',
-    description: 'Portland chapter',
+    name: 'Legal Observers Chicago',
+    description: 'Chicago chapter',
     isActive: true,
     memberCount: 5,
     createdAt: '2026-01-01T00:00:00Z',
   },
   {
     id: '2',
-    name: 'NLG Seattle',
-    description: 'Seattle chapter',
+    name: 'Legal Observers Boston',
+    description: 'Boston chapter',
     isActive: true,
     memberCount: 3,
     createdAt: '2026-02-01T00:00:00Z',
@@ -43,8 +43,8 @@ describe('OrgList', () => {
     renderOrgList({ organizations: mockOrgs });
     const cards = screen.getAllByTestId('org-card');
     expect(cards).toHaveLength(2);
-    expect(screen.getByText('NLG Portland')).toBeInTheDocument();
-    expect(screen.getByText('NLG Seattle')).toBeInTheDocument();
+    expect(screen.getByText('Legal Observers Chicago')).toBeInTheDocument();
+    expect(screen.getByText('Legal Observers Boston')).toBeInTheDocument();
   });
 
   it('shows member count badges', () => {

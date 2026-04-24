@@ -10,12 +10,12 @@ from loom.models.organization import (
 def test_organization_model_fields() -> None:
     """organization model has expected fields."""
     org = Organization(
-        name="NLG Chapter Portland",
-        description="Portland chapter",
+        name="Legal Observers Chicago Chapter",
+        description="Chicago chapter",
         is_active=True,
     )
-    assert org.name == "NLG Chapter Portland"
-    assert org.description == "Portland chapter"
+    assert org.name == "Legal Observers Chicago Chapter"
+    assert org.description == "Chicago chapter"
     assert org.is_active is True
 
 

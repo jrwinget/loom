@@ -31,8 +31,8 @@ _SVC = "loom.api.v1.organizations"
 def _make_org(
     *,
     org_id: UUID = _ORG_ID,
-    name: str = "NLG Portland",
-    description: str | None = "Portland chapter",
+    name: str = "Legal Observers Chicago",
+    description: str | None = "Chicago chapter",
 ) -> MagicMock:
     """build a mock organization object."""
     org = MagicMock(spec=Organization)
@@ -150,16 +150,16 @@ async def test_create_org(
             resp = await ac.post(
                 "/api/v1/organizations",
                 json={
-                    "name": "NLG Portland",
-                    "description": "Portland chapter",
+                    "name": "Legal Observers Chicago",
+                    "description": "Chicago chapter",
                 },
                 headers=_auth_header(token),
             )
 
     assert resp.status_code == 201
     data = resp.json()
-    assert data["name"] == "NLG Portland"
-    assert data["description"] == "Portland chapter"
+    assert data["name"] == "Legal Observers Chicago"
+    assert data["description"] == "Chicago chapter"
     assert data["is_active"] is True
 
 
@@ -195,7 +195,7 @@ async def test_list_orgs(
     data = resp.json()
     assert data["total"] == 1
     assert len(data["items"]) == 1
-    assert data["items"][0]["name"] == "NLG Portland"
+    assert data["items"][0]["name"] == "Legal Observers Chicago"
 
 
 async def test_get_org(
@@ -233,7 +233,7 @@ async def test_get_org(
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["name"] == "NLG Portland"
+    assert data["name"] == "Legal Observers Chicago"
 
 
 async def test_get_org_forbidden_non_member(

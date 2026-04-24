@@ -113,7 +113,7 @@ make lint           # all linters
 
 ## Desktop Lite (beta)
 
-For National Lawyers Guild legal observers and attorneys who need Loom
+For legal observers and civil-rights attorneys who need Loom
 on a single laptop without running Docker, Postgres, or a terminal,
 we ship a local-only Desktop Lite build. It uses SQLite, stores files
 on the local disk with WORM read-only semantics, and never opens an
