@@ -1,9 +1,10 @@
 # Icons
 
 Tauri reads the icon paths declared in `tauri.conf.json` at bundle
-time. Real assets must be dropped into this directory before any
-release build. The placeholder state will fail `tauri build` if the
-files below are missing.
+time. The five files in this directory ship as **placeholders** —
+a procedural geometric "L" mark on a flat background — so
+`tauri build` succeeds in CI. They MUST be replaced with real
+brand assets before a public beta.
 
 ## Expected filenames
 
@@ -15,8 +16,23 @@ files below are missing.
 | `icon.icns` | macOS bundle icon | multi-resolution |
 | `icon.ico` | Windows bundle icon | multi-resolution |
 
-## Source of truth
+## Regenerating the placeholder
 
-The canonical SVG lives in `docs/brand/loom-mark.svg` (TBD). Generate
-the raster variants with `tauri icon path/to/source.png` once a real
-mark is approved by the brand reviewers.
+The current placeholders are produced by `generate.py` in this
+directory. From the repo root:
+
+```bash
+uv run --project backend python desktop/src-tauri/icons/generate.py
+```
+
+Requires Pillow, available via the backend's `ai` extra
+(`uv sync --extra ai`).
+
+## Replacing with real artwork
+
+The canonical SVG should live at `docs/brand/loom-mark.svg`
+(currently TBD). Once a real mark is approved by brand reviewers,
+generate the raster variants with `cargo tauri icon path/to/source.png`
+and commit the resulting files in place — the filenames in the
+table above are what `tauri.conf.json` references and should not
+change.
