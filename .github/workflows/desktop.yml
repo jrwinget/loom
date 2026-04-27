@@ -23,6 +23,19 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # GitHub Actions does not allow `secrets` in step-level `if:`
+    # conditions. Hoisting the boolean checks to job-level env
+    # (which does allow secrets) lets the signing/skip steps
+    # branch on env.HAS_*_SIGNING instead.
+    env:
+      HAS_WIN_SIGNING: >-
+        ${{ secrets.WINDOWS_CERT_BASE64 != ''
+            && secrets.WINDOWS_CERT_PASSWORD != '' }}
+      HAS_APPLE_SIGNING: >-
+        ${{ secrets.APPLE_SIGNING_IDENTITY != ''
+            && secrets.APPLE_ID != ''
+            && secrets.APPLE_TEAM_ID != ''
+            && secrets.APPLE_PASSWORD != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -168,8 +181,7 @@ jobs:
       - name: Windows - sign installers
         if: >-
           matrix.platform == 'windows' &&
-          secrets.WINDOWS_CERT_BASE64 != '' &&
-          secrets.WINDOWS_CERT_PASSWORD != ''
+          env.HAS_WIN_SIGNING == 'true'
         continue-on-error: true
         shell: pwsh
         env:
@@ -201,8 +213,7 @@ jobs:
       - name: Windows - signing skipped notice
         if: >-
           matrix.platform == 'windows' &&
-          (secrets.WINDOWS_CERT_BASE64 == '' ||
-           secrets.WINDOWS_CERT_PASSWORD == '')
+          env.HAS_WIN_SIGNING != 'true'
         shell: bash
         run: |
           echo "signing skipped (no secrets present) — artifact is unsigned"
@@ -210,10 +221,7 @@ jobs:
       - name: macOS - codesign + notarize + staple
         if: >-
           matrix.platform == 'macos' &&
-          secrets.APPLE_SIGNING_IDENTITY != '' &&
-          secrets.APPLE_ID != '' &&
-          secrets.APPLE_TEAM_ID != '' &&
-          secrets.APPLE_PASSWORD != ''
+          env.HAS_APPLE_SIGNING == 'true'
         continue-on-error: true
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -241,10 +249,7 @@ jobs:
       - name: macOS - signing skipped notice
         if: >-
           matrix.platform == 'macos' &&
-          (secrets.APPLE_SIGNING_IDENTITY == '' ||
-           secrets.APPLE_ID == '' ||
-           secrets.APPLE_TEAM_ID == '' ||
-           secrets.APPLE_PASSWORD == '')
+          env.HAS_APPLE_SIGNING != 'true'
         run: |
           echo "signing skipped (no secrets present) — artifact is unsigned"
 
