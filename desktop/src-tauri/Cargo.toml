@@ -27,6 +27,10 @@ hex = "0.4"
 # catches SIGINT/SIGTERM/SIGHUP so the sidecar is killed on signal-
 # triggered exits, not only on window-close.
 ctrlc = { version = "3", features = ["termination"] }
+# disk free/total lookup for the storage advisory flow. we only need
+# the ``disk`` feature; the default feature set pulls in a lot of
+# process-listing code we never use.
+sysinfo = { version = "0.30", default-features = false, features = ["disk"] }
 
 [features]
 # this feature is used for production builds or when a dev server is

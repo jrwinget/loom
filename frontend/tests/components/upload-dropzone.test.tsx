@@ -1,8 +1,25 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { UploadDropzone } from
   '@/components/asset/upload-dropzone';
 import { useUploadStore } from '@/hooks/use-upload';
+
+// the dropzone renders StorageAdvisory, which calls into first-run
+// and storage hooks. stub them so these tests do not need a
+// QueryClientProvider or a live backend.
+vi.mock('@/hooks/use-first-run', () => ({
+  useFirstRunStatus: () => ({ data: { deployment_profile: 'server' } }),
+}));
+
+vi.mock('@/hooks/use-storage', () => ({
+  useStorageUsage: () => ({ data: undefined }),
+  useStorageCheck: () => ({
+    data: undefined,
+    mutate: vi.fn(),
+    reset: vi.fn(),
+    isPending: false,
+  }),
+}));
 
 beforeEach(() => {
   // reset upload store between tests

@@ -19,6 +19,7 @@ import { MapPage } from '@/routes/cases/[caseId]/map';
 import { ReviewPage } from '@/routes/cases/[caseId]/review';
 import { OrganizationsPage } from '@/routes/organizations/index';
 import { PluginsSettingsPage } from '@/routes/settings/plugins';
+import { StorageSettingsPage } from '@/routes/settings/storage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -77,6 +78,10 @@ export function App(): React.ReactElement {
                   <Route
                     path="settings/plugins"
                     element={<PluginsSettingsPage />}
+                  />
+                  <Route
+                    path="settings/storage"
+                    element={<StorageSettingsPage />}
                   />
                   <Route path="*" element={<NotFound />} />
                 </Route>
