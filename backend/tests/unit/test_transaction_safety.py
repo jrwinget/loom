@@ -178,14 +178,16 @@ class TestCreateOrgSavepoint:
     async def test_uses_savepoint(self) -> None:
         """create_org wraps writes in begin_nested."""
         session = _mock_session()
-        await create_org(session, "NLG Portland", None, _USER_ID)
+        await create_org(session, "Legal Observers Chicago", None, _USER_ID)
         session.begin_nested.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_adds_org_and_membership(self) -> None:
         """both org and membership are added."""
         session = _mock_session()
-        result = await create_org(session, "NLG Portland", "chapter", _USER_ID)
+        result = await create_org(
+            session, "Legal Observers Chicago", "chapter", _USER_ID
+        )
         assert isinstance(result, Organization)
         assert session.add.call_count == 2
         second_add = session.add.call_args_list[1][0][0]

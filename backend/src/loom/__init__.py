@@ -1,1 +1,1 @@
-"""Loom: evidence operating system for the National Lawyers Guild."""
+"""Loom: evidence operating system for civil-rights legal teams."""

@@ -19,4 +19,4 @@ files below are missing.
 
 The canonical SVG lives in `docs/brand/loom-mark.svg` (TBD). Generate
 the raster variants with `tauri icon path/to/source.png` once a real
-mark is approved by the NLG brand reviewers.
+mark is approved by the brand reviewers.

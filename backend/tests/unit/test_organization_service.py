@@ -48,11 +48,11 @@ class TestCreateOrg:
         """should add org, flush, add admin membership, commit."""
         session = _mock_session()
         result = await create_org(
-            session, "NLG Portland", "Portland chapter", _USER_ID
+            session, "Legal Observers Chicago", "Chicago chapter", _USER_ID
         )
         assert isinstance(result, Organization)
-        assert result.name == "NLG Portland"
-        assert result.description == "Portland chapter"
+        assert result.name == "Legal Observers Chicago"
+        assert result.description == "Chicago chapter"
         assert session.add.call_count == 2
         assert session.flush.await_count == 1
         assert session.commit.await_count == 1
@@ -240,14 +240,14 @@ class TestListMembers:
             role="admin",
         )
         row = MagicMock()
-        row.__getitem__ = lambda self, i: [membership, "admin@nlg.org"][i]
+        row.__getitem__ = lambda self, i: [membership, "admin@example.org"][i]
         mock_result = MagicMock()
         mock_result.all.return_value = [row]
         session.execute.return_value = mock_result
 
         members = await list_members(session, _ORG_ID)
         assert len(members) == 1
-        assert members[0].user_email == "admin@nlg.org"
+        assert members[0].user_email == "admin@example.org"
 
     @pytest.mark.asyncio
     async def test_empty_org(self) -> None:

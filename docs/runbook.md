@@ -276,4 +276,5 @@ docker compose -f docker/docker-compose.yml --profile app up -d --scale worker=3
    WHERE created_at > now() - interval '24 hours';
    ```
 
-5. **Notify affected parties** per NLG incident response procedures.
+5. **Notify affected parties** per your organization's incident
+   response procedures.

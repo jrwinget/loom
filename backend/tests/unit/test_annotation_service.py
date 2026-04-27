@@ -100,14 +100,14 @@ class TestGetAnnotation:
             created_by=UUID(_USER_ID),
         )
         row = MagicMock()
-        row.__getitem__ = lambda self, i: [annotation, "user@nlg.org"][i]
+        row.__getitem__ = lambda self, i: [annotation, "user@example.org"][i]
         mock_result = MagicMock()
         mock_result.one_or_none.return_value = row
         session.execute.return_value = mock_result
 
         got = await get_annotation(session, _ANNO_ID)
         assert got is annotation
-        assert got.created_by_email == "user@nlg.org"
+        assert got.created_by_email == "user@example.org"
 
     @pytest.mark.asyncio
     async def test_returns_none_when_missing(self) -> None:
