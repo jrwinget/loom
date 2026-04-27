@@ -58,6 +58,12 @@ url-ingest = [
     "internetarchive>=4.0.0",
     "savepagenow>=1.0.0",
 ]
+# build-time tool for the Tauri Desktop Lite sidecar binary
+# (pyinstaller --onefile in .github/workflows/desktop.yml).
+# not a runtime dep; the server profile never needs it.
+desktop = [
+    "pyinstaller>=6.0.0",
+]
 dev = [
     "pytest>=9.0.3",
     "pytest-asyncio>=0.23.0",

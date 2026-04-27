@@ -58,21 +58,56 @@ API: <http://localhost:8000/docs>. Frontend:
 Run `make test` before pushing. CI rejects PRs that drop
 coverage below 90% on either side.
 
+## Branching model
+
+Loom follows a **two-trunk** model:
+
+```
+feature/* ──► dev ──► main
+```
+
+- **`main`** is the release branch. Every commit on `main`
+  represents a state we'd ship — Desktop installers and
+  production-server deploys are cut from here. Strict
+  protection: full CI must pass, conversation resolution
+  required, linear history, no force pushes.
+- **`dev`** is the integration branch. Day-to-day work
+  lands here first, after a lighter checks pass. This lets
+  multiple in-progress features cohabit before being
+  promoted as a batch to `main`.
+- **`feature/*` / `fix/*` / `docs/*` / `chore/*`** are
+  short-lived topic branches off `dev`. One concern per
+  branch.
+
+Promotion to `main` happens via a release PR from `dev`,
+generally batching several merged feature PRs.
+
+The intended branch protections are checked in under
+[`.github/branch-protection/`](../.github/branch-protection/).
+They cannot be applied directly while the repo is on the
+free-tier private plan; a one-shot apply script is included
+for the moment the repo goes public (or upgrades).
+
 ## Commits and pull requests
 
-- Branch off `main` with a short topical name
+- Branch off **`dev`** with a short topical name
   (`fix/<n>-...`, `feat/<n>-...`, `docs/...`, `chore/...`).
+  Use `release/<version>` for `dev` → `main` promotions.
 - Keep commits focused: one concern per commit, present-tense
   summary line, 2-4 bullet points explaining the *why* below.
 - Use `Fixes #<n>` (or `Closes #<n>`) trailers when a PR
   resolves an issue. **Do not include `Co-authored-by`
   trailers.**
-- Open the PR against `main`. CI must pass before merge:
-  lint (backend ruff + mypy, frontend eslint + prettier + tsc),
-  tests (90% coverage), migration round-trip on real Postgres,
-  security scan (pip-audit, pnpm audit, Trivy on Docker
-  images), and Docker build smoke test.
-- Squash-merge is the default — keeps the history scannable.
+- Open feature PRs against **`dev`**. The full check set
+  (lint, tests, migrations, security scan, Docker build)
+  must pass before merge. `dev` strips the slowest checks
+  (Security Scan, Build & Verify) for fast iteration once
+  protections are applied; for now run them locally with
+  `make lint && make test` before pushing.
+- Open release PRs from `dev` against **`main`**. The full
+  check set is required.
+- Squash-merge is the default — keeps the history scannable
+  and the linear-history requirement satisfiable.
 
 For larger pieces of work, please open an issue first so we
 can talk through the design before code lands. The

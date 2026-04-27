@@ -370,23 +370,80 @@ op.execute("SET lock_timeout = '5s'")
 
 ### Before first deployment
 
+**Secrets and TLS**
+
 - [ ] Generate and store SOPS age keypair offline
-- [ ] Create `.env.production` with strong, unique credentials
+- [ ] Create `.env.production` with strong, unique values for every
+      mandatory variable (`LOOM_SECRET_KEY`, `POSTGRES_PASSWORD`,
+      `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`,
+      `GRAFANA_ADMIN_PASSWORD`)
+- [ ] `LOOM_SECRET_KEY` is at least 64 random characters
+      (`python -c "import secrets; print(secrets.token_urlsafe(48))"`)
 - [ ] Encrypt with SOPS and commit `.env.production.enc`
 - [ ] Obtain TLS certificate (Let's Encrypt or CA)
+- [ ] Set `LOOM_CORS_ORIGINS` to your real production domain(s)
+      (`*` is rejected; trailing slashes are stripped)
+
+**Storage and immutability**
+
 - [ ] Verify MinIO Object Lock is active on `loom-originals`
-- [ ] Set `LOOM_CORS_ORIGINS` to production domain(s)
-- [ ] Set `LOOM_SECRET_KEY` to a random 64+ character string
+- [ ] Verify SSE-S3 encryption is set on every bucket
+      (`mc encrypt info loom/loom-originals` etc.)
+- [ ] **Verify audit-log immutability** — connect via `psql` and
+      try `UPDATE audit_log SET action = 'tampered' LIMIT 1`; the
+      append-only trigger from migration 011 must reject it. Same
+      check for `chain_of_custody_entries`.
+
+**Backup and restore drill**
+
 - [ ] Enable GPG encryption for backups
-- [ ] Configure firewall (nftables)
+      (`BACKUP_GPG_RECIPIENT` populated)
+- [ ] Run `make verify-backup` to test the backup/restore cycle
+      end-to-end against a temp database
+- [ ] **Test the restore procedure in a staging environment first**,
+      not on the production database. The first time you run
+      `make restore` should not be during an incident.
+- [ ] **Test backup rotation** — let the backup schedule run for at
+      least one rotation cycle and verify old backups past
+      `LOCAL_RETENTION_DAYS` / `REMOTE_RETENTION_DAYS` are deleted
+
+**Network and host hardening**
+
+- [ ] Configure firewall (nftables) — only `:443`, `:22`
+      (key-only) reachable from the public internet
 - [ ] Harden SSH (key-only, no root)
 - [ ] Install and configure Fail2ban
-- [ ] Set up external uptime monitoring
-- [ ] Run `make verify-backup` to test backup/restore cycle
-- [ ] Review and adjust Docker resource limits for your hardware
-- [ ] Replace `temporalio/auto-setup` with `temporalio/server`
-- [ ] Set up log aggregation (Loki + Promtail or similar)
-- [ ] Document incident response runbook
+- [ ] Confirm `docker-compose.override.yml` is **not** present in
+      the production checkout (it binds postgres + MinIO to
+      `0.0.0.0`)
+
+**Container and platform tuning**
+
+- [ ] Review and adjust Docker resource limits for your hardware —
+      defaults in `docker-compose.yml` are sized for a 16 GB host
+- [ ] Replace `temporalio/auto-setup` with `temporalio/server`,
+      run schema migrations, and switch
+      `DYNAMIC_CONFIG_FILE_PATH` to
+      `/etc/temporal/dynamicconfig/production.yaml`
+
+**Observability**
+
+- [ ] Set up log aggregation (Loki + Promtail or similar) and
+      **verify** logs from at least `backend`, `worker`, `nginx`,
+      `postgres`, `minio` are landing in the aggregator
+- [ ] Set up external uptime monitoring (Uptime Kuma, Pingdom,
+      etc.) targeting `https://yourdomain.com/api/v1/health`
+- [ ] Wire alerts to a pager (PagerDuty, OpsGenie, on-call email)
+      and send a test page
+
+**Capacity and runbook**
+
+- [ ] Perform a load test against staging that approximates your
+      expected ingest throughput (target floors are documented in
+      [`requirements.md`](requirements.md#ingest-throughput))
+- [ ] Document the incident response runbook (who is on-call,
+      escalation path, vendor contacts) and store it where the
+      team can reach it during an outage
 
 ### After deployment
 
@@ -396,8 +453,11 @@ op.execute("SET lock_timeout = '5s'")
 - [ ] Run SSL Labs test: `ssllabs.com/ssltest/`
 - [ ] Verify backup runs successfully
 - [ ] Verify monitoring dashboards show data
-- [ ] Create first admin account via `/api/v1/auth/register`
+- [ ] Verify uptime monitor reports green
+- [ ] Create first admin account via the bootstrap flow
 - [ ] Test evidence upload → ingest workflow → timeline flow
+- [ ] Run a no-op recovery drill: take one backup, restore to a
+      side database, verify a known case roundtrips
 
 ---
 

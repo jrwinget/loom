@@ -19,7 +19,11 @@ export default defineConfig({
     },
   },
   build: {
-    sourcemap: true,
+    // 'hidden' generates source maps but does not reference them in
+    // bundles, so error trackers (e.g. Sentry) can still resolve
+    // stack traces while end users with browser dev tools cannot
+    // recover full source from the deployed build.
+    sourcemap: 'hidden',
     rollupOptions: {
       output: {
         manualChunks: {

@@ -107,6 +107,63 @@ observability stack).
 The same export bundle format flows between Desktop Lite and the server, so a
 Lite case can be promoted to a server case later without reingest.
 
+#### Prerequisites and verification
+
+The server deploy is tested against these versions; older releases may work
+but aren't validated in CI:
+
+| Tool         | Version           | Verify with             |
+| ------------ | ----------------- | ----------------------- |
+| Python       | **3.12.x**        | `python --version`      |
+| Node.js      | **22 LTS**        | `node --version`        |
+| pnpm         | **10.x**          | `pnpm --version`        |
+| Docker       | **24+**           | `docker --version`      |
+| Docker Compose | **v2+**         | `docker compose version` |
+| uv           | **latest**        | `uv --version`          |
+
+Python 3.13 is **not yet validated**: a few backend dependencies (notably
+`av`, `faster-whisper`) lag the Python release cycle on wheel availability,
+and CI exclusively runs 3.12. If you need 3.13, expect to build wheels from
+source.
+
+#### Troubleshooting
+
+**`compose stack refuses to start with "Set X in .env"`**
+You haven't populated the mandatory credentials. Run
+`cp .env.example .env`, then edit the file to override the dev sentinels
+with strong values for any non-throwaway environment.
+
+**Backend exits at startup with `secret_key is the insecure default`**
+`LOOM_SECRET_KEY` is still the placeholder. Generate one and rerun:
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))" >> .env
+```
+
+**Backend exits with `production credential validation failed`**
+You're running with `LOOM_DEBUG=false` and `LOOM_DEPLOYMENT_PROFILE=server`,
+but at least one of `LOOM_DATABASE_URL`, `LOOM_MINIO_ACCESS_KEY`, or
+`LOOM_MINIO_SECRET_KEY` is still a dev sentinel. The error message lists
+every offender. For local development, set `LOOM_DEBUG=true`.
+
+**Port 8000 / 3000 / 5432 already in use**
+Another process is bound to that port. On macOS/Linux:
+`lsof -iTCP:8000 -sTCP:LISTEN`. Stop that process or change the port in
+`.env`.
+
+**`make migrate` fails with `connection refused`**
+Postgres isn't up yet. `make up` starts the infrastructure containers;
+wait for `docker compose ps` to show `postgres` as `healthy` before
+running migrations.
+
+**Docker run-time fails on Windows with "no space left on device"**
+Docker Desktop ships with a small WSL2 disk allocation. Increase it via
+`Settings → Resources → Advanced` and restart Docker.
+
+For Desktop Lite-specific issues (data directory permission, port
+conflict on `127.0.0.1:8000`, recovering from a force-quit during
+ingest), see the
+[Troubleshooting section of the Desktop Lite guide](docs/desktop-lite.md#troubleshooting).
+
 ## Security approach
 
 Loom assumes adversarial interest in the evidence it stores. The product is
@@ -202,8 +259,26 @@ Bug reports, feature requests, and pull requests are welcome. Read
 [`docs/contributing.md`](docs/contributing.md) for code style, the test/coverage
 gates, and the PR workflow.
 
-If you're a legal observer or attorney piloting Loom and you've hit a workflow
-problem, please open an issue. That feedback shapes the beta.
+### Reporting issues during beta
+
+If you're a legal observer or attorney piloting Loom and you hit a workflow
+problem, please open a GitHub issue with:
+
+- **Build / version**: from the Help menu in Desktop Lite, or
+  `git rev-parse HEAD` for a server install.
+- **Platform**: OS + version, Loom profile (`lite` or `server`).
+- **What you did, what happened, what you expected.** Steps to reproduce
+  beat speculative cause-finding.
+- **Logs**, if available. Desktop Lite writes to
+  `~/.loom/logs/backend.log`; server installs land in their journald /
+  Docker logs.
+- **Sensitive evidence stays out of bug reports.** Never paste case
+  metadata, file contents, or hashes that identify a real case. If a
+  reproducer requires evidence-shaped data, generate a synthetic
+  fixture first.
+
+For security vulnerabilities, please email the maintainers privately
+instead. See [Reporting vulnerabilities](#reporting-vulnerabilities).
 
 ## License
 

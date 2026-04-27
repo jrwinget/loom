@@ -1,5 +1,29 @@
-# local development overrides
-# binds internal services to all interfaces for host access
+# ──────────────────────────────────────────────────────────
+# DEVELOPMENT-ONLY OVERRIDE.
+#
+# This file binds postgres (5432) and MinIO (9000/9001) to
+# 0.0.0.0 so they are reachable from the host (vite dev
+# server, GUI tools, etc.). Compose auto-loads it when sitting
+# next to docker-compose.yml — that is fine for local dev,
+# DANGEROUS in production.
+#
+# Production deployments must NOT pick up this file. Two
+# safe ways to invoke compose in production:
+#
+#   1. Explicitly list only the production file:
+#        docker compose -f docker/docker-compose.yml --profile app up -d
+#      (the -f flag suppresses auto-discovery of overrides)
+#
+#   2. Move or rename this file out of the production checkout:
+#        mv docker-compose.override.yml docker-compose.dev.yml
+#      and load it explicitly only on dev hosts.
+#
+# Leaving postgres / minio bound to 0.0.0.0 in production
+# exposes them on every interface the host has. Combined with
+# any credential default that survived the fail-fast checks,
+# that is a direct path to evidence exfiltration. Don't.
+# ──────────────────────────────────────────────────────────
+
 services:
   postgres:
     ports:
