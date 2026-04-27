@@ -182,19 +182,19 @@ ingest pipeline, and workflow engine.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) — system design and the evidence spine
-- [Beta requirements](docs/requirements.md) — jurisdiction, hardware, dataset,
+- [Architecture](docs/architecture.md): system design and the evidence spine
+- [Beta requirements](docs/requirements.md): jurisdiction, hardware, dataset,
   and privacy defaults
-- [Desktop Lite](docs/desktop-lite.md) — install, first-run, troubleshooting
-- [Deployment](docs/deployment.md) — local-development bring-up
-- [Production deployment](docs/prod-deploy.md) — TLS, secrets, observability
-- [Security](docs/security.md) — auth, RBAC, audit, threat model
-- [Encryption](docs/security/encryption.md) — algorithms and key management
-- [API reference](docs/api-reference.md) — REST endpoints
-- [Backup & recovery](docs/backup-recovery.md) — backup procedures
-- [Operational runbook](docs/runbook.md) — day-to-day operations
-- [AI model cards](docs/ai-model-cards.md) — disclosure of every model used
-- [Contributing](docs/contributing.md) — development setup and PR process
+- [Desktop Lite](docs/desktop-lite.md): install, first-run, troubleshooting
+- [Deployment](docs/deployment.md): local-development bring-up
+- [Production deployment](docs/prod-deploy.md): TLS, secrets, observability
+- [Security](docs/security.md): auth, RBAC, audit, threat model
+- [Encryption](docs/security/encryption.md): algorithms and key management
+- [API reference](docs/api-reference.md): REST endpoints
+- [Backup & recovery](docs/backup-recovery.md): backup procedures
+- [Operational runbook](docs/runbook.md): day-to-day operations
+- [AI model cards](docs/ai-model-cards.md): disclosure of every model used
+- [Contributing](docs/contributing.md): development setup and PR process
 
 ## Contributing
 
@@ -203,7 +203,7 @@ Bug reports, feature requests, and pull requests are welcome. Read
 gates, and the PR workflow.
 
 If you're a legal observer or attorney piloting Loom and you've hit a workflow
-problem, please open an issue — that feedback shapes the beta.
+problem, please open an issue. That feedback shapes the beta.
 
 ## License
 
