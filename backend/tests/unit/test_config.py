@@ -1,6 +1,5 @@
 """tests for secret key validation at startup."""
 
-import logging
 from unittest.mock import patch
 
 import pytest
@@ -92,41 +91,60 @@ class TestCorsOriginsValidation:
 
 
 class TestValidateProductionSettings:
-    """validate_production_settings warns on dev creds."""
+    """validate_production_settings fails fast on dev creds."""
 
-    def test_validate_production_warns_on_default_db_creds(
-        self,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        """warn when default db url used in production."""
+    def test_rejects_default_db_creds(self) -> None:
+        """default db url must abort startup."""
         settings = Settings(debug=False)
-        with caplog.at_level(logging.WARNING):
+        with pytest.raises(ValueError, match="database_url"):
             settings.validate_production_settings()
-        assert any("database_url" in r.message for r in caplog.records)
 
-    def test_validate_production_warns_on_default_minio_creds(
-        self,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        """warn when default minio creds used in production."""
+    def test_rejects_default_minio_creds(self) -> None:
+        """default minio creds must abort startup."""
         settings = Settings(
             debug=False,
             database_url=("postgresql+asyncpg://prod:prod@db:5432/loom"),
         )
-        with caplog.at_level(logging.WARNING):
+        with pytest.raises(ValueError, match="minio_access_key"):
             settings.validate_production_settings()
-        assert any("minio_access_key" in r.message for r in caplog.records)
-        assert any("minio_secret_key" in r.message for r in caplog.records)
 
-    def test_validate_production_silent_in_debug(
-        self,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        """no warnings when debug=True."""
-        settings = Settings(debug=True)
-        with caplog.at_level(logging.WARNING):
+    def test_lists_all_failures_in_one_error(self) -> None:
+        """error message must enumerate every default in use."""
+        settings = Settings(debug=False)
+        with pytest.raises(ValueError) as exc_info:
             settings.validate_production_settings()
-        assert len(caplog.records) == 0
+        message = str(exc_info.value)
+        assert "database_url" in message
+        assert "minio_access_key" in message
+        assert "minio_secret_key" in message
+
+    def test_accepts_production_credentials(self) -> None:
+        """no error when every credential is non-default."""
+        settings = Settings(
+            debug=False,
+            database_url="postgresql+asyncpg://prod:strong-pw@db:5432/loom",
+            minio_access_key="prod-access-key",
+            minio_secret_key="prod-secret-key",
+        )
+        # should not raise
+        settings.validate_production_settings()
+
+    def test_silent_in_debug(self) -> None:
+        """debug mode bypasses all checks for dev convenience."""
+        settings = Settings(debug=True)
+        # should not raise even though every value is default
+        settings.validate_production_settings()
+
+    def test_silent_in_lite_profile(self) -> None:
+        """lite profile uses sqlite + filesystem; checks don't apply."""
+        settings = Settings(
+            debug=False,
+            deployment_profile="lite",
+            database_url="sqlite+aiosqlite:///./loom.db",
+            storage_signing_secret="x" * 32,
+        )
+        # should not raise even though minio creds are default
+        settings.validate_production_settings()
 
 
 class TestLifespanWiring:
@@ -151,5 +169,28 @@ class TestLifespanWiring:
 
             application = create_app()
             with pytest.raises(ValueError, match="sqlite"):
+                async with _lifespan(application):
+                    pass
+
+    async def test_lifespan_rejects_default_minio_in_server_profile(
+        self,
+    ) -> None:
+        """server profile + default minio creds must abort startup."""
+        bad = Settings(
+            secret_key="a-sufficiently-long-secret-key-for-production-use",
+            deployment_profile="server",
+            database_url="postgresql+asyncpg://prod:strong-pw@db:5432/loom",
+            # minio_access_key + minio_secret_key default to dev values
+        )
+        get_settings.cache_clear()
+
+        with (
+            patch("loom.main.get_settings", return_value=bad),
+            patch("loom.config.get_settings", return_value=bad),
+        ):
+            from loom.main import _lifespan, create_app
+
+            application = create_app()
+            with pytest.raises(ValueError, match="minio"):
                 async with _lifespan(application):
                     pass

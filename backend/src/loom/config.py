@@ -148,16 +148,40 @@ class Settings(BaseSettings):
             )
 
     def validate_production_settings(self) -> None:
-        """warn when default dev credentials are used
-        in non-debug mode."""
-        if self.debug:
+        """fail-fast when default dev credentials are used
+        in a server-profile, non-debug deployment.
+
+        debug mode and the lite profile bypass these checks:
+        debug is dev-only by definition, and lite uses local
+        sqlite + filesystem so neither minio nor postgres
+        credentials apply.
+        """
+        if self.debug or self.is_lite:
             return
+        failures: list[str] = []
         if "loom:loom_dev@" in self.database_url:
-            logger.warning("database_url uses default dev credentials")
+            failures.append(
+                "database_url uses default dev credentials "
+                "('loom:loom_dev'). Set LOOM_DATABASE_URL to a "
+                "production connection string."
+            )
         if self.minio_access_key == "loom_minio":
-            logger.warning("minio_access_key uses default dev value")
+            failures.append(
+                "minio_access_key is the default dev value. "
+                "Set LOOM_MINIO_ACCESS_KEY (and MINIO_ROOT_USER "
+                "in compose) to a unique value."
+            )
         if self.minio_secret_key == "loom_minio_dev":  # noqa: S105
-            logger.warning("minio_secret_key uses default dev value")
+            failures.append(
+                "minio_secret_key is the default dev value. "
+                "Set LOOM_MINIO_SECRET_KEY (and MINIO_ROOT_PASSWORD "
+                "in compose) to a strong random value."
+            )
+        if failures:
+            raise ValueError(
+                "production credential validation failed:\n  - "
+                + "\n  - ".join(failures)
+            )
 
 
 @lru_cache
