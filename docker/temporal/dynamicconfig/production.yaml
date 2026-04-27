@@ -1,0 +1,79 @@
+# Temporal dynamic config for production deployments.
+#
+# To use this file instead of development.yaml, override the
+# DYNAMIC_CONFIG_FILE_PATH env var on the temporal service:
+#
+#   DYNAMIC_CONFIG_FILE_PATH: /etc/temporal/dynamicconfig/production.yaml
+#
+# Production deployments should also replace the
+# `temporalio/auto-setup` image with `temporalio/server` and
+# run schema migrations explicitly. See docs/prod-deploy.md.
+
+# ── retention ────────────────────────────────────────────────
+# default workflow execution retention (closed-workflow records
+# kept in the visibility store). 30 days is a reasonable
+# baseline for evidence pipelines; bump per-namespace if a case
+# regulator requires longer retention.
+system.retentionDays:
+  - value: 30
+    constraints: {}
+
+# ── rate limits ──────────────────────────────────────────────
+# global RPS to the frontend (gRPC). 5000 is well above what
+# Loom's worker pool generates in steady state and leaves
+# headroom for ingest bursts.
+frontend.rps:
+  - value: 5000
+    constraints: {}
+
+# per-namespace RPS for the loom namespace. ingest activities
+# are bursty; this prevents one runaway case from starving
+# others on the same cluster.
+frontend.namespaceRPS:
+  - value: 2400
+    constraints:
+      namespace: "loom"
+
+# ── history rate limits ──────────────────────────────────────
+# history shard RPS — at the default 4 shards this gives the
+# cluster ~4000 RPS aggregate against history, comfortably
+# above ingest workload.
+history.rps:
+  - value: 1000
+    constraints: {}
+
+# ── visibility ───────────────────────────────────────────────
+# advanced visibility uses the standard visibility store
+# (postgres) since loom does not run elasticsearch in beta.
+system.advancedVisibilityWritingMode:
+  - value: "off"
+    constraints: {}
+
+system.enableReadVisibilityFromES:
+  - value: false
+    constraints: {}
+
+# refresh search-attributes cache on every read so newly added
+# attributes are picked up without a restart. carried forward
+# from development.yaml — same behavior is desirable here.
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+    constraints: {}
+
+# ── archival ─────────────────────────────────────────────────
+# archival lets temporal offload closed workflows past the
+# retention window into long-term storage. left disabled by
+# default since loom's chain-of-custody table is the source of
+# truth for evidence; flip on per-namespace if you want a
+# secondary durable record of every workflow.
+system.archivalEnabled:
+  - value: false
+    constraints: {}
+
+# ── worker ──────────────────────────────────────────────────
+# worker shard rebalance interval. shorter values cause more
+# frequent shard movements (better load balancing, more chatter);
+# 5m is the documented default.
+worker.shardRebalanceInterval:
+  - value: "5m"
+    constraints: {}
