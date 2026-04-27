@@ -27,7 +27,6 @@
   "bundle": {
     "active": true,
     "targets": ["dmg", "msi", "nsis", "appimage", "deb"],
-    "identifier": "io.loom.desktop",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -38,7 +37,7 @@
     "category": "Productivity",
     "shortDescription": "Evidence operating system for legal observers",
     "longDescription": "Loom combines video, photos, and statements into defensible event timelines for civil-liberties legal observers.",
-    "externalBin": ["../backend/dist/loom-backend"],
+    "externalBin": ["../../backend/dist/loom-backend"],
     "macOS": {
       "minimumSystemVersion": "11.0"
     },
