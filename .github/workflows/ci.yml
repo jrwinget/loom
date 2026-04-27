@@ -267,7 +267,12 @@ jobs:
         # --strict treats "package not on PyPI" as fatal, which
         # trips on our own first-party `loom` package. drop it so
         # only real advisories fail the job.
-        run: uv run pip-audit --desc
+        #
+        # CVE-2026-3219 is an unpatched advisory against pip itself
+        # (the install tool, not a runtime dependency we ship). no
+        # fix version has been published upstream; revisit when one
+        # lands and drop this ignore.
+        run: uv run pip-audit --desc --ignore-vuln CVE-2026-3219
 
       - name: Install frontend dependencies
         working-directory: frontend
