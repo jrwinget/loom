@@ -1,65 +1,117 @@
 # Deployment
 
-## Local Development
+This page covers the local-development bring-up of the
+**server profile**. For the production checklist (TLS,
+secrets, observability, Temporal production config, backup
+rotation) see [`prod-deploy.md`](prod-deploy.md). For the
+single-laptop install see [`desktop-lite.md`](desktop-lite.md).
+
+## Local development
 
 ```bash
-cp .env.example .env
-make up           # start postgres, minio, temporal
-make dev          # start backend + frontend dev servers
+cp .env.example .env             # populate required vars
+make up                          # start postgres, minio, temporal
+cd backend && uv sync --all-extras && cd ..
+cd frontend && pnpm install && cd ..
+make migrate                     # run database migrations
+make dev                         # start backend + frontend
 ```
+
+The compose stack refuses to start without the credentials
+listed under [Required environment variables](#required-environment-variables)
+populated in `.env`. The example file ships sensible dev
+sentinels — you can copy the file as-is for local
+development, but production must override every credential
+row.
 
 ### Services
 
-| Service | Port | URL |
-|---------|------|-----|
-| Backend API | 8000 | http://localhost:8000/docs |
-| Frontend | 3000 | http://localhost:3000 |
-| PostgreSQL | 5432 | - |
-| MinIO API | 9000 | - |
-| MinIO Console | 9001 | http://localhost:9001 |
-| Temporal | 7233 | - |
-| Temporal UI | 8080 | http://localhost:8080 |
+| Service       | Port | URL                              |
+| ------------- | ---- | -------------------------------- |
+| Backend API   | 8000 | <http://localhost:8000/docs>     |
+| Frontend      | 3000 | <http://localhost:3000>          |
+| PostgreSQL    | 5432 | -                                |
+| MinIO API     | 9000 | -                                |
+| MinIO Console | 9001 | <http://localhost:9001>          |
+| Temporal      | 7233 | -                                |
+| Temporal UI   | 8080 | <http://localhost:8080>          |
+| Grafana       | 3001 | <http://localhost:3001>          |
 
-### Environment Variables
+Grafana, Prometheus, and Jaeger only run under the
+`observability` compose profile (`docker compose
+--profile observability up`).
 
-All backend configuration uses the `LOOM_` prefix. See
-`.env.example` for the full list.
+### Required environment variables
+
+These four must be set in `.env`; compose fails fast
+otherwise:
+
+- `LOOM_SECRET_KEY` — JWT signing key, ≥32 chars; the
+  literal `change-me-in-production` is rejected at startup
+- `POSTGRES_PASSWORD` — Postgres password
+- `MINIO_ROOT_USER` — MinIO access key
+- `MINIO_ROOT_PASSWORD` — MinIO secret key
+
+When the `observability` profile is active, also required:
+
+- `GRAFANA_ADMIN_PASSWORD`
+
+The backend additionally rejects the dev sentinel values
+(`loom:loom_dev@` in the database URL, `loom_minio`,
+`loom_minio_dev`) when running with `LOOM_DEBUG=false` and
+`LOOM_DEPLOYMENT_PROFILE=server`. See
+[`security.md`](security.md#production-credential-enforcement).
+
+### Backend configuration
+
+All backend variables are prefixed `LOOM_`. See
+`.env.example` for the full list and
+`backend/src/loom/config.py` for defaults and validators.
 
 Key variables:
-- `LOOM_DATABASE_URL` — PostgreSQL connection string
-- `LOOM_MINIO_ENDPOINT` — MinIO host:port
+
+- `LOOM_DEPLOYMENT_PROFILE` — `server` (default) or `lite`
+- `LOOM_DATABASE_URL` — Postgres connection string for
+  server, sqlite for Lite
+- `LOOM_MINIO_ENDPOINT` — `host:port` (no scheme)
 - `LOOM_MINIO_ACCESS_KEY` / `LOOM_MINIO_SECRET_KEY`
 - `LOOM_TEMPORAL_HOST` — Temporal server address
-- `LOOM_SECRET_KEY` — JWT signing key (change in production)
-- `LOOM_CORS_ORIGINS` — allowed CORS origins as JSON list
-  (e.g. `'["https://app.example.com"]'`); defaults to
-  `["http://localhost:3000"]` for development
+- `LOOM_SECRET_KEY` — JWT signing key (mandatory)
+- `LOOM_CORS_ORIGINS` — JSON list of allowed origins,
+  e.g. `'["https://app.example.com"]'`. `*` is rejected;
+  every entry must be an absolute http(s) origin.
+- `LOOM_DEBUG` — bypasses production credential checks for
+  dev convenience; **never set true in production**.
 
 ## Docker Compose
 
-The `docker/docker-compose.yml` defines all infrastructure
-services. The override file adds development-specific port
-mappings.
-
 ```bash
-docker compose -f docker/docker-compose.yml up -d
-docker compose -f docker/docker-compose.yml down
+docker compose -f docker/docker-compose.yml --profile app up -d
+docker compose -f docker/docker-compose.yml --profile app down
 ```
 
-## Production Considerations
+Profiles:
 
-- Use a strong, random `LOOM_SECRET_KEY` (minimum 32 bytes)
-- Set `LOOM_CORS_ORIGINS` to your actual frontend domain(s)
-- Enable TLS on all services
-- Use external PostgreSQL with backups
-- Configure MinIO with replication and encryption at rest
-- Set `LOOM_MINIO_SECURE=true` for HTTPS
-- Replace `temporalio/auto-setup` with `temporalio/server` and
-  run proper schema migrations
-- Set up log aggregation (OpenTelemetry → Grafana stack)
-- Enable MFA for all user accounts
-- Configure backup retention for MinIO object lock
-- All Docker images are pinned to specific versions for
-  reproducible deployments
-- Health checks are configured on all application containers
-- See [runbook.md](runbook.md) for operational procedures
+- `app` — backend, worker, frontend (the application stack)
+- `production` — adds the nginx TLS terminator
+- `backup` — adds the scheduled backup container
+- `observability` — adds Prometheus, Grafana, Jaeger
+
+## Production deployment
+
+See [`prod-deploy.md`](prod-deploy.md) for the full
+checklist. At a minimum, production must:
+
+- Use strong, unique values for every credential listed
+  above.
+- Terminate TLS at nginx (TLS 1.3 only).
+- Replace `temporalio/auto-setup` with `temporalio/server`
+  and run proper schema migrations.
+- Configure backup retention against MinIO object lock.
+- Enable MFA on all user accounts.
+- Stand up the observability profile and wire alerts to a
+  pager (the Prometheus alert set is tracked in #32).
+
+[`runbook.md`](runbook.md) covers operational procedures —
+service restarts, disk management, debugging workflows,
+emergency response.

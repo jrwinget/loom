@@ -1,192 +1,211 @@
 # Loom
 
 [![CI](https://github.com/jrwinget/loom/actions/workflows/ci.yml/badge.svg)](https://github.com/jrwinget/loom/actions/workflows/ci.yml)
+[![Desktop](https://github.com/jrwinget/loom/actions/workflows/desktop.yml/badge.svg)](https://github.com/jrwinget/loom/actions/workflows/desktop.yml)
 
-An evidence synthesis operating system. Loom helps combine multiple source
-documents (e.g., video, photos, statements) into defensible event timelines
-where every claim traces back to source material.
+**An evidence operating system for civil-rights legal teams.**
 
-## Architecture
+Loom helps legal observers, civil-rights attorneys, and movement lawyers turn
+raw field evidence (e.g., body-cam footage, bystander video, photos, audio,
+statements, FOIA returns) into a defensible event timeline where every claim
+traces back to source material. It's civil-liberties tooling, not surveillance
+tech: there is no face recognition, no suspicion scoring, and no automated
+identity resolution.
 
-```mermaid
-graph TB
-    subgraph Frontend
-        UI[React + TypeScript]
-    end
+> **Project status: beta.** Loom is being prepared for first production use in
+> Cook County, Illinois (state and federal § 1983 actions). The Desktop Lite
+> installer is the supported path for individual practitioners; the server
+> deploy is for organizations that need shared cases. See
+> [`docs/requirements.md`](docs/requirements.md) for the jurisdictional,
+> hardware, and compliance defaults the beta assumes.
 
-    subgraph Backend
-        API[FastAPI]
-        Worker[Temporal Worker]
-    end
+## What Loom does
 
-    subgraph Infrastructure
-        PG[(PostgreSQL)]
-        MINIO[(MinIO)]
-        TEMP[Temporal Server]
-    end
+- **Ingests mixed evidence at scale.** Drag in video, photo, audio, PDF, and
+  document files. Loom hashes every file with SHA-256, validates by magic bytes
+  (not extension), and stores the original byte-for-byte under WORM-style
+  read-only semantics. Resumable uploads, batch ingest, and interrupted-job
+  recovery are built in.
+- **Builds a chain of custody automatically.** Every action on every asset
+  (ingest, verify, rehash, proxy generation, annotation, redaction, export,
+  import, relocation, deletion) is recorded in an append-only audit trail
+  enforced at the database level. The trail can never be modified or back-dated,
+  even by an administrator.
+- **AI assists, humans decide.** Optional extras run locally: speech-to-text via
+  faster-whisper, OCR via Tesseract, scene boundary detection via PySceneDetect,
+  and perceptual-hash duplicate clustering. Suggestions never collapse
+  ambiguity; when AI output disagrees with another asset or a human annotation,
+  the contradiction is surfaced, not hidden.
+- **Synthesizes timelines with explicit relationships.** Timeline events are
+  synthesized objects, never raw media. Each piece of linked evidence carries an
+  explicit relationship type (`supports`, `contradicts`, or `context`) so the
+  timeline shows where stories agree and where they diverge. For legal work,
+  uncertainty is information, not noise.
+- **Exports court-ready bundles.** Each export is a signed package containing
+  originals, derivatives, annotations, timeline, and the full chain of custody,
+  plus a custodian certificate drafted to satisfy **FRE 902(13)/(14)**
+  self-authentication and **IRE 902(11)** business-records authentication. The
+  same bundle works for federal and Illinois filings. Reports are rendered as
+  PDF/A-2b for archival; the manifest is JSON-LD so any conforming verifier can
+  re-check the hash lineage.
 
-    UI -->|REST API| API
-    API --> PG
-    API --> MINIO
-    API -->|Start Workflow| TEMP
-    TEMP --> Worker
-    Worker --> PG
-    Worker --> MINIO
-```
+## Download and install
 
-### Evidence Spine
+### Desktop Lite (recommended for individuals)
 
-The core data model is an evidence spine that traces every claim back to source
-material:
+Desktop Lite is a single-user, local-only build. Everything stays on your
+laptop: originals, derivatives, the database, and logs. Nothing leaves the
+machine unless you explicitly export a bundle.
 
-```
-Case
- ├── Assets (immutable originals + derivatives)
- │    ├── Chain of Custody (append-only audit trail)
- │    └── Metadata (ExifTool + PyAV extraction)
- ├── Annotations (observation, claim, dispute, verification)
- ├── Timeline Events
- │    └── Evidence Links (supports / contradicts / context)
- └── Export Bundles (verifiable packages with checksums)
-```
+1. Go to the project's [GitHub Releases
+   page](https://github.com/jrwinget/loom/releases) and download the installer
+   for your platform:
+   - **Windows**: `Loom-x.y.z.msi`
+   - **macOS**: `Loom-x.y.z.dmg`
+   - **Linux**: `Loom-x.y.z.AppImage` or `loom_x.y.z_amd64.deb`
+2. Install:
+   - **Windows**: double-click the `.msi` and follow the prompts. Until the EV
+     certificate is in place, Windows will warn about an unknown publisher;
+     click **More info → Run anyway**.
+   - **macOS**: open the `.dmg`, drag **Loom.app** to **Applications**. The
+     first launch needs a right-click → **Open** to bypass Gatekeeper
+     (one-time).
+   - **Linux (Debian/Ubuntu)**: `sudo dpkg -i loom_*.deb`.
+   - **Linux (any distro)**: `chmod +x Loom_*.AppImage` then run it from
+     anywhere.
+3. On first launch Loom walks you through three screens: welcome, pick a data
+   directory (default `~/.loom/data`), and create your local admin account.
+   That's it.
 
-### Tech Stack
+The full first-run flow, data directory layout, troubleshooting, and security
+model are documented in [`docs/desktop-lite.md`](docs/desktop-lite.md).
 
-| Layer          | Technology                     |
-| -------------- | ------------------------------ |
-| API            | FastAPI + Uvicorn              |
-| Database       | PostgreSQL 16 + SQLAlchemy 2.0 |
-| Object Storage | MinIO (S3-compatible, WORM)    |
-| Workflows      | Temporal                       |
-| Frontend       | Vite + React 18 + TypeScript   |
-| UI Components  | shadcn/ui (Radix + Tailwind)   |
-| State          | Zustand + TanStack Query       |
-| Testing        | pytest, Vitest, Playwright     |
+#### Minimum requirements
 
-## Quick Start
+- 64-bit x86-64 or arm64 CPU with AVX2 (required by some AI extras)
+- 8 GB RAM (without AI extras) / 16 GB (with AI extras enabled)
+- 20 GB free on the application drive, plus a data directory with at least 2×
+  your expected case footage size free
+- Windows 10 21H2+, macOS 11+, or Ubuntu 22.04+
 
-### Prerequisites
+For details on supported drives, NAS/SMB caveats, and why cloud sync folders
+(iCloud, OneDrive, Google Drive) are refused, see the [hardware section of the
+requirements doc](docs/requirements.md#hardware-targets).
 
-- Python 3.12+
-- Node.js 22+
-- Docker and Docker Compose
-- [uv](https://docs.astral.sh/uv/) (Python package manager)
-- [pnpm](https://pnpm.io/) (Node package manager)
+### Server deploy (for organizations)
 
-### Setup
+If your team needs shared cases, role-based access across multiple users, or
+larger-than-laptop scale (10 TB+ per case), run the server deploy. It uses
+PostgreSQL, MinIO with object lock, and Temporal for durable workflows.
 
-```bash
-# clone the repository
-git clone https://github.com/jrwinget/loom.git
-cd loom
+Setup is technical and assumes someone comfortable with Docker. Start with
+[`docs/deployment.md`](docs/deployment.md) for the local-development bring-up
+and [`docs/prod-deploy.md`](docs/prod-deploy.md) for the production checklist
+(TLS, backup rotation, secrets management, Temporal production config,
+observability stack).
 
-# copy environment config
-cp .env.example .env
+The same export bundle format flows between Desktop Lite and the server, so a
+Lite case can be promoted to a server case later without reingest.
 
-# start infrastructure services
-make up
+## Security approach
 
-# install backend dependencies
-cd backend && uv sync --all-extras && cd ..
+Loom assumes adversarial interest in the evidence it stores. The product is
+built around four non-negotiable invariants:
 
-# install frontend dependencies
-cd frontend && pnpm install && cd ..
+- **Originals are sacred.** Files land in WORM storage byte-for-byte. On Desktop
+  Lite this is enforced via the OS read-only flag; on the server profile, MinIO
+  object lock prevents modification or deletion. Every file is hashed with
+  SHA-256 at ingest; derivatives are tracked separately and can always be
+  regenerated from the original.
+- **Chain of custody is append-only at the database level.** Both the ORM (every
+  profile) and Postgres triggers (server profile) reject `UPDATE` and `DELETE`
+  against `audit_log` and `chain_of_custody_entries`. Even direct database
+  access (`psql`, restored backups, an attacker with credentials) cannot rewrite
+  history.
+- **No surveillance features.** Face recognition, voiceprint identification,
+  suspicion scoring, and automated identity resolution are out of scope as a
+  structural project decision, not a configurable toggle. Speaker diarization
+  (server profile only) labels segments without persisting voiceprints. Face
+  blur uses a generic detector that stores blur masks, not geometry vectors. The
+  defaults are [BIPA-safe by
+  construction](docs/requirements.md#privacy-and-compliance).
+- **Local by default.** Desktop Lite binds the backend to `127.0.0.1` only; no
+  external listener, no telemetry, no update checks. Outbound traffic happens
+  only when you explicitly submit a URL for ingestion (and even then, loopback /
+  private / link-local addresses are rejected).
 
-# run database migrations
-make migrate
+Beyond the invariants:
 
-# start development servers
-make dev
-```
+- JWT auth with **argon2id** password hashing and TOTP MFA support. Access
+  tokens expire in 15 min; refresh tokens are httpOnly with 7-day lifetime;
+  revoked tokens are tracked.
+- Server-side encryption (**SSE-S3 / AES-256**) is enforced on every MinIO
+  bucket at bootstrap; SSE-KMS is supported for external KMS deployments. See
+  [`docs/security/encryption.md`](docs/security/encryption.md) for algorithms,
+  key storage, rotation, and what the model defends against.
+- Production-profile startup **fails fast** on default credentials. The backend
+  rejects the placeholder `LOOM_SECRET_KEY`, default MinIO access/secret keys,
+  and the default database password; Docker Compose refuses to start when
+  `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `POSTGRES_PASSWORD`, or
+  `GRAFANA_ADMIN_PASSWORD` are unset.
+- Three layers of authorization: **system roles** (`admin` / `analyst` /
+  `viewer`), **organization roles** (`admin` / `member`), **case-level roles**
+  (`owner` / `editor` / `viewer`). Every case-scoped endpoint checks case
+  membership; cross-org access is impossible by construction.
 
-The API will be available at `http://localhost:8000/docs` and the frontend at
-`http://localhost:3000`.
+The full security write-up (i.e.,threat model, auth, authorization, audit,
+storage, input validation, responsible disclosure) is in
+[`docs/security.md`](docs/security.md).
 
-### Running Tests
+### Reporting vulnerabilities
 
-```bash
-make test           # all tests
-make test-backend   # backend only
-make test-frontend  # frontend only
-make lint           # all linters
-```
+Please report security issues privately by emailing the maintainers. **Do not
+open a public GitHub issue.** A confirmed report receives an acknowledgement
+within 72 hours and a fix target within 30 days for high-severity issues.
 
-## Desktop Lite (beta)
+## How it's built
 
-For legal observers and civil-rights attorneys who need Loom
-on a single laptop without running Docker, Postgres, or a terminal,
-we ship a local-only Desktop Lite build. It uses SQLite, stores files
-on the local disk with WORM read-only semantics, and never opens an
-external network listener. See
-[docs/desktop-lite.md](docs/desktop-lite.md) for installation,
-first-run setup, the data directory layout, and what Lite does vs.
-what requires the server deploy.
+| Layer          | Technology                             |
+| -------------- | -------------------------------------- |
+| API            | FastAPI + Uvicorn (Python 3.12)        |
+| Database       | PostgreSQL 16 (server) / SQLite (Lite) |
+| Object Storage | MinIO (S3-compatible, WORM)            |
+| Workflows      | Temporal (server) / in-process (Lite)  |
+| Frontend       | Vite + React 18 + TypeScript           |
+| UI             | shadcn/ui (Radix + Tailwind)           |
+| Desktop Shell  | Tauri v2                               |
+| Testing        | pytest, Vitest, Playwright             |
 
-## Core Principles
-
-1. **Originals are sacred**: the system preserves original files, filenames,
-   order, and hashes with WORM-style immutability. Every access is logged.
-
-2. **AI assists, humans decide**: AI can suggest transcripts, scene boundaries,
-   and candidate events, but it never silently collapses ambiguity into false
-   certainty. Contradictions are surfaced, not hidden.
-
-3. **Scale on ugly reality**: designed for terabytes of mixed footage with
-   resumable upload, batch ingest, async processing, and proxy-based review.
-
-4. **No surveillance features**: face recognition, suspicion scoring, and
-   automated identity resolution are explicitly out of scope.
-
-## Key Features
-
-- **Authenticated routes**: all non-public routes require JWT authentication
-  with automatic redirect to login
-- **Configurable CORS**: production deployments use `LOOM_CORS_ORIGINS` instead
-  of blocking all cross-origin requests
-- **Async workflow pipelines**: ingest, export, transcription, OCR, and scene
-  detection run as Temporal workflows with proper error propagation (502 on
-  workflow service failure)
-- **Complete database schema**: all models have corresponding Alembic migrations
-  including redactions and revoked tokens tables
-- **Referential integrity**: all foreign keys include explicit `ondelete`
-  constraints matching migration definitions
-- **Type-safe API layer**: response schemas are constructed explicitly from model
-  fields with no suppressed type errors
-- **User-facing error feedback**: all mutation hooks include `onError` toast
-  notifications
-- **Production-ready Docker**: pinned image versions, health checks on all
-  containers, hardened backup/restore scripts
-- **Operational runbook**: documented procedures for service restarts, disk
-  management, debugging workflows, and emergency response
-
-## Project Structure
-
-```
-loom/
-├── backend/          # FastAPI + SQLAlchemy + Temporal
-│   ├── src/loom/     # application code
-│   ├── tests/        # pytest test suite
-│   └── alembic/      # database migrations (001-003)
-├── frontend/         # Vite + React + TypeScript
-│   ├── src/          # application code
-│   └── tests/        # vitest test suite
-├── docker/           # docker compose services
-├── docs/             # project documentation
-│   ├── runbook.md    # operational runbook
-│   └── ...           # architecture, security, deployment, API
-└── Makefile          # unified dev commands
-```
+The repo is a monorepo with `backend/`, `frontend/`, `desktop/`, `docker/`, and
+`docs/`. See [`docs/architecture.md`](docs/architecture.md) for the data model,
+ingest pipeline, and workflow engine.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) — system design and data model
-- [API Reference](docs/api-reference.md) — REST endpoint documentation
-- [Security](docs/security.md) — auth, RBAC, CSRF, rate limiting
-- [Deployment](docs/deployment.md) — production deployment guide
-- [Backup & Recovery](docs/backup-recovery.md) — backup procedures
-- [Operational Runbook](docs/runbook.md) — day-to-day operations
-- [Contributing](docs/contributing.md) — development setup and PR process
+- [Architecture](docs/architecture.md): system design and the evidence spine
+- [Beta requirements](docs/requirements.md): jurisdiction, hardware, dataset,
+  and privacy defaults
+- [Desktop Lite](docs/desktop-lite.md): install, first-run, troubleshooting
+- [Deployment](docs/deployment.md): local-development bring-up
+- [Production deployment](docs/prod-deploy.md): TLS, secrets, observability
+- [Security](docs/security.md): auth, RBAC, audit, threat model
+- [Encryption](docs/security/encryption.md): algorithms and key management
+- [API reference](docs/api-reference.md): REST endpoints
+- [Backup & recovery](docs/backup-recovery.md): backup procedures
+- [Operational runbook](docs/runbook.md): day-to-day operations
+- [AI model cards](docs/ai-model-cards.md): disclosure of every model used
+- [Contributing](docs/contributing.md): development setup and PR process
+
+## Contributing
+
+Bug reports, feature requests, and pull requests are welcome. Read
+[`docs/contributing.md`](docs/contributing.md) for code style, the test/coverage
+gates, and the PR workflow.
+
+If you're a legal observer or attorney piloting Loom and you've hit a workflow
+problem, please open an issue. That feedback shapes the beta.
 
 ## License
 
-[MIT](LICENSE)
+Loom is released under the [MIT License](LICENSE). It is built to support
+civil-liberties work; please use it for that.

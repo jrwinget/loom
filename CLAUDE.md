@@ -194,13 +194,13 @@ all settings and defaults. Key groups:
 
 Alembic migrations in `backend/alembic/versions/` use
 sequential numbering: `NNN_description.py` (e.g.,
-`001_initial_schema.py`). Current head: `003`. CI runs a
-full round-trip test: upgrade head → downgrade base →
-upgrade head.
+`001_initial_schema.py`). Current head: `011`
+(`011_append_only_triggers.py`). CI runs a full round-trip
+test: upgrade head → downgrade base → upgrade head.
 
 ## CI Pipeline
 
-Runs on pushes/PRs to `staging` and `main`:
+Runs on pushes/PRs to `main`:
 
 1. Lint backend (ruff + mypy) and frontend (eslint + prettier
    + tsc) in parallel
@@ -220,8 +220,9 @@ Runs on pushes/PRs to `staging` and `main`:
   all signatures, Ruff-formatted, mypy strict
 - **TypeScript**: 2-space indent, 80-char lines, strict mode,
   no `any`, single quotes, trailing commas
-- **Commits**: staging branch, concise messages, 2-4 bullets,
-  no co-author lines
+- **Commits**: short topical branches off `main`, concise
+  messages, 2-4 bullets, `Fixes #N` trailers, no co-author
+  lines
 - **Tests**: 90% coverage minimum (both backend and frontend)
 
 ## Security

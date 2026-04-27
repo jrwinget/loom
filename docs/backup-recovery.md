@@ -212,13 +212,20 @@ mc anonymous set none loom/loom-wal-archive
 
 ## Configuration Reference
 
-| Variable | Default | Description |
+Compose now refuses to start when `POSTGRES_PASSWORD`,
+`MINIO_ROOT_USER`, or `MINIO_ROOT_PASSWORD` are unset; the
+backend additionally rejects the dev sentinel values
+(`loom_dev`, `loom_minio`, `loom_minio_dev`) on
+non-debug, server-profile startup. Production must override
+every credential row below.
+
+| Variable | Dev sentinel (in `.env.example`) | Description |
 |---|---|---|
-| `POSTGRES_USER` | `loom` | Database user |
-| `POSTGRES_PASSWORD` | `loom_dev` | Database password |
+| `POSTGRES_USER` | `loom` | Database user (used by the bootstrap healthcheck) |
+| `POSTGRES_PASSWORD` | `loom_dev` | **Mandatory in `.env`**; rejected at backend startup outside debug |
 | `POSTGRES_DB` | `loom` | Database name |
-| `MINIO_ROOT_USER` | `loom_minio` | MinIO access key |
-| `MINIO_ROOT_PASSWORD` | `loom_minio_dev` | MinIO secret key |
+| `MINIO_ROOT_USER` | `loom_minio` | **Mandatory in `.env`**; rejected at backend startup outside debug |
+| `MINIO_ROOT_PASSWORD` | `loom_minio_dev` | **Mandatory in `.env`**; rejected at backend startup outside debug |
 | `MINIO_BACKUP_BUCKET` | `loom-backups` | MinIO bucket for backups |
 | `LOCAL_RETENTION_DAYS` | `7` | Days to keep local backups |
 | `REMOTE_RETENTION_DAYS` | `30` | Days to keep remote backups |
