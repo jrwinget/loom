@@ -172,6 +172,30 @@ jobs:
           --hidden-import uvicorn.lifespan.on
         continue-on-error: false
 
+      # tauri v2 expects sidecar binaries declared in `externalBin`
+      # to be suffixed with the rust target triple, e.g.
+      # `loom-backend-x86_64-unknown-linux-gnu`. pyinstaller produces
+      # a bare name, so rename the artifact in place. the triple is
+      # read from rustc itself rather than hardcoded so the same step
+      # works for x86_64 linux, arm64/x86_64 macOS, and x86_64
+      # windows-msvc.
+      - name: Rename sidecar with rust target triple
+        working-directory: backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          triple=$(rustc -vV | sed -n 's/^host: //p')
+          if [ -z "$triple" ]; then
+            echo "could not detect rust target triple" >&2
+            exit 1
+          fi
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            mv "dist/loom-backend.exe" "dist/loom-backend-${triple}.exe"
+          else
+            mv "dist/loom-backend" "dist/loom-backend-${triple}"
+          fi
+          ls -la dist/
+
       # tauri bundle: per-os bundle flags, --ci suppresses prompts
       - name: Install desktop dependencies
         working-directory: desktop
