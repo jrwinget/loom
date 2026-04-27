@@ -73,6 +73,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         settings.validate_secret_key()
         settings.validate_deployment_profile()
+        settings.validate_production_settings()
     except ValueError as exc:
         logging.critical("configuration error: %s", exc)
         raise
