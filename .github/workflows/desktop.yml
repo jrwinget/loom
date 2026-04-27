@@ -137,11 +137,24 @@ jobs:
       # hidden-imports cover modules pyinstaller's static analyzer
       # tends to miss (fastapi deep imports, sqlalchemy dialects,
       # uvicorn logging handlers). keep this as one command.
+      #
+      # extras list deliberately excludes `ai` (faster-whisper,
+      # pyannote, scenedetect) and `dev` (pytest, ruff, mypy).
+      # the AI deps drag in torch + torchcodec, whose Windows DLLs
+      # are not present in PyInstaller's bundle scope and cause the
+      # sidecar build to crash mid-collect on windows-latest. the
+      # AI features run as opt-in extras installed separately on
+      # the host; the bundled sidecar stays slim.
       - name: Build backend sidecar
         working-directory: backend
         shell: bash
         run: >-
-          uv sync --all-extras &&
+          uv sync
+          --extra desktop
+          --extra report
+          --extra url-ingest
+          --extra provenance
+          --extra observability &&
           uv run pyinstaller --onefile src/loom/main.py
           --name loom-backend
           --distpath dist
