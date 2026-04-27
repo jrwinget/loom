@@ -112,7 +112,12 @@ export function useAssetDownloadUrl(
       return res.url;
     },
     enabled: !!caseId && !!assetId,
-    // presigned urls expire, refetch often
-    staleTime: 60_000,
+    // presigned urls expire after 15 minutes server-side. mark
+    // stale at 10 minutes so an open detail view auto-refetches a
+    // fresh URL before the current one expires; gcTime keeps the
+    // cached URL around long enough to avoid spurious refetches
+    // during navigation.
+    staleTime: 10 * 60_000,
+    gcTime: 15 * 60_000,
   });
 }

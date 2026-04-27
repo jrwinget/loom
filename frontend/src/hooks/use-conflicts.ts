@@ -61,6 +61,10 @@ export function useCreateResolution(
       void queryClient.invalidateQueries({
         queryKey: queryKeys.conflicts.byCase(caseId),
       });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Resolution recorded',
+      });
     },
     onError: () => {
       useToastStore.getState().addToast({
@@ -104,6 +108,10 @@ export function useUpdateResolution(caseId: string): ReturnType<
       });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.conflicts.byCase(caseId),
+      });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Resolution updated',
       });
     },
     onError: () => {

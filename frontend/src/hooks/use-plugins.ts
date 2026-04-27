@@ -40,6 +40,10 @@ export function useCreatePlugin(): ReturnType<
       void queryClient.invalidateQueries({
         queryKey: queryKeys.plugins.all,
       });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Plugin created',
+      });
     },
     onError: () => {
       useToastStore.getState().addToast({
@@ -65,6 +69,10 @@ export function useUpdatePlugin(
       void queryClient.invalidateQueries({
         queryKey: queryKeys.plugins.detail(id),
       });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Plugin updated',
+      });
     },
     onError: () => {
       useToastStore.getState().addToast({
@@ -86,6 +94,10 @@ export function useDeletePlugin(): ReturnType<
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.plugins.all,
+      });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Plugin deleted',
       });
     },
     onError: () => {
@@ -119,6 +131,10 @@ export function useCreateWebhook(
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.plugins.webhooks(pluginId),
+      });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Webhook created',
       });
     },
     onError: () => {

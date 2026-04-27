@@ -52,6 +52,10 @@ export function useProposeClusters(
       void queryClient.invalidateQueries({
         queryKey: queryKeys.clusters.byCase(caseId),
       });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Clusters proposed',
+      });
     },
     onError: () => {
       useToastStore.getState().addToast({
@@ -92,6 +96,10 @@ export function useAcceptCluster(
       void queryClient.invalidateQueries({
         queryKey: queryKeys.timeline.events(caseId),
       });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Cluster accepted',
+      });
     },
     onError: () => {
       useToastStore.getState().addToast({
@@ -116,6 +124,10 @@ export function useRejectCluster(
       void queryClient.invalidateQueries({
         queryKey: queryKeys.clusters.byCase(caseId),
       });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Cluster rejected',
+      });
     },
     onError: () => {
       useToastStore.getState().addToast({
@@ -139,6 +151,10 @@ export function useMergeClusters(
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.clusters.byCase(caseId),
+      });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Clusters merged',
       });
     },
     onError: () => {
