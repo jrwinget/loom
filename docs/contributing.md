@@ -1,60 +1,96 @@
 # Contributing
 
-## Development Setup
+Thanks for your interest in improving Loom. This doc covers the
+practical bits — how to get a working dev environment, how the
+codebase is laid out, and what's expected of a pull request.
 
-See the [Quick Start](../README.md#quick-start) section in
-the README.
+## Development setup
 
-## Code Style
+You need Python 3.12+, Node 22+ with pnpm 10, Docker + Docker
+Compose, and [uv](https://docs.astral.sh/uv/). Then:
+
+```bash
+git clone https://github.com/jrwinget/loom.git
+cd loom
+cp .env.example .env             # populate the required vars
+make up                          # start postgres, minio, temporal
+cd backend && uv sync --all-extras && cd ..
+cd frontend && pnpm install && cd ..
+make migrate                     # run database migrations
+make dev                         # start backend + frontend
+```
+
+The compose stack now refuses to start without `LOOM_SECRET_KEY`,
+`POSTGRES_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`,
+and `GRAFANA_ADMIN_PASSWORD` set in `.env`. The example file
+ships sensible dev sentinels; production must override them.
+
+API: <http://localhost:8000/docs>. Frontend:
+<http://localhost:3000>.
+
+## Code style
 
 ### Python (backend)
-- 4-space indentation, 80-character line width
-- Type hints on all function signatures
-- Ruff for linting and formatting (replaces black + flake8)
-- mypy in strict mode
-- Inline comments in lowercase
-- Max cyclomatic complexity: 10
+
+- 4-space indent, 80-char lines
+- Type hints on every function signature; `mypy` is in strict
+  mode
+- Ruff for linting and formatting
+- Inline comments lowercase; user-facing strings and commits
+  properly cased
+- Max cyclomatic complexity 10
 
 ### TypeScript (frontend)
-- 2-space indentation, 80-character line width
-- Strict mode, no `any` type
-- Single quotes, trailing commas (prettier)
-- ESLint with typescript-eslint plugin
-- Inline comments in lowercase
 
-### Commit Messages
-- Use the staging branch for development
-- Properly cased, concise wording
-- 2-4 bullet points maximum
-- Do not include co-author information
+- 2-space indent, 80-char lines
+- Strict mode, no `any` (use `unknown` and narrow at boundaries)
+- Single quotes, trailing commas (Prettier)
+- ESLint with `--max-warnings=0`
+- Inline comments lowercase
 
-Example:
-```
-Add asset upload with hash verification
+## Tests
 
-- Implement multipart upload endpoint for files under 100MB
-- Compute SHA-256 and SHA-512 hashes during upload stream
-- Store originals in WORM-enabled MinIO bucket
-```
-
-## Testing
-
-- Minimum 90% test coverage enforced in CI
-- Backend: pytest with pytest-asyncio
-- Frontend: Vitest with React Testing Library
+- Backend: `pytest` with `pytest-asyncio` (≥90% coverage gate)
+- Frontend: Vitest with React Testing Library + MSW
+  (≥90% coverage gate)
 - E2E: Playwright
-- Run `make test` to verify all tests pass before pushing
 
-## Pull Request Process
+Run `make test` before pushing. CI rejects PRs that drop
+coverage below 90% on either side.
 
-1. Create a branch from `staging`
-2. Make changes with tests
-3. Run `make lint && make test`
-4. Push and open PR against `staging`
-5. CI must pass before merge
+## Commits and pull requests
 
-## Architecture Decisions
+- Branch off `main` with a short topical name
+  (`fix/<n>-...`, `feat/<n>-...`, `docs/...`, `chore/...`).
+- Keep commits focused: one concern per commit, present-tense
+  summary line, 2-4 bullet points explaining the *why* below.
+- Use `Fixes #<n>` (or `Closes #<n>`) trailers when a PR
+  resolves an issue. **Do not include `Co-authored-by`
+  trailers.**
+- Open the PR against `main`. CI must pass before merge:
+  lint (backend ruff + mypy, frontend eslint + prettier + tsc),
+  tests (90% coverage), migration round-trip on real Postgres,
+  security scan (pip-audit, pnpm audit, Trivy on Docker
+  images), and Docker build smoke test.
+- Squash-merge is the default — keeps the history scannable.
 
-Major changes should reference the evidence spine model in
-`docs/architecture.md`. The core principles in the README
-are non-negotiable constraints, not suggestions.
+For larger pieces of work, please open an issue first so we
+can talk through the design before code lands. The
+[core principles in the README](../README.md#security-approach)
+and the [beta requirements doc](requirements.md) are constraints,
+not suggestions; PRs that conflict with them will be redirected.
+
+## Issue scope
+
+When filing an issue, scope it to one concern (backend OR
+frontend OR docs OR a single question). Umbrella trackers
+covering many unrelated items are hard to act on; we'll ask
+to split them.
+
+## Architecture decisions
+
+Major changes should reference
+[`docs/architecture.md`](architecture.md). The evidence-spine
+model — originals are immutable, derivatives are regenerable,
+chain of custody is append-only, contradictions are surfaced —
+is load-bearing across the product.
