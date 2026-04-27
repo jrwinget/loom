@@ -47,6 +47,10 @@ export function useCreateOrg(): ReturnType<
       void queryClient.invalidateQueries({
         queryKey: queryKeys.organizations.all,
       });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Organization created',
+      });
     },
     onError: () => {
       useToastStore.getState().addToast({
