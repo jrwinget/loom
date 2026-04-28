@@ -4,9 +4,16 @@ This doc covers Loom's threat model, authentication and
 authorization, audit trail, storage protections, input
 validation, and the responsible-disclosure process.
 
+> **Not legal advice.** Statutes and rules of evidence are
+> referenced here for design context only. See the
+> [non-legal-advice notice at the top of the requirements
+> doc](requirements.md) for the full framing. Consult counsel
+> for any compliance or admissibility question on a specific
+> matter.
+
 For algorithms, key storage, and rotation see
 [`security/encryption.md`](security/encryption.md). For the
-jurisdictional privacy posture (BIPA, Illinois Eavesdropping
+jurisdictional design posture (BIPA, Illinois Eavesdropping
 Act, FOIA) see the
 [Privacy and compliance section of the requirements doc](requirements.md#privacy-and-compliance).
 
