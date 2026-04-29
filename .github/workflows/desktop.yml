@@ -136,6 +136,20 @@ jobs:
         run: pnpm build
         continue-on-error: false
 
+      # windows-only: exclude the workspace from defender real-time
+      # scanning. pyinstaller writes hundreds of intermediate .pyz
+      # and .pyc files; defender pausing each one for inspection has
+      # been observed to silently hang the sidecar step for 20+ min
+      # vs the normal 1-2 min. the exclusion is scoped to the runner
+      # workspace and lives only for the job's lifetime.
+      - name: Windows - exclude workspace from defender
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+          Add-MpPreference -ExclusionProcess "python.exe"
+          Add-MpPreference -ExclusionProcess "pyinstaller.exe"
+
       # backend sidecar: pyinstaller --onefile, single invocation.
       # hidden-imports cover modules pyinstaller's static analyzer
       # tends to miss (fastapi deep imports, sqlalchemy dialects,
@@ -148,9 +162,17 @@ jobs:
       # sidecar build to crash mid-collect on windows-latest. the
       # AI features run as opt-in extras installed separately on
       # the host; the bundled sidecar stays slim.
+      #
+      # `--clean` discards any pyinstaller work/build cache restored
+      # from the actions cache, which can otherwise leave the build
+      # in a broken half-state on rerun. `timeout-minutes` guards
+      # against the windows defender / pyinstaller hang seen on
+      # tag run 25113193779 — fail fast at 15m so a hung runner
+      # surfaces as a failure instead of burning the whole job.
       - name: Build backend sidecar
         working-directory: backend
         shell: bash
+        timeout-minutes: 15
         run: >-
           uv sync
           --extra desktop
@@ -158,7 +180,8 @@ jobs:
           --extra url-ingest
           --extra provenance
           --extra observability &&
-          uv run pyinstaller --onefile src/loom/main.py
+          uv run pyinstaller --onefile --clean --noconfirm
+          src/loom/main.py
           --name loom-backend
           --distpath dist
           --hidden-import fastapi
