@@ -1,6 +1,6 @@
 from uuid import UUID
 
-import magic
+import puremagic
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.asset import Asset
@@ -56,7 +56,20 @@ def validate_file_type(
     returns (mime_type, media_type). raises ValueError if
     file type is not in the allowed list.
     """
-    mime_type = magic.from_buffer(data, mime=True)
+    try:
+        mime_type = puremagic.from_string(data, mime=True)
+    except puremagic.PureError:
+        # plain text has no magic bytes; fall back to a UTF-8 decode
+        # check. presence of a NUL byte is a strong negative signal
+        # for text in any encoding.
+        if b"\x00" not in data:
+            try:
+                data.decode("utf-8")
+                mime_type = "text/plain"
+            except UnicodeDecodeError:
+                mime_type = "application/octet-stream"
+        else:
+            mime_type = "application/octet-stream"
     media_type = detect_media_type(mime_type)
 
     if media_type is None:
