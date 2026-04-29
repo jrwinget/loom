@@ -142,34 +142,45 @@ jobs:
         run: pnpm build
         continue-on-error: false
 
-      # windows-only: disable defender real-time monitoring for the
-      # job's lifetime. path/process exclusions via Add-MpPreference
-      # were not enough — pyinstaller's pefile DLL walk hung anyway
-      # on tag run 25113193779 and main push 25115976456 despite
-      # those exclusions being in place. Set-MpPreference is the
-      # documented escape hatch for pyinstaller-on-Actions and stops
-      # AV from intercepting pefile's reads of `av` and c2pa DLLs.
-      # the path exclusion is kept as belt-and-suspenders. monitoring
-      # is automatically re-enabled when the runner instance is torn
-      # down — there is no persistent state to clean up.
-      - name: Windows - disable defender realtime monitoring
+      # windows-only: silence every windows component that can gate
+      # a DLL load on a network call. the silent build hang at
+      # `Looking for dynamic libraries` (tag run 25113193779, main
+      # push 25115976456, dispatch 25118057855) is pyinstaller's
+      # isolated import subprocess sitting forever on `import av`,
+      # because windows tries to resolve smartscreen reputation for
+      # the freshly-downloaded ffmpeg DLLs in `av.libs`. realtime AV
+      # is one source of the hang; smartscreen + the MAPS cloud
+      # lookup are the others, and they live behind separate flags.
+      #
+      # we disable the lot for the job's lifetime. the runner is
+      # ephemeral, so there is no state to clean up. exclusions are
+      # kept as belt-and-suspenders.
+      - name: Windows - silence defender + smartscreen
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
           Set-MpPreference -DisableRealtimeMonitoring $true
           Set-MpPreference -DisableScriptScanning $true
           Set-MpPreference -DisableArchiveScanning $true
+          # block-at-first-seen and MAPS reporting are the smartscreen
+          # / cloud-lookup paths that gate dll loads on a network call
+          Set-MpPreference -DisableBlockAtFirstSeen $true
+          Set-MpPreference -MAPSReporting 0
+          Set-MpPreference -SubmitSamplesConsent 2
           Add-MpPreference -ExclusionPath "${{ github.workspace }}"
           Get-MpPreference |
             Select-Object DisableRealtimeMonitoring,
                           DisableScriptScanning,
-                          DisableArchiveScanning |
+                          DisableArchiveScanning,
+                          DisableBlockAtFirstSeen,
+                          MAPSReporting,
+                          SubmitSamplesConsent |
             Format-List
 
-      # backend sidecar: pyinstaller --onefile, single invocation.
-      # hidden-imports cover modules pyinstaller's static analyzer
-      # tends to miss (fastapi deep imports, sqlalchemy dialects,
-      # uvicorn logging handlers). keep this as one command.
+      # backend sidecar: install python deps first, then (on
+      # windows) strip mark-of-the-web from every file in the venv,
+      # then run pyinstaller. splitting the install and bundle steps
+      # lets us insert the windows-only Unblock-File between them.
       #
       # extras list deliberately excludes `ai` (faster-whisper,
       # pyannote, scenedetect) and `dev` (pytest, ruff, mypy).
@@ -178,24 +189,55 @@ jobs:
       # sidecar build to crash mid-collect on windows-latest. the
       # AI features run as opt-in extras installed separately on
       # the host; the bundled sidecar stays slim.
-      #
-      # `--clean` discards any pyinstaller work/build cache restored
-      # from the actions cache, which can otherwise leave the build
-      # in a broken half-state on rerun. `timeout-minutes` guards
-      # against the windows defender / pyinstaller hang seen on
-      # tag run 25113193779 — fail fast at 15m so a hung runner
-      # surfaces as a failure instead of burning the whole job.
-      - name: Build backend sidecar
+      - name: Install backend dependencies
         working-directory: backend
         shell: bash
-        timeout-minutes: 15
+        timeout-minutes: 10
         run: >-
           uv sync
           --extra desktop
           --extra report
           --extra url-ingest
           --extra provenance
-          --extra observability &&
+          --extra observability
+
+      # windows-only: strip MOTW (Zone.Identifier alternate data
+      # stream) from every file in the venv. wheels fetched from
+      # PyPI by `uv sync` carry MOTW; when pyinstaller's isolated
+      # import subprocess later does `import av`, windows tries to
+      # resolve smartscreen reputation for the freshly-downloaded
+      # ffmpeg DLLs in `av.libs`, which involves a cloud lookup
+      # that can stall for 10+ minutes on github runners. removing
+      # the ADS lets the DLL load proceed without that round-trip.
+      # this is the actual fix for the "Looking for dynamic
+      # libraries" hang documented above.
+      - name: Windows - strip MOTW from venv
+        if: matrix.platform == 'windows'
+        working-directory: backend
+        shell: pwsh
+        run: |
+          $count = 0
+          Get-ChildItem -Path .venv -Recurse -File `
+            -ErrorAction SilentlyContinue |
+            ForEach-Object {
+              try {
+                Unblock-File -Path $_.FullName -ErrorAction Stop
+                $count++
+              } catch {}
+            }
+          Write-Host "stripped MOTW from $count files in .venv"
+
+      # `--clean` discards any pyinstaller work/build cache restored
+      # from the actions cache, which can otherwise leave the build
+      # in a broken half-state on rerun. `timeout-minutes` guards
+      # against future regressions — fail fast at 15m so a hung
+      # runner surfaces as a failure instead of burning the whole
+      # job budget.
+      - name: Build backend sidecar
+        working-directory: backend
+        shell: bash
+        timeout-minutes: 15
+        run: >-
           uv run pyinstaller --onefile --clean --noconfirm
           src/loom/main.py
           --name loom-backend
