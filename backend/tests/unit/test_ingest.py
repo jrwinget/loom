@@ -42,7 +42,7 @@ def test_detect_media_type_unknown() -> None:
 def test_validate_file_type_valid() -> None:
     """valid file types are accepted."""
     with patch(
-        "loom.services.ingest.magic.from_buffer",
+        "loom.services.ingest.puremagic.from_string",
         return_value="image/jpeg",
     ):
         mime, media = validate_file_type(b"\xff\xd8\xff", "photo.jpg")
@@ -54,12 +54,39 @@ def test_validate_file_type_invalid() -> None:
     """disallowed types raise ValueError."""
     with (
         patch(
-            "loom.services.ingest.magic.from_buffer",
+            "loom.services.ingest.puremagic.from_string",
             return_value="application/x-executable",
         ),
         pytest.raises(ValueError, match="not allowed"),
     ):
         validate_file_type(b"\x7fELF", "malware.exe")
+
+
+def test_validate_file_type_plain_text_fallback() -> None:
+    """plain text has no magic bytes — fall back to utf-8 decode."""
+    import puremagic
+
+    with patch(
+        "loom.services.ingest.puremagic.from_string",
+        side_effect=puremagic.PureError("no signature"),
+    ):
+        mime, media = validate_file_type(b"hello world\nline two\n", "x.txt")
+        assert mime == "text/plain"
+        assert media == "document"
+
+
+def test_validate_file_type_binary_with_null_byte_rejected() -> None:
+    """unidentified binary (NUL present) is rejected, not text."""
+    import puremagic
+
+    with (
+        patch(
+            "loom.services.ingest.puremagic.from_string",
+            side_effect=puremagic.PureError("no signature"),
+        ),
+        pytest.raises(ValueError, match="not allowed"),
+    ):
+        validate_file_type(b"some\x00binary\x00data", "blob.bin")
 
 
 def test_generate_storage_key_format() -> None:
