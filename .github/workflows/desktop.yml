@@ -55,7 +55,13 @@ jobs:
             # _files: true) to fail the tag run with no matches.
             artifact_glob: |
               desktop/src-tauri/target/release/bundle/dmg/*.dmg
-          - os: windows-latest
+          # pinned to windows-2022 (not windows-latest, currently
+          # windows-2025) because pyinstaller's pefile-based DLL walk
+          # of `av` and `c2pa-python` hangs stochastically on the
+          # 2025 fleet — same code, same lockfile, same defender
+          # exclusions. observed on tag run 25113193779 and main
+          # push 25115976456. revisit once the 2025 image stabilizes.
+          - os: windows-2022
             platform: windows
             bundles: msi,nsis
             artifact_glob: |
@@ -136,19 +142,29 @@ jobs:
         run: pnpm build
         continue-on-error: false
 
-      # windows-only: exclude the workspace from defender real-time
-      # scanning. pyinstaller writes hundreds of intermediate .pyz
-      # and .pyc files; defender pausing each one for inspection has
-      # been observed to silently hang the sidecar step for 20+ min
-      # vs the normal 1-2 min. the exclusion is scoped to the runner
-      # workspace and lives only for the job's lifetime.
-      - name: Windows - exclude workspace from defender
+      # windows-only: disable defender real-time monitoring for the
+      # job's lifetime. path/process exclusions via Add-MpPreference
+      # were not enough — pyinstaller's pefile DLL walk hung anyway
+      # on tag run 25113193779 and main push 25115976456 despite
+      # those exclusions being in place. Set-MpPreference is the
+      # documented escape hatch for pyinstaller-on-Actions and stops
+      # AV from intercepting pefile's reads of `av` and c2pa DLLs.
+      # the path exclusion is kept as belt-and-suspenders. monitoring
+      # is automatically re-enabled when the runner instance is torn
+      # down — there is no persistent state to clean up.
+      - name: Windows - disable defender realtime monitoring
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
+          Set-MpPreference -DisableRealtimeMonitoring $true
+          Set-MpPreference -DisableScriptScanning $true
+          Set-MpPreference -DisableArchiveScanning $true
           Add-MpPreference -ExclusionPath "${{ github.workspace }}"
-          Add-MpPreference -ExclusionProcess "python.exe"
-          Add-MpPreference -ExclusionProcess "pyinstaller.exe"
+          Get-MpPreference |
+            Select-Object DisableRealtimeMonitoring,
+                          DisableScriptScanning,
+                          DisableArchiveScanning |
+            Format-List
 
       # backend sidecar: pyinstaller --onefile, single invocation.
       # hidden-imports cover modules pyinstaller's static analyzer
