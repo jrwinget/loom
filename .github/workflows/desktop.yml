@@ -49,9 +49,12 @@ jobs:
           - os: macos-latest
             platform: macos
             bundles: dmg
+            # tauri with `--bundles dmg` emits only the .dmg under
+            # bundle/dmg/. listing bundle/macos/*.app here would
+            # cause softprops/action-gh-release (fail_on_unmatched
+            # _files: true) to fail the tag run with no matches.
             artifact_glob: |
               desktop/src-tauri/target/release/bundle/dmg/*.dmg
-              desktop/src-tauri/target/release/bundle/macos/*.app
           - os: windows-latest
             platform: windows
             bundles: msi,nsis
