@@ -27,8 +27,11 @@ function formatTime(seconds: number): string {
   );
 }
 
-function VideoViewer(props: { src: string }): React.ReactElement {
-  const { src } = props;
+function VideoViewer(props: {
+  src: string;
+  filename: string;
+}): React.ReactElement {
+  const { src, filename } = props;
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -100,7 +103,10 @@ function VideoViewer(props: { src: string }): React.ReactElement {
         src={src}
         className="w-full rounded"
         data-testid="video-element"
-      />
+        aria-label={`Video: ${filename}`}
+      >
+        <track kind="captions" />
+      </video>
 
       {/* timestamp display */}
       <div
@@ -211,8 +217,11 @@ function AudioWaveform(props: {
   );
 }
 
-function AudioViewer(props: { src: string }): React.ReactElement {
-  const { src } = props;
+function AudioViewer(props: {
+  src: string;
+  filename: string;
+}): React.ReactElement {
+  const { src, filename } = props;
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -253,7 +262,7 @@ function AudioViewer(props: { src: string }): React.ReactElement {
 
   return (
     <div data-testid="audio-viewer">
-      <audio ref={audioRef} src={src} />
+      <audio ref={audioRef} src={src} aria-label={`Audio: ${filename}`} />
 
       <AudioWaveform
         audioRef={audioRef}
@@ -365,9 +374,9 @@ export function AssetViewer(props: AssetViewerProps): React.ReactElement {
 
   switch (asset.mediaType) {
     case 'video':
-      return <VideoViewer src={src} />;
+      return <VideoViewer src={src} filename={asset.originalFilename} />;
     case 'audio':
-      return <AudioViewer src={src} />;
+      return <AudioViewer src={src} filename={asset.originalFilename} />;
     case 'image':
       return <ImageViewer src={src} alt={asset.originalFilename} />;
     case 'document':

@@ -1,12 +1,47 @@
+import * as Dialog from '@radix-ui/react-dialog';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useKeyboardShortcut } from '@/hooks/use-keyboard';
 import { useAuthStore } from '@/stores/auth-store';
+
+// kept in this file rather than a `/shortcuts.ts` module so each
+// entry sits next to the dialog that renders it; review/timeline
+// shortcuts are still registered at their use site.
+const SHORTCUT_GROUPS: { heading: string; items: [string, string][] }[] = [
+  {
+    heading: 'Playback (when viewing an asset)',
+    items: [
+      ['Space', 'Play / pause'],
+      ['← / →', 'Skip ±5 seconds'],
+      ['Shift + ← / →', 'Step ±1 frame'],
+      ['I / O', 'Mark in / out point'],
+    ],
+  },
+  {
+    heading: 'Review workspace',
+    items: [
+      ['Ctrl + F / ⌘ + F', 'Focus search'],
+      ['Ctrl + H', 'Hide / show panel'],
+    ],
+  },
+  {
+    heading: 'Global',
+    items: [['?', 'Open this dialog']],
+  },
+];
 
 export function Header(): React.ReactElement {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useKeyboardShortcut(
+    'shift+/',
+    () => setShortcutsOpen((prev) => !prev),
+    [],
+  );
 
   const toggleMenu = useCallback(() => {
     setMenuOpen((prev) => !prev);
@@ -50,9 +85,64 @@ export function Header(): React.ReactElement {
             'text-xs text-muted-foreground hover:bg-accent'
           }
           aria-label="Keyboard shortcuts"
+          data-testid="open-shortcuts"
+          onClick={() => setShortcutsOpen(true)}
         >
           ?
         </button>
+
+        <Dialog.Root open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 bg-black/40" />
+            <Dialog.Content
+              data-testid="shortcuts-dialog"
+              className={
+                'bg-card fixed left-1/2 top-1/2 w-full max-w-md ' +
+                '-translate-x-1/2 -translate-y-1/2 rounded-lg ' +
+                'border border-border p-6 shadow-lg'
+              }
+            >
+              <Dialog.Title className="text-lg font-semibold text-foreground">
+                Keyboard shortcuts
+              </Dialog.Title>
+              <Dialog.Description className="mt-1 text-sm text-muted-foreground">
+                Shortcuts are scoped to the panel that owns them.
+              </Dialog.Description>
+              <div className="mt-4 space-y-4">
+                {SHORTCUT_GROUPS.map((group) => (
+                  <section key={group.heading}>
+                    <h3 className="text-sm font-medium text-foreground">
+                      {group.heading}
+                    </h3>
+                    <dl className="mt-2 space-y-1 text-sm">
+                      {group.items.map(([keys, label]) => (
+                        <div
+                          key={keys}
+                          className="flex justify-between gap-4"
+                        >
+                          <dt className="text-muted-foreground">{label}</dt>
+                          <dd className="font-mono text-xs text-foreground">
+                            {keys}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                ))}
+              </div>
+              <div className="mt-6 flex justify-end">
+                <Dialog.Close asChild>
+                  <button
+                    type="button"
+                    className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+                  >
+                    Close
+                  </button>
+                </Dialog.Close>
+              </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
 
         <div ref={menuRef} className="relative">
           <button
