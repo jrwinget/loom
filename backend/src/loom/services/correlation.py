@@ -49,6 +49,7 @@ class _AssetWithGeo(Protocol):
     capture_location_lat: float
     capture_location_lon: float
 
+
 # hard cap on per-case scan size. fuse_pair_signals is O(n^2) and a
 # case with 500 assets is 124,750 pairs; capping at 200 (19,900 pairs)
 # keeps scans responsive without losing realistic case sizes. raise via

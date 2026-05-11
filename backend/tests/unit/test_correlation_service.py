@@ -357,8 +357,7 @@ class TestComputeCorrelationCandidates:
     async def test_raises_when_case_exceeds_cap(self) -> None:
         t = datetime(2026, 4, 20, 12, 0, 0, tzinfo=UTC)
         assets = [
-            _make_asset(capture_time=t)
-            for _ in range(MAX_ASSETS_PER_SCAN + 1)
+            _make_asset(capture_time=t) for _ in range(MAX_ASSETS_PER_SCAN + 1)
         ]
         session = AsyncMock()
         mock_result = MagicMock()
