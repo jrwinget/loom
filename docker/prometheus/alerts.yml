@@ -39,3 +39,68 @@ groups:
           severity: warning
         annotations:
           summary: "More than 3 ingest workflow failures in 15 min"
+
+      # service liveness via prometheus's built-in `up` metric.
+      # postgres/minio/temporal are not scraped directly; if any
+      # of them goes down, the backend's /health probe fails and
+      # docker marks the container unhealthy, which surfaces here
+      # as BackendDown. dedicated exporters can be added later if
+      # finer-grained down detection is needed.
+      - alert: BackendDown
+        expr: up{job="loom-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Loom backend unreachable from prometheus for >=2 min"
+
+      - alert: WorkerDown
+        expr: up{job="loom-worker"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Temporal worker metrics endpoint unreachable for >=5 min"
+
+      # api latency slo. p95 over 1s sustained for 10 min indicates
+      # a regression worth investigating. uses the histogram exposed
+      # by prometheus_fastapi_instrumentator.
+      - alert: HighAPILatencyP95
+        expr: >
+          histogram_quantile(
+            0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1.0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backend p95 request latency >1s sustained for 10 min"
+
+      # 10% 4xx is a coarse threshold that excludes routine 401/403
+      # on protected endpoints from triggering by itself, but does
+      # fire when client-side breakage causes a sustained spike.
+      - alert: High4xxRate
+        expr: >
+          (
+            sum(rate(http_requests_total{status=~"4.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sustained 4xx rate >10% over 10 min"
+
+      # complements DBPoolExhaustion (warning at 80%) with a hard
+      # critical at full saturation — at that point requests are
+      # already queueing on pool_timeout.
+      - alert: DBPoolExhausted
+        expr: >
+          (loom_db_pool_checked_out / loom_db_pool_size) >= 1.0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DB connection pool fully saturated"

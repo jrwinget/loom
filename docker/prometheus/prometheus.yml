@@ -12,3 +12,13 @@ scrape_configs:
       - targets: ["backend:8000"]
         labels:
           service: "loom-backend"
+
+  # temporal sdk prometheus runtime, see workers/worker.py.
+  # the worker container does not publish this port to the host;
+  # prometheus reaches it over the loom-app docker network.
+  - job_name: "loom-worker"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["worker:9100"]
+        labels:
+          service: "loom-worker"

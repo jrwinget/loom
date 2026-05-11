@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     otel_service_name: str = "loom-api"
     otel_exporter_endpoint: str = "http://localhost:4317"
 
+    # bind address for the temporal worker's prometheus endpoint
+    # (host:port). empty disables exposure entirely. exposing metrics
+    # is server-profile only; the lite profile runs workflows in-process
+    # and has no separate worker container to scrape.
+    worker_metrics_addr: str = "0.0.0.0:9100"
+
     # connection pool settings
     db_pool_size: int = 20
     db_max_overflow: int = 10
