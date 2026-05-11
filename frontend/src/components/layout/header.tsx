@@ -37,11 +37,7 @@ export function Header(): React.ReactElement {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useKeyboardShortcut(
-    'shift+/',
-    () => setShortcutsOpen((prev) => !prev),
-    [],
-  );
+  useKeyboardShortcut('shift+/', () => setShortcutsOpen((prev) => !prev), []);
 
   const toggleMenu = useCallback(() => {
     setMenuOpen((prev) => !prev);
@@ -98,7 +94,7 @@ export function Header(): React.ReactElement {
               data-testid="shortcuts-dialog"
               className={
                 'bg-card fixed left-1/2 top-1/2 w-full max-w-md ' +
-                '-translate-x-1/2 -translate-y-1/2 rounded-lg ' +
+                '-translate-x-1/2 -translate-y-1/2 rounded-lg' +
                 'border border-border p-6 shadow-lg'
               }
             >
@@ -116,10 +112,7 @@ export function Header(): React.ReactElement {
                     </h3>
                     <dl className="mt-2 space-y-1 text-sm">
                       {group.items.map(([keys, label]) => (
-                        <div
-                          key={keys}
-                          className="flex justify-between gap-4"
-                        >
+                        <div key={keys} className="flex justify-between gap-4">
                           <dt className="text-muted-foreground">{label}</dt>
                           <dd className="font-mono text-xs text-foreground">
                             {keys}

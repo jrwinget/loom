@@ -23,11 +23,7 @@ function wrap(ui: ReactNode): ReactNode {
 describe('ExportWizard date range validation', () => {
   it('shows an error and disables Next when end precedes start', async () => {
     const user = userEvent.setup();
-    render(
-      wrap(
-        <ExportWizard caseId="case-1" open onOpenChange={vi.fn()} />,
-      ),
-    );
+    render(wrap(<ExportWizard caseId="case-1" open onOpenChange={vi.fn()} />));
 
     // step 1 → name + format. fill name and advance to step 2.
     await user.type(screen.getByPlaceholderText(/Case export/i), 'My export');

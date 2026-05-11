@@ -31,7 +31,7 @@ export function Shell(): React.ReactElement {
           ref={mainRef}
           id="main-content"
           tabIndex={-1}
-          className="flex-1 overflow-auto p-6 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          className="flex-1 overflow-auto p-6 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           data-testid="main-content"
         >
           <Outlet />
