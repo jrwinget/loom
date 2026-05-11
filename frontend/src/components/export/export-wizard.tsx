@@ -41,6 +41,13 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
   const [dateEnd, setDateEnd] = useState('');
   const createExport = useCreateExport(caseId);
 
+  // server enforces this too; checking client-side keeps the
+  // user out of the failed-mutation toast loop.
+  const dateRangeError =
+    dateStart && dateEnd && dateStart > dateEnd
+      ? 'Start date must be on or before end date.'
+      : null;
+
   function reset(): void {
     setStep(1);
     setName('');
@@ -174,9 +181,24 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
                   type="date"
                   value={dateEnd}
                   onChange={(e) => setDateEnd(e.target.value)}
+                  aria-invalid={dateRangeError !== null}
+                  aria-describedby={
+                    dateRangeError ? 'date-range-error' : undefined
+                  }
                   className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </label>
+
+              {dateRangeError && (
+                <p
+                  id="date-range-error"
+                  role="alert"
+                  data-testid="date-range-error"
+                  className="text-sm text-destructive"
+                >
+                  {dateRangeError}
+                </p>
+              )}
 
               <div className="flex justify-between">
                 <button
@@ -189,7 +211,8 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
                 <button
                   type="button"
                   onClick={() => setStep(3)}
-                  className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+                  disabled={dateRangeError !== null}
+                  className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 >
                   Next
                 </button>
