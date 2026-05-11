@@ -29,17 +29,32 @@ via decide_candidate. no face recognition, no identity resolution.
 from datetime import UTC, datetime
 from math import asin, cos, radians, sin, sqrt
 from statistics import mean
-from typing import Any
+from typing import Any, Protocol, TypeGuard
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.asset import Asset
+from loom.models.base import _generate_uuid7
 from loom.models.correlation import (
     CorrelationCandidate,
     CorrelationCandidateMember,
 )
+
+
+class _AssetWithGeo(Protocol):
+    """narrowing protocol for assets with non-null lat/lon."""
+
+    capture_location_lat: float
+    capture_location_lon: float
+
+# hard cap on per-case scan size. fuse_pair_signals is O(n^2) and a
+# case with 500 assets is 124,750 pairs; capping at 200 (19,900 pairs)
+# keeps scans responsive without losing realistic case sizes. raise via
+# ValueError so the api layer can surface a 422 and a batch caller can
+# decide whether to chunk.
+MAX_ASSETS_PER_SCAN = 200
 
 # photos have no duration; treat them as a 1-second window so an
 # instantaneous capture still has an interval to overlap against.
@@ -143,10 +158,6 @@ def geo_proximity_score(
     """
     if not _has_geo(a) or not _has_geo(b):
         return None
-    assert a.capture_location_lat is not None
-    assert a.capture_location_lon is not None
-    assert b.capture_location_lat is not None
-    assert b.capture_location_lon is not None
 
     distance = haversine_meters(
         a.capture_location_lat,
@@ -263,6 +274,12 @@ async def compute_correlation_candidates(
     assets = list(result.scalars().all())
     if len(assets) < 2:
         return []
+    if len(assets) > MAX_ASSETS_PER_SCAN:
+        raise ValueError(
+            f"case has {len(assets)} assets; correlation scan is "
+            f"capped at {MAX_ASSETS_PER_SCAN} per run. split the "
+            "case or run scans on subsets."
+        )
 
     pair_meta = _build_pair_meta(assets)
     if not pair_meta:
@@ -350,8 +367,8 @@ async def persist_correlation_candidates(
     """replace pending candidates for case with the given list.
 
     existing accepted/rejected candidates are preserved. caller is
-    responsible for commit; this function only flushes so the
-    returned rows have their primary keys populated.
+    responsible for commit. ids are assigned python-side via uuid7
+    so candidate + member rows can be staged in a single flush.
     """
     case_uuid = UUID(case_id)
     existing = await session.execute(
@@ -362,11 +379,11 @@ async def persist_correlation_candidates(
     )
     for stale in existing.scalars().all():
         await session.delete(stale)
-    await session.flush()
 
     created: list[CorrelationCandidate] = []
     for candidate in candidates:
         row = CorrelationCandidate(
+            id=_generate_uuid7(),
             case_id=case_uuid,
             start_utc=candidate["start_utc"],
             end_utc=candidate["end_utc"],
@@ -375,8 +392,6 @@ async def persist_correlation_candidates(
             status="pending",
         )
         session.add(row)
-        await session.flush()
-
         for asset_id in candidate["asset_ids"]:
             session.add(
                 CorrelationCandidateMember(
@@ -384,9 +399,9 @@ async def persist_correlation_candidates(
                     asset_id=UUID(asset_id),
                 )
             )
-        await session.flush()
         created.append(row)
 
+    await session.flush()
     return created
 
 
@@ -507,7 +522,7 @@ def _format_overlap_seconds(
     return f"{overlap:.1f}"
 
 
-def _has_geo(asset: Asset) -> bool:
+def _has_geo(asset: Asset) -> TypeGuard[_AssetWithGeo]:
     return (
         asset.capture_location_lat is not None
         and asset.capture_location_lon is not None
