@@ -6,6 +6,9 @@ interface TimelineCanvasProps {
   selectedEventId: string | null;
   onSelectEvent: (event: TimelineEvent) => void;
   loading?: boolean;
+  // event ids whose linked assets participate in a correlation
+  // candidate above the active confidence threshold.
+  probableMatchEventIds?: ReadonlySet<string>;
 }
 
 function SkeletonBlock(): React.ReactElement {
@@ -18,7 +21,13 @@ function SkeletonBlock(): React.ReactElement {
 }
 
 export function TimelineCanvas(props: TimelineCanvasProps): React.ReactElement {
-  const { events, selectedEventId, onSelectEvent, loading = false } = props;
+  const {
+    events,
+    selectedEventId,
+    onSelectEvent,
+    loading = false,
+    probableMatchEventIds,
+  } = props;
 
   if (loading) {
     return (
@@ -66,6 +75,7 @@ export function TimelineCanvas(props: TimelineCanvasProps): React.ReactElement {
               event={event}
               selected={selectedEventId === event.id}
               onClick={onSelectEvent}
+              isProbableMatch={probableMatchEventIds?.has(event.id)}
             />
           </div>
         ))}

@@ -37,6 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.asset import Asset
 from loom.models.base import _generate_uuid7
+from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.models.correlation import (
     CorrelationCandidate,
     CorrelationCandidateMember,
@@ -411,12 +412,18 @@ async def decide_candidate(
     candidate_id: str,
     user_id: str,
     new_status: str,
+    ip_address: str | None = None,
 ) -> CorrelationCandidate:
     """accept or reject a pending candidate.
 
     idempotent: re-asserting the current terminal status is a
     no-op and returns the row unchanged. changing an already-
     decided candidate to a different status is rejected.
+
+    on the pending → terminal transition, append one
+    ``ChainOfCustodyEntry`` per asset member so analyst
+    decisions touching evidence groupings are recoverable from
+    the append-only custody trail.
     """
     if new_status not in _TERMINAL_STATUSES:
         msg = (
@@ -448,6 +455,33 @@ async def decide_candidate(
     candidate.status = new_status
     candidate.decided_by = UUID(user_id)
     candidate.decided_at = datetime.now(UTC)
+
+    member_result = await session.execute(
+        select(CorrelationCandidateMember).where(
+            CorrelationCandidateMember.candidate_id == candidate.id,
+        )
+    )
+    members = list(member_result.scalars().all())
+    member_asset_ids = [str(m.asset_id) for m in members]
+    action = f"correlation_{new_status}"
+    detail = {
+        "candidate_id": str(candidate.id),
+        "case_id": str(candidate.case_id),
+        "confidence": candidate.confidence,
+        "reasoning": candidate.reasoning,
+        "members": member_asset_ids,
+    }
+    for member in members:
+        session.add(
+            ChainOfCustodyEntry(
+                asset_id=member.asset_id,
+                action=action,
+                actor_id=UUID(user_id),
+                detail=detail,
+                ip_address=ip_address,
+            )
+        )
+
     await session.flush()
     return candidate
 
