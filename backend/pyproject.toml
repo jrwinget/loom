@@ -148,13 +148,14 @@ source = ["loom"]
 omit = [
     "tests/*",
     "*/workers/worker.py",
-    "*/workflows/*_workflow.py",
-    "*/workflows/*_activities.py",
     "*/workflows/shared.py",
 ]
 
 [tool.coverage.report]
-fail_under = 90
+# workflow excludes were removed in #110 to expose the temporal
+# coverage gap; the floor sits at 86 until the workflow backlog in
+# #113 lands. raise as workflow tests are added.
+fail_under = 86
 show_missing = true
 exclude_lines = [
     "pragma: no cover",
