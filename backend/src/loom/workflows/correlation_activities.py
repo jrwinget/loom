@@ -33,10 +33,20 @@ async def correlate_case_assets(case_id: str) -> int:
         logger.info("correlating assets for case %s", case_id)
 
         async with get_db_session() as session:
-            candidates = await compute_correlation_candidates(
-                session,
-                case_id,
-            )
+            try:
+                candidates = await compute_correlation_candidates(
+                    session,
+                    case_id,
+                )
+            except ValueError:
+                # case exceeds MAX_ASSETS_PER_SCAN. logging at warning
+                # because the workflow shouldn't retry forever — the
+                # case needs operator action to split.
+                logger.warning(
+                    "skipping correlation for case %s: too many assets",
+                    case_id,
+                )
+                return 0
             persisted = await persist_correlation_candidates(
                 session,
                 case_id,

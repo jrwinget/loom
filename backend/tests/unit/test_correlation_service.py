@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from loom.services.correlation import (
+    MAX_ASSETS_PER_SCAN,
     asset_effective_window,
     compute_correlation_candidates,
     decide_candidate,
@@ -352,6 +353,19 @@ class TestComputeCorrelationCandidates:
         mock_result.scalars.return_value.all.return_value = [asset]
         session.execute = AsyncMock(return_value=mock_result)
         assert await compute_correlation_candidates(session, _CASE_ID) == []
+
+    async def test_raises_when_case_exceeds_cap(self) -> None:
+        t = datetime(2026, 4, 20, 12, 0, 0, tzinfo=UTC)
+        assets = [
+            _make_asset(capture_time=t) for _ in range(MAX_ASSETS_PER_SCAN + 1)
+        ]
+        session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = assets
+        session.execute = AsyncMock(return_value=mock_result)
+
+        with pytest.raises(ValueError, match="capped at"):
+            await compute_correlation_candidates(session, _CASE_ID)
 
 
 class TestPersistCorrelationCandidates:

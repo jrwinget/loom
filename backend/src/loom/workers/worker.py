@@ -1,6 +1,7 @@
 import asyncio
 
 from temporalio.client import Client
+from temporalio.runtime import PrometheusConfig, Runtime, TelemetryConfig
 from temporalio.worker import Worker
 
 from loom.config import get_settings
@@ -49,7 +50,16 @@ from loom.workflows.url_ingest_workflow import UrlIngestWorkflow
 async def main() -> None:  # pragma: no cover
     """start the temporal worker for the loom ingest queue."""
     settings = get_settings()
-    client = await Client.connect(settings.temporal_host)
+    runtime: Runtime | None = None
+    if settings.worker_metrics_addr:
+        runtime = Runtime(
+            telemetry=TelemetryConfig(
+                metrics=PrometheusConfig(
+                    bind_address=settings.worker_metrics_addr,
+                ),
+            ),
+        )
+    client = await Client.connect(settings.temporal_host, runtime=runtime)
     worker = Worker(
         client,
         task_queue="loom-ingest",
