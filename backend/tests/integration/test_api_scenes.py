@@ -367,9 +367,7 @@ async def test_scene_thumbnail_returns_presigned_url(
     app = _create_app(mock_settings)
 
     scene = _make_scene()
-    scene.thumbnail_key = (
-        f"{_CASE_ID}/{_ASSET_ID}/scenes/scene_0001.jpg"
-    )
+    scene.thumbnail_key = f"{_CASE_ID}/{_ASSET_ID}/scenes/scene_0001.jpg"
 
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = scene
