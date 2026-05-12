@@ -6,11 +6,6 @@ interface TimelineControlsProps {
   onStatusFilterChange: (status: EventStatus | 'all') => void;
   zoomLevel: ZoomLevel;
   onZoomChange: (zoom: ZoomLevel) => void;
-  // correlation confidence threshold in [0, 1]. when set, the
-  // timeline page filters its probable-match overlay to candidates
-  // whose confidence is at least this value.
-  confidenceThreshold?: number;
-  onConfidenceThresholdChange?: (value: number) => void;
 }
 
 const statusOptions: Array<{
@@ -42,8 +37,6 @@ export function TimelineControls(
     onStatusFilterChange,
     zoomLevel,
     onZoomChange,
-    confidenceThreshold,
-    onConfidenceThresholdChange,
   } = props;
 
   return (
@@ -85,40 +78,6 @@ export function TimelineControls(
           ))}
         </select>
       </div>
-
-      {/* correlation confidence threshold */}
-      {confidenceThreshold !== undefined && onConfidenceThresholdChange && (
-        <div className="flex items-center gap-1.5">
-          <label
-            htmlFor="correlation-threshold"
-            className="text-xs text-muted-foreground"
-          >
-            Correlation ≥
-          </label>
-          <input
-            id="correlation-threshold"
-            data-testid="correlation-threshold"
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={confidenceThreshold}
-            onChange={(e) =>
-              onConfidenceThresholdChange(Number(e.target.value))
-            }
-            className="h-1 w-24 cursor-pointer"
-            aria-valuemin={0}
-            aria-valuemax={1}
-            aria-valuenow={confidenceThreshold}
-          />
-          <span
-            data-testid="correlation-threshold-value"
-            className="text-xs tabular-nums text-muted-foreground"
-          >
-            {Math.round(confidenceThreshold * 100)}%
-          </span>
-        </div>
-      )}
 
       {/* zoom control */}
       <div className="ml-auto flex items-center gap-1.5">

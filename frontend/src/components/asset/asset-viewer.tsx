@@ -27,11 +27,8 @@ function formatTime(seconds: number): string {
   );
 }
 
-function VideoViewer(props: {
-  src: string;
-  filename: string;
-}): React.ReactElement {
-  const { src, filename } = props;
+function VideoViewer(props: { src: string }): React.ReactElement {
+  const { src } = props;
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -103,10 +100,7 @@ function VideoViewer(props: {
         src={src}
         className="w-full rounded"
         data-testid="video-element"
-        aria-label={`Video: ${filename}`}
-      >
-        <track kind="captions" />
-      </video>
+      />
 
       {/* timestamp display */}
       <div
@@ -217,11 +211,8 @@ function AudioWaveform(props: {
   );
 }
 
-function AudioViewer(props: {
-  src: string;
-  filename: string;
-}): React.ReactElement {
-  const { src, filename } = props;
+function AudioViewer(props: { src: string }): React.ReactElement {
+  const { src } = props;
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -262,7 +253,7 @@ function AudioViewer(props: {
 
   return (
     <div data-testid="audio-viewer">
-      <audio ref={audioRef} src={src} aria-label={`Audio: ${filename}`} />
+      <audio ref={audioRef} src={src} />
 
       <AudioWaveform
         audioRef={audioRef}
@@ -374,9 +365,9 @@ export function AssetViewer(props: AssetViewerProps): React.ReactElement {
 
   switch (asset.mediaType) {
     case 'video':
-      return <VideoViewer src={src} filename={asset.originalFilename} />;
+      return <VideoViewer src={src} />;
     case 'audio':
-      return <AudioViewer src={src} filename={asset.originalFilename} />;
+      return <AudioViewer src={src} />;
     case 'image':
       return <ImageViewer src={src} alt={asset.originalFilename} />;
     case 'document':

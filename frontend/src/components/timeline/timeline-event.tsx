@@ -6,9 +6,6 @@ interface TimelineEventProps {
   selected: boolean;
   onClick: (event: TEvent) => void;
   onConflictClick?: (event: TEvent) => void;
-  // true when at least one linked asset participates in a
-  // correlation candidate at or above the active threshold.
-  isProbableMatch?: boolean;
 }
 
 const statusColors: Record<string, string> = {
@@ -19,11 +16,6 @@ const statusColors: Record<string, string> = {
     'bg-green-100 text-green-800 dark:bg-green-900 ' + 'dark:text-green-200',
   rejected: 'bg-red-100 text-red-800 dark:bg-red-900 ' + 'dark:text-red-200',
 };
-
-const probableMatchClasses =
-  'mt-1 inline-flex w-fit items-center gap-1 rounded ' +
-  'bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium ' +
-  'text-blue-800 dark:bg-blue-900 dark:text-blue-200';
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString('en-US', {
@@ -38,7 +30,7 @@ function formatTime(iso: string): string {
 export const TimelineEventCard = React.memo(function TimelineEventCard(
   props: TimelineEventProps,
 ): React.ReactElement {
-  const { event, selected, onClick, onConflictClick, isProbableMatch } = props;
+  const { event, selected, onClick, onConflictClick } = props;
   const colorClass = statusColors[event.status] ?? statusColors['draft'];
 
   const timeRange = event.eventTimeEnd
@@ -91,16 +83,6 @@ export const TimelineEventCard = React.memo(function TimelineEventCard(
           </span>
         </div>
       </div>
-
-      {isProbableMatch && (
-        <span
-          data-testid="probable-match-badge"
-          className={probableMatchClasses}
-          title="Linked asset participates in a correlation candidate at or above the active threshold"
-        >
-          Probable match
-        </span>
-      )}
 
       {/* time range */}
       <p className="mt-1 text-xs text-muted-foreground">{timeRange}</p>

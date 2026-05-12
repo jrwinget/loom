@@ -7,7 +7,6 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
-    Request,
     status,
 )
 from sqlalchemy import func, select
@@ -172,16 +171,7 @@ async def scan_correlation_candidates(
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id, "editor")
 
-    try:
-        computed = await compute_correlation_candidates(db, case_id)
-    except ValueError as exc:
-        # service raises ValueError when a case exceeds the
-        # MAX_ASSETS_PER_SCAN cap; surface as 422 so clients can
-        # split or skip rather than hammer the endpoint.
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
-        ) from exc
+    computed = await compute_correlation_candidates(db, case_id)
     persisted = await persist_correlation_candidates(db, case_id, computed)
     await db.commit()
 
@@ -203,7 +193,6 @@ async def decide_correlation_candidate(
     case_id: str,
     candidate_id: str,
     body: CorrelationCandidateDecisionRequest,
-    request: Request,
     token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
@@ -230,15 +219,8 @@ async def decide_correlation_candidate(
             detail="correlation candidate not found",
         )
 
-    ip_address = request.client.host if request.client else None
     try:
-        updated = await decide_candidate(
-            db,
-            candidate_id,
-            user_id,
-            body.status,
-            ip_address=ip_address,
-        )
+        updated = await decide_candidate(db, candidate_id, user_id, body.status)
     except ValueError as exc:
         # service raises ValueError for already-decided candidates;
         # surface as 409 so clients can distinguish from 404.

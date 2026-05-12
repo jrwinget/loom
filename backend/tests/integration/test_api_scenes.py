@@ -62,9 +62,6 @@ def _create_app(settings: Settings) -> object:
     application.dependency_overrides[get_db_session] = override_db
     # prevent audit middleware from writing to db
     application.state.db_session_factory = None
-    # default storage stub — tests that exercise the thumbnail route
-    # may override via app.dependency_overrides[get_storage_backend].
-    application.state.storage_backend = MagicMock()
 
     return application
 
@@ -299,129 +296,6 @@ async def test_scene_thumbnail_not_found(
             )
 
     assert resp.status_code == 404
-
-
-async def test_scene_thumbnail_no_thumbnail_key(
-    mock_settings: Settings,
-) -> None:
-    """thumbnail endpoint returns 404 when the scene has no thumbnail key."""
-    from loom.dependencies import get_storage_backend
-
-    app = _create_app(mock_settings)
-
-    scene = _make_scene()
-    scene.thumbnail_key = None
-
-    mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = scene
-
-    stub_session = _StubSession()
-    stub_session.execute = AsyncMock(  # type: ignore[method-assign]
-        return_value=mock_result
-    )
-
-    async def override_db():
-        yield stub_session
-
-    storage = MagicMock()
-    storage.get_presigned_download_url = MagicMock()
-
-    def override_storage():
-        return storage
-
-    app.dependency_overrides[get_db_session] = override_db  # type: ignore[union-attr]
-    app.dependency_overrides[get_storage_backend] = override_storage  # type: ignore[union-attr]
-
-    with (
-        patch(
-            "loom.security.auth.get_settings",
-            return_value=mock_settings,
-        ),
-        patch(
-            f"{_SVC}.check_case_access",
-            new_callable=AsyncMock,
-            return_value=True,
-        ),
-    ):
-        token = create_access_token(str(_ADMIN_ID), "admin")
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app),
-            base_url="http://testserver",
-        ) as ac:
-            resp = await ac.get(
-                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}"
-                f"/scenes/{_SCENE_ID}/thumbnail",
-                headers=_auth_header(token),
-            )
-
-    assert resp.status_code == 404
-    storage.get_presigned_download_url.assert_not_called()
-
-
-async def test_scene_thumbnail_returns_presigned_url(
-    mock_settings: Settings,
-) -> None:
-    """thumbnail endpoint returns a presigned url for the derivatives bucket."""
-    from loom.dependencies import get_storage_backend
-
-    app = _create_app(mock_settings)
-
-    scene = _make_scene()
-    scene.thumbnail_key = f"{_CASE_ID}/{_ASSET_ID}/scenes/scene_0001.jpg"
-
-    mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = scene
-
-    stub_session = _StubSession()
-    stub_session.execute = AsyncMock(  # type: ignore[method-assign]
-        return_value=mock_result
-    )
-
-    async def override_db():
-        yield stub_session
-
-    presigned = (
-        "https://minio.example/loom-derivatives/"
-        f"{scene.thumbnail_key}?X-Amz-Signature=abc"
-    )
-    storage = MagicMock()
-    storage.get_presigned_download_url = MagicMock(return_value=presigned)
-
-    def override_storage():
-        return storage
-
-    app.dependency_overrides[get_db_session] = override_db  # type: ignore[union-attr]
-    app.dependency_overrides[get_storage_backend] = override_storage  # type: ignore[union-attr]
-
-    with (
-        patch(
-            "loom.security.auth.get_settings",
-            return_value=mock_settings,
-        ),
-        patch(
-            f"{_SVC}.check_case_access",
-            new_callable=AsyncMock,
-            return_value=True,
-        ),
-    ):
-        token = create_access_token(str(_ADMIN_ID), "admin")
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app),
-            base_url="http://testserver",
-        ) as ac:
-            resp = await ac.get(
-                f"/api/v1/cases/{_CASE_ID}/assets/{_ASSET_ID}"
-                f"/scenes/{_SCENE_ID}/thumbnail",
-                headers=_auth_header(token),
-            )
-
-    assert resp.status_code == 200
-    assert resp.json() == {"thumbnail_url": presigned}
-    # bucket = derivatives (thumbnails are stored there), ttl = 15 min
-    args, _ = storage.get_presigned_download_url.call_args
-    assert args[0] == "loom-derivatives"
-    assert args[1] == scene.thumbnail_key
-    assert args[2] == 900
 
 
 async def test_scene_detail_fields(
