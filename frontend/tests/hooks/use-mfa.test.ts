@@ -34,7 +34,10 @@ function createWrapper(): React.FC<{ children: React.ReactNode }> {
     },
   });
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return createElement(QueryClientProvider, { client: queryClient, children });
+    return createElement(QueryClientProvider, {
+      client: queryClient,
+      children,
+    });
   };
 }
 

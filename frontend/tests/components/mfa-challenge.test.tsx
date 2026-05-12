@@ -88,9 +88,7 @@ describe('MfaChallenge', () => {
     await user.type(screen.getByLabelText('Code'), '123456');
     await user.click(screen.getByRole('button', { name: 'Verify' }));
 
-    expect(
-      screen.getByRole('button', { name: 'Verifying...' }),
-    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Verifying...' })).toBeDisabled();
 
     resolvePost({ access_token: 't', refresh_token: 'r' });
     mockedGet.mockResolvedValueOnce({
