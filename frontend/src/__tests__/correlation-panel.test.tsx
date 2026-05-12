@@ -51,13 +51,7 @@ describe('CorrelationPanel', () => {
   });
 
   it('disables the empty-state scan button while scanning', () => {
-    render(
-      <CorrelationPanel
-        candidates={[]}
-        onScan={() => {}}
-        isScanning
-      />,
-    );
+    render(<CorrelationPanel candidates={[]} onScan={() => {}} isScanning />);
     expect(screen.getByTestId('scan-empty')).toBeDisabled();
   });
 

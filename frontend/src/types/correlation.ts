@@ -8,10 +8,12 @@ export interface CorrelationCandidateMember {
 }
 
 export interface CorrelationReasoning {
-  [signal: string]: {
-    score: number | null;
-    notes?: string | null;
-  } | unknown;
+  [signal: string]:
+    | {
+        score: number | null;
+        notes?: string | null;
+      }
+    | unknown;
 }
 
 export interface CorrelationCandidate {

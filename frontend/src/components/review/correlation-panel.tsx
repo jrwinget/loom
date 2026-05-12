@@ -30,8 +30,7 @@ function confidenceTier(value: number): 'high' | 'medium' | 'low' {
 
 const tierClasses: Record<'high' | 'medium' | 'low', string> = {
   high:
-    'bg-green-100 text-green-800 ' +
-    'dark:bg-green-900 dark:text-green-200',
+    'bg-green-100 text-green-800 ' + 'dark:bg-green-900 dark:text-green-200',
   medium:
     'bg-yellow-100 text-yellow-800 ' +
     'dark:bg-yellow-900 dark:text-yellow-200',
@@ -44,7 +43,8 @@ const statusBadgeClasses: Record<CorrelationStatus, string> = {
     'dark:bg-yellow-900 dark:text-yellow-200',
   accepted:
     'bg-green-100 text-green-800 ' + 'dark:bg-green-900 dark:text-green-200',
-  rejected: 'bg-gray-100 text-gray-600 ' + 'dark:bg-gray-800 dark:text-gray-400',
+  rejected:
+    'bg-gray-100 text-gray-600 ' + 'dark:bg-gray-800 dark:text-gray-400',
 };
 
 function formatPct(value: number): string {
@@ -200,7 +200,7 @@ function CandidateRow(props: {
               <span className="flex-1 truncate text-foreground">
                 {m.original_filename ?? m.asset_id}
               </span>
-              <span className="text-xs text-muted-foreground tabular-nums">
+              <span className="text-xs tabular-nums text-muted-foreground">
                 {offset === null ? '—' : formatOffset(offset)}
               </span>
             </li>

@@ -64,7 +64,9 @@ describe('useCorrelationCandidates', () => {
   });
 
   it('does not run without a caseId', () => {
-    renderHook(() => useCorrelationCandidates(''), { wrapper: createWrapper() });
+    renderHook(() => useCorrelationCandidates(''), {
+      wrapper: createWrapper(),
+    });
     expect(mockedGet).not.toHaveBeenCalled();
   });
 });
@@ -77,7 +79,9 @@ describe('useScanCorrelations', () => {
     });
     result.current.mutate();
     await waitFor(() =>
-      expect(mockedPost).toHaveBeenCalledWith('/cases/case-1/correlations/scan'),
+      expect(mockedPost).toHaveBeenCalledWith(
+        '/cases/case-1/correlations/scan',
+      ),
     );
   });
 });
