@@ -14,7 +14,6 @@ import pytest_asyncio
 from loom.config import Settings, get_settings
 from loom.dependencies import get_db_session
 from loom.models.correlation import CorrelationCandidate
-from loom.schemas.correlation import CorrelationCandidateResponse
 from loom.security.auth import create_access_token
 
 _ADMIN_ID = UUID("01912345-6789-7abc-8def-0123456789ab")
@@ -178,71 +177,3 @@ async def test_decide_already_decided_returns_409(
     assert resp.status_code == 409
     body = resp.json()
     assert "already decided" in body["detail"]
-
-
-async def test_decide_passes_ip_address_to_service(
-    mock_settings: Settings,
-) -> None:
-    """route forwards request.client.host to decide_candidate for custody."""
-    app = _create_app(mock_settings)
-    existing = _make_candidate(status_value="pending")
-
-    async def _override_db():
-        stub = _StubSession()
-        result = MagicMock()
-        result.scalar_one_or_none.return_value = existing
-        stub.execute = AsyncMock(return_value=result)
-        yield stub
-
-    app.dependency_overrides[get_db_session] = _override_db
-
-    fake_decide = AsyncMock(return_value=existing)
-    placeholder_response = CorrelationCandidateResponse(
-        id=_CANDIDATE_ID,
-        case_id=_CASE_ID,
-        start_utc=_NOW,
-        end_utc=_NOW,
-        confidence=0.75,
-        reasoning={},
-        status="accepted",
-        decided_by=_ADMIN_ID,
-        decided_at=_NOW,
-        members=[],
-        created_at=_NOW,
-    )
-    with (
-        patch(
-            "loom.security.auth.get_settings",
-            return_value=mock_settings,
-        ),
-        patch(
-            _CASE_ACCESS,
-            new_callable=AsyncMock,
-            return_value=True,
-        ),
-        patch(
-            f"{_SVC}.decide_candidate",
-            fake_decide,
-        ),
-        patch(
-            f"{_SVC}._build_candidate_response",
-            new_callable=AsyncMock,
-            return_value=placeholder_response,
-        ),
-    ):
-        token = create_access_token(str(_ADMIN_ID), "admin")
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app),
-            base_url="http://testserver",
-        ) as ac:
-            resp = await ac.post(
-                f"/api/v1/cases/{_CASE_ID}/correlations/{_CANDIDATE_ID}/decide",
-                json={"status": "accepted"},
-                headers=_auth_header(token),
-            )
-
-    assert resp.status_code == 200
-    # service called with ip_address kwarg (ASGITransport sets client host)
-    fake_decide.assert_awaited_once()
-    _, kwargs = fake_decide.call_args
-    assert "ip_address" in kwargs

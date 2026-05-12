@@ -202,11 +202,6 @@ services:
       LOOM_MINIO_SECURE: "false"
       LOOM_TEMPORAL_HOST: temporal:7233
       LOOM_SECRET_KEY: ${LOOM_SECRET_KEY:?Set LOOM_SECRET_KEY in .env}
-      # exposed only on the loom-app docker network so prometheus
-      # can scrape; not published to the host.
-      LOOM_WORKER_METRICS_ADDR: 0.0.0.0:9100
-    expose:
-      - "9100"
     healthcheck:
       test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
       interval: 30s

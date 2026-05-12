@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from collections.abc import AsyncIterator
 from typing import Any
@@ -8,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from loom.dependencies import get_db_session, get_storage_backend
+from loom.dependencies import get_db_session
 from loom.models.scene import Scene
 from loom.schemas.scene import (
     SceneListResponse,
@@ -19,10 +18,6 @@ from loom.security.rbac import (
     require_authenticated,
 )
 from loom.services.case import check_case_access
-from loom.services.storage_backends import DERIVATIVES_BUCKET, StorageBackend
-
-# thumbnail presigned-url ttl (seconds) — matches asset download.
-_THUMBNAIL_URL_TTL_SECONDS = 900
 
 logger = logging.getLogger(__name__)
 
@@ -95,11 +90,8 @@ async def get_scene_thumbnail(
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-    storage: StorageBackend = Depends(  # noqa: B008
-        get_storage_backend
-    ),
 ) -> dict[str, Any]:
-    """return a presigned thumbnail url (viewer+)."""
+    """redirect to presigned thumbnail url (viewer+)."""
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
 
@@ -124,15 +116,8 @@ async def get_scene_thumbnail(
             detail="no thumbnail available",
         )
 
-    loop = asyncio.get_running_loop()
-    url = await loop.run_in_executor(
-        None,
-        storage.get_presigned_download_url,
-        DERIVATIVES_BUCKET,
-        scene.thumbnail_key,
-        _THUMBNAIL_URL_TTL_SECONDS,
-    )
-    return {"thumbnail_url": url}
+    # TODO: generate presigned url from minio
+    return {"thumbnail_url": scene.thumbnail_key}
 
 
 @router.post(

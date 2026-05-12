@@ -1,27 +1,15 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useCallback, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { QueryError } from '@/components/layout/query-error';
 import { TimelineCanvas } from '@/components/timeline/timeline-canvas';
 import { TimelineControls } from '@/components/timeline/timeline-controls';
-import { useCorrelationCandidates } from '@/hooks/use-correlations';
-import { useTimeline, useCreateEvent } from '@/hooks/use-timeline';
+import { useTimelineEvents, useCreateEvent } from '@/hooks/use-timeline';
 import type {
   CreateEventPayload,
   EventStatus,
   TimelineEvent,
   ZoomLevel,
 } from '@/types/timeline';
-
-// default correlation confidence threshold: 0.5 puts the slider in
-// the middle and matches the CorrelationPanel medium-tier cutoff.
-const DEFAULT_CONFIDENCE_THRESHOLD = 0.5;
-
-function readThresholdParam(value: string | null): number {
-  if (value === null) return DEFAULT_CONFIDENCE_THRESHOLD;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return DEFAULT_CONFIDENCE_THRESHOLD;
-  return Math.max(0, Math.min(1, parsed));
-}
 
 export function TimelinePage(): React.ReactElement {
   const { caseId } = useParams<{ caseId: string }>();
@@ -34,60 +22,12 @@ export function TimelinePage(): React.ReactElement {
   );
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  const confidenceThreshold = readThresholdParam(searchParams.get('conf'));
-  const handleThresholdChange = useCallback(
-    (value: number) => {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.set('conf', value.toFixed(2));
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
-
   const filterParam = statusFilter === 'all' ? undefined : statusFilter;
 
-  const { data, isLoading, isError, refetch } = useTimeline(
+  const { data, isLoading, isError, refetch } = useTimelineEvents(
     safeId,
     filterParam,
   );
-  const { data: correlationsData } = useCorrelationCandidates(safeId);
-
-  const events = useMemo(() => data?.events ?? [], [data?.events]);
-
-  // assets participating in an accepted candidate, or in a pending
-  // candidate whose confidence meets the threshold. accepted wins
-  // because the analyst has committed; pending depends on the slider.
-  const probableMatchEventIds = useMemo<ReadonlySet<string>>(() => {
-    const candidates = correlationsData?.candidates ?? [];
-    if (events.length === 0 || candidates.length === 0) {
-      return new Set();
-    }
-    const correlatedAssetIds = new Set<string>();
-    for (const c of candidates) {
-      if (c.status === 'rejected') continue;
-      if (c.status === 'pending' && c.confidence < confidenceThreshold) {
-        continue;
-      }
-      for (const m of c.members) correlatedAssetIds.add(m.asset_id);
-    }
-    if (correlatedAssetIds.size === 0) return new Set();
-    const ids = new Set<string>();
-    for (const ev of events) {
-      for (const link of ev.evidence) {
-        if (link.assetId && correlatedAssetIds.has(link.assetId)) {
-          ids.add(ev.id);
-          break;
-        }
-      }
-    }
-    return ids;
-  }, [correlationsData, events, confidenceThreshold]);
 
   const createEvent = useCreateEvent();
 
@@ -130,8 +70,6 @@ export function TimelinePage(): React.ReactElement {
         onStatusFilterChange={setStatusFilter}
         zoomLevel={zoomLevel}
         onZoomChange={setZoomLevel}
-        confidenceThreshold={confidenceThreshold}
-        onConfidenceThresholdChange={handleThresholdChange}
       />
 
       {showAddForm && (
@@ -151,11 +89,10 @@ export function TimelinePage(): React.ReactElement {
 
       {!isError && (
         <TimelineCanvas
-          events={events}
+          events={data?.items ?? []}
           selectedEventId={selectedEvent?.id ?? null}
           onSelectEvent={handleSelectEvent}
           loading={isLoading}
-          probableMatchEventIds={probableMatchEventIds}
         />
       )}
 

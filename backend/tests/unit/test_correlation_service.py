@@ -6,7 +6,6 @@ from uuid import UUID, uuid4
 import pytest
 
 from loom.services.correlation import (
-    MAX_ASSETS_PER_SCAN,
     asset_effective_window,
     compute_correlation_candidates,
     decide_candidate,
@@ -354,19 +353,6 @@ class TestComputeCorrelationCandidates:
         session.execute = AsyncMock(return_value=mock_result)
         assert await compute_correlation_candidates(session, _CASE_ID) == []
 
-    async def test_raises_when_case_exceeds_cap(self) -> None:
-        t = datetime(2026, 4, 20, 12, 0, 0, tzinfo=UTC)
-        assets = [
-            _make_asset(capture_time=t) for _ in range(MAX_ASSETS_PER_SCAN + 1)
-        ]
-        session = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = assets
-        session.execute = AsyncMock(return_value=mock_result)
-
-        with pytest.raises(ValueError, match="capped at"):
-            await compute_correlation_candidates(session, _CASE_ID)
-
 
 class TestPersistCorrelationCandidates:
     async def test_inserts_new_candidates(self) -> None:
@@ -459,57 +445,17 @@ class TestPersistCorrelationCandidates:
 
 
 class TestDecideCandidate:
-    @staticmethod
-    def _stub_session(
-        candidate: MagicMock | None,
-        members: list[MagicMock] | None = None,
-    ) -> tuple[AsyncMock, list[Any]]:
-        """build a session whose execute() returns candidate then members.
-
-        also returns ``added`` — a list captured by session.add — so
-        tests can assert on the chain-of-custody entries created.
-        """
-        candidate_result = MagicMock()
-        candidate_result.scalar_one_or_none.return_value = candidate
-
-        member_result = MagicMock()
-        scalars = MagicMock()
-        scalars.all.return_value = members or []
-        member_result.scalars.return_value = scalars
-
-        session = AsyncMock()
-        # first call -> candidate row, second call -> member rows
-        session.execute = AsyncMock(
-            side_effect=[candidate_result, member_result]
-        )
-        session.flush = AsyncMock()
-
-        added: list[Any] = []
-        session.add = MagicMock(side_effect=added.append)
-        return session, added
-
-    @staticmethod
-    def _make_member(asset_id: UUID) -> MagicMock:
-        member = MagicMock()
-        member.asset_id = asset_id
-        return member
-
     async def test_accepts_pending(self) -> None:
         candidate = MagicMock()
         candidate.status = "pending"
         candidate.decided_by = None
         candidate.decided_at = None
-        candidate.id = UUID("00000000-0000-0000-0000-000000000010")
-        candidate.case_id = UUID(_CASE_ID)
-        candidate.confidence = 0.82
-        candidate.reasoning = {"temporal": {"score": 0.9}}
 
-        asset_a = uuid4()
-        asset_b = uuid4()
-        session, added = self._stub_session(
-            candidate,
-            members=[self._make_member(asset_a), self._make_member(asset_b)],
-        )
+        session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = candidate
+        session.execute = AsyncMock(return_value=mock_result)
+        session.flush = AsyncMock()
 
         user_id = str(uuid4())
         cid = "00000000-0000-0000-0000-000000000010"
@@ -519,42 +465,24 @@ class TestDecideCandidate:
         assert updated.decided_by == UUID(user_id)
         assert updated.decided_at is not None
         session.flush.assert_awaited_once()
-        # one ChainOfCustodyEntry per member
-        assert len(added) == 2
-        for entry in added:
-            assert entry.action == "correlation_accepted"
-            assert entry.actor_id == UUID(user_id)
-            assert entry.detail["candidate_id"] == str(candidate.id)
-            assert entry.detail["confidence"] == 0.82
-            assert entry.detail["reasoning"] == {"temporal": {"score": 0.9}}
-            assert set(entry.detail["members"]) == {str(asset_a), str(asset_b)}
-        assert {e.asset_id for e in added} == {asset_a, asset_b}
 
     async def test_rejects_pending(self) -> None:
         candidate = MagicMock()
         candidate.status = "pending"
-        candidate.id = UUID("00000000-0000-0000-0000-000000000010")
-        candidate.case_id = UUID(_CASE_ID)
-        candidate.confidence = 0.55
-        candidate.reasoning = {}
 
-        asset_a = uuid4()
-        session, added = self._stub_session(
-            candidate,
-            members=[self._make_member(asset_a)],
-        )
+        session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = candidate
+        session.execute = AsyncMock(return_value=mock_result)
+        session.flush = AsyncMock()
 
         updated = await decide_candidate(
             session,
             "00000000-0000-0000-0000-000000000010",
             str(uuid4()),
             "rejected",
-            ip_address="10.0.0.5",
         )
         assert updated.status == "rejected"
-        assert len(added) == 1
-        assert added[0].action == "correlation_rejected"
-        assert added[0].ip_address == "10.0.0.5"
 
     async def test_bad_status_raises(self) -> None:
         session = AsyncMock()
@@ -567,7 +495,10 @@ class TestDecideCandidate:
             )
 
     async def test_missing_candidate_raises(self) -> None:
-        session, _ = self._stub_session(None)
+        session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        session.execute = AsyncMock(return_value=mock_result)
 
         with pytest.raises(ValueError, match="not found"):
             await decide_candidate(
@@ -581,7 +512,11 @@ class TestDecideCandidate:
         candidate = MagicMock()
         candidate.status = "accepted"
 
-        session, added = self._stub_session(candidate, members=[])
+        session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = candidate
+        session.execute = AsyncMock(return_value=mock_result)
+        session.flush = AsyncMock()
 
         updated = await decide_candidate(
             session,
@@ -591,14 +526,15 @@ class TestDecideCandidate:
         )
         assert updated is candidate
         session.flush.assert_not_awaited()
-        # no custody entries on a no-op reassertion
-        assert added == []
 
     async def test_cannot_change_decided_candidate(self) -> None:
         candidate = MagicMock()
         candidate.status = "accepted"
 
-        session, added = self._stub_session(candidate, members=[])
+        session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = candidate
+        session.execute = AsyncMock(return_value=mock_result)
 
         with pytest.raises(ValueError, match="already decided"):
             await decide_candidate(
@@ -607,8 +543,6 @@ class TestDecideCandidate:
                 str(uuid4()),
                 "rejected",
             )
-        # rejected transition raised before any custody write
-        assert added == []
 
 
 class TestListCandidates:

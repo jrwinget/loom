@@ -13,39 +13,6 @@ function isActive(path: string, pathname: string): boolean {
   return pathname.startsWith(path);
 }
 
-// reused by every nav <Link>; active class gives the row a
-// filled background + foreground text so aria-current="page"
-// is also visible to sighted users.
-function navLinkClass(active: boolean): string {
-  const base = 'block rounded-md px-3 py-2 text-sm';
-  if (active) {
-    return `${base} bg-accent font-medium text-accent-foreground`;
-  }
-  return `${base} text-muted-foreground hover:bg-accent hover:text-accent-foreground`;
-}
-
-interface NavLinkProps {
-  to: string;
-  label: string;
-  collapsedGlyph: string;
-  pathname: string;
-  sidebarOpen: boolean;
-}
-
-function NavLink(props: NavLinkProps): React.ReactElement {
-  const active = isActive(props.to, props.pathname);
-  return (
-    <Link
-      to={props.to}
-      aria-current={active ? 'page' : undefined}
-      aria-label={props.sidebarOpen ? undefined : props.label}
-      className={navLinkClass(active)}
-    >
-      {props.sidebarOpen ? props.label : props.collapsedGlyph}
-    </Link>
-  );
-}
-
 export function Sidebar(): React.ReactElement {
   const { caseId } = useParams<{ caseId: string }>();
   const { pathname } = useLocation();
@@ -73,57 +40,78 @@ export function Sidebar(): React.ReactElement {
       {/* navigation */}
       <nav aria-label="Primary" className="flex-1 space-y-1 p-2">
         {navItems.map((item) => (
-          <NavLink
+          <Link
             key={item.path}
             to={item.path}
-            label={item.label}
-            collapsedGlyph={item.label[0]}
-            pathname={pathname}
-            sidebarOpen={sidebarOpen}
-          />
+            aria-current={isActive(item.path, pathname) ? 'page' : undefined}
+            aria-label={sidebarOpen ? undefined : item.label}
+            className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            {sidebarOpen ? item.label : item.label[0]}
+          </Link>
         ))}
         {caseId && (
-          <NavLink
+          <Link
             to={`/cases/${caseId}/conflicts`}
-            label="Conflicts"
-            collapsedGlyph="C"
-            pathname={pathname}
-            sidebarOpen={sidebarOpen}
-          />
+            aria-current={
+              isActive(`/cases/${caseId}/conflicts`, pathname)
+                ? 'page'
+                : undefined
+            }
+            aria-label={sidebarOpen ? undefined : 'Conflicts'}
+            className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            {sidebarOpen ? 'Conflicts' : 'C'}
+          </Link>
         )}
         {caseId && (
-          <NavLink
+          <Link
             to={`/cases/${caseId}/clusters`}
-            label="Clusters"
-            collapsedGlyph="K"
-            pathname={pathname}
-            sidebarOpen={sidebarOpen}
-          />
+            aria-current={
+              isActive(`/cases/${caseId}/clusters`, pathname)
+                ? 'page'
+                : undefined
+            }
+            aria-label={sidebarOpen ? undefined : 'Clusters'}
+            className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            {sidebarOpen ? 'Clusters' : 'K'}
+          </Link>
         )}
         {caseId && (
-          <NavLink
+          <Link
             to={`/cases/${caseId}/map`}
-            label="Map"
-            collapsedGlyph="M"
-            pathname={pathname}
-            sidebarOpen={sidebarOpen}
-          />
+            aria-current={
+              isActive(`/cases/${caseId}/map`, pathname) ? 'page' : undefined
+            }
+            aria-label={sidebarOpen ? undefined : 'Map'}
+            className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            {sidebarOpen ? 'Map' : 'M'}
+          </Link>
         )}
-        <NavLink
+        {/* settings */}
+        <Link
           to="/settings/plugins"
-          label="Settings"
-          collapsedGlyph="S"
-          pathname={pathname}
-          sidebarOpen={sidebarOpen}
-        />
+          aria-current={
+            isActive('/settings/plugins', pathname) ? 'page' : undefined
+          }
+          aria-label={sidebarOpen ? undefined : 'Settings'}
+          className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          {sidebarOpen ? 'Settings' : 'S'}
+        </Link>
         {showStorage && (
-          <NavLink
+          <Link
             to="/settings/storage"
-            label="Storage"
-            collapsedGlyph="D"
-            pathname={pathname}
-            sidebarOpen={sidebarOpen}
-          />
+            aria-current={
+              isActive('/settings/storage', pathname) ? 'page' : undefined
+            }
+            aria-label={sidebarOpen ? undefined : 'Storage'}
+            className="block rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            {sidebarOpen ? 'Storage' : 'D'}
+          </Link>
         )}
       </nav>
 
@@ -135,7 +123,7 @@ export function Sidebar(): React.ReactElement {
           className="w-full rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         >
-          {sidebarOpen ? '←' : '→'}
+          {sidebarOpen ? '\u2190' : '\u2192'}
         </button>
       </div>
     </aside>

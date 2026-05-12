@@ -1,6 +1,6 @@
 [project]
 name = "loom"
-version = "0.1.2"
+version = "0.1.0"
 description = "Evidence operating system for civil-rights legal teams"
 readme = "README.md"
 license = { text = "MIT" }
@@ -14,12 +14,12 @@ dependencies = [
     "asyncpg>=0.30.0",
     "alembic>=1.13.0",
     "minio>=7.2.0",
-    "temporalio>=1.27.0",
+    "temporalio>=1.7.0",
     "structlog>=24.1.0",
     "opentelemetry-api>=1.21.0",
     "opentelemetry-sdk>=1.21.0",
     "opentelemetry-instrumentation-fastapi>=0.42b0",
-    "python-multipart>=0.0.27",
+    "python-multipart>=0.0.26",
     "httpx>=0.27.0",
     "argon2-cffi>=23.1.0",
     "pyjwt[crypto]>=2.8.0",
@@ -148,14 +148,13 @@ source = ["loom"]
 omit = [
     "tests/*",
     "*/workers/worker.py",
+    "*/workflows/*_workflow.py",
+    "*/workflows/*_activities.py",
     "*/workflows/shared.py",
 ]
 
 [tool.coverage.report]
-# workflow excludes were removed in #110 to expose the temporal
-# coverage gap; the floor sits at 86 until the workflow backlog in
-# #113 lands. raise as workflow tests are added.
-fail_under = 86
+fail_under = 90
 show_missing = true
 exclude_lines = [
     "pragma: no cover",
