@@ -7,6 +7,7 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
+    Request,
     status,
 )
 from sqlalchemy import func, select
@@ -202,6 +203,7 @@ async def decide_correlation_candidate(
     case_id: str,
     candidate_id: str,
     body: CorrelationCandidateDecisionRequest,
+    request: Request,
     token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
@@ -228,8 +230,15 @@ async def decide_correlation_candidate(
             detail="correlation candidate not found",
         )
 
+    ip_address = request.client.host if request.client else None
     try:
-        updated = await decide_candidate(db, candidate_id, user_id, body.status)
+        updated = await decide_candidate(
+            db,
+            candidate_id,
+            user_id,
+            body.status,
+            ip_address=ip_address,
+        )
     except ValueError as exc:
         # service raises ValueError for already-decided candidates;
         # surface as 409 so clients can distinguish from 404.
