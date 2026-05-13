@@ -326,6 +326,22 @@ jobs:
         run: npm install
         continue-on-error: false
 
+      # purge any pre-built bundles restored from the cargo cache.
+      # the `desktop/src-tauri/target` cache (keyed by Cargo.toml
+      # hash) preserves `target/release/bundle/{deb,nsis,msi,dmg,
+      # appimage}/*` from prior runs at different versions. the
+      # upload globs below match those leftover files too, which
+      # is how the v0.1.1 re-cut briefly ended up with mixed
+      # Loom_0.1.0_* and Loom_0.1.2_* artifacts attached. fresh
+      # bundles get rebuilt by ``tauri build`` regardless.
+      - name: Purge cached Tauri bundles
+        working-directory: desktop/src-tauri
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf target/release/bundle
+          echo "bundle dir cleaned"
+
       - name: Build Tauri bundles
         working-directory: desktop
         shell: bash
