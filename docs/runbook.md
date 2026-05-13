@@ -292,7 +292,15 @@ re-cut.
 This was the exact failure mode behind the v0.1.1 boot-hang
 remediation: the v0.1.1 release page accumulated assets from a
 reverted v0.1.2 release after the workflow's append semantics
-attached them, and from a stale v0.1.0 rebuild.
+attached them, and from a stale v0.1.0 rebuild. The root cause
+turned out to be the cargo cache restoring
+`desktop/src-tauri/target/release/bundle/` from earlier runs --
+the upload globs (`*.deb`, `*.exe`, `*.msi`) then matched every
+artifact ever built. The "Purge cached Tauri bundles" step in
+`.github/workflows/desktop.yml` (added in the v0.1.1 follow-up)
+clears that directory before every build, so future re-cuts
+should not need this runbook for the same reason. It remains the
+canonical procedure if a release page ever drifts again.
 
 ### Preconditions
 
