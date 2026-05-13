@@ -34,8 +34,8 @@ export function BackendBootGate({
             Loom backend did not start
           </h1>
           <p className="text-sm text-muted-foreground">
-            The local backend exited before it could answer a health
-            check. The captured output is below.
+            The local backend exited before it could answer a health check. The
+            captured output is below.
           </p>
           <pre
             className="max-h-64 overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs text-foreground"
