@@ -10,6 +10,17 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  pull_request:
+    # run on prs that touch anything load-bearing for the desktop
+    # bundle: the rust shell, the python sidecar, or this workflow
+    # itself. the smoke step (added in #127) is the regression guard
+    # against shipping a sidecar that does not bind a socket; gating
+    # merges on it is the whole point.
+    paths:
+      - "desktop/**"
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/desktop.yml"
   workflow_dispatch:
 
 permissions:
@@ -233,13 +244,25 @@ jobs:
       # against future regressions — fail fast at 15m so a hung
       # runner surfaces as a failure instead of burning the whole
       # job budget.
+      # entrypoint is `src/loom/__main__.py`, which calls
+      # `uvicorn.run(loom.main:app, host=127.0.0.1, port=8000)`.
+      # `loom.main` itself only constructs the ASGI app -- bundling
+      # it as the binary entrypoint (as v0.1.0 and v0.1.1 did) leaves
+      # the sidecar with no listening socket, which is exactly the
+      # boot hang those releases ship.
+      #
+      # `--collect-submodules uvicorn` replaces the long list of
+      # uvicorn.* `--hidden-import` flags. community practice
+      # (encode/uvicorn#939, pyinstaller hooks) is to also pin
+      # `uvicorn.logging` and `uvicorn.loops.auto` explicitly because
+      # collect-submodules's dynamic-import discovery misses both.
       - name: Build backend sidecar
         working-directory: backend
         shell: bash
         timeout-minutes: 15
         run: >-
           uv run pyinstaller --onefile --clean --noconfirm
-          src/loom/main.py
+          src/loom/__main__.py
           --name loom-backend
           --distpath dist
           --hidden-import fastapi
@@ -247,14 +270,31 @@ jobs:
           --hidden-import sqlalchemy
           --hidden-import sqlalchemy.dialects.sqlite
           --hidden-import sqlalchemy.dialects.postgresql
-          --hidden-import uvicorn
+          --hidden-import sqlalchemy.dialects.sqlite.aiosqlite
+          --hidden-import aiosqlite
+          --collect-submodules uvicorn
           --hidden-import uvicorn.logging
-          --hidden-import uvicorn.protocols
-          --hidden-import uvicorn.protocols.http
-          --hidden-import uvicorn.protocols.http.auto
-          --hidden-import uvicorn.lifespan
-          --hidden-import uvicorn.lifespan.on
+          --hidden-import uvicorn.loops.auto
         continue-on-error: false
+
+      # smoke-test the sidecar binary before tauri bundles it. this
+      # is the long-term guard against the v0.1.0/v0.1.1 regression
+      # where the binary built fine but exited without binding a
+      # socket. the script polls /api/v1/health for up to 30s; the
+      # 5-minute step timeout is slack for windows cold-start under
+      # av exclusions that did not fully apply.
+      - name: Smoke-test sidecar binary
+        working-directory: backend
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            binary="dist/loom-backend.exe"
+          else
+            binary="dist/loom-backend"
+          fi
+          uv run python scripts/smoke_sidecar.py "$binary"
 
       # tauri v2 expects sidecar binaries declared in `externalBin`
       # to be suffixed with the rust target triple, e.g.
