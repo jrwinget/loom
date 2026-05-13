@@ -206,6 +206,52 @@ fn save_data_dir(app: &AppHandle, path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn clear_data_dir_preference(app: &AppHandle) -> Result<(), String> {
+    let store = app
+        .store(CONFIG_STORE_PATH)
+        .map_err(|e| format!("failed to open config store: {e}"))?;
+    store.delete(KEY_DATA_DIR);
+    store
+        .save()
+        .map_err(|e| format!("failed to persist config: {e}"))?;
+    Ok(())
+}
+
+// known artefacts produced by the backend under ``data_dir``. anything
+// the user dropped into the same folder by hand is intentionally left
+// alone — a factory reset wipes Loom's state, not the whole directory.
+const PURGE_FILES: &[&str] = &["loom.db", "loom.db-shm", "loom.db-wal"];
+const PURGE_DIRS: &[&str] = &["buckets"];
+
+fn purge_lite_data(data_dir: &Path) -> Result<(), String> {
+    if !data_dir.exists() {
+        // a never-completed first-run can hit this path; treat as a
+        // no-op so the caller can still proceed to clear preferences
+        // and respawn the sidecar into a fresh first-run state.
+        return Ok(());
+    }
+
+    for name in PURGE_FILES {
+        let path = data_dir.join(name);
+        if path.exists() {
+            std::fs::remove_file(&path).map_err(|e| {
+                format!("failed to delete {}: {e}", path.display())
+            })?;
+        }
+    }
+
+    for name in PURGE_DIRS {
+        let path = data_dir.join(name);
+        if path.exists() {
+            std::fs::remove_dir_all(&path).map_err(|e| {
+                format!("failed to delete {}: {e}", path.display())
+            })?;
+        }
+    }
+
+    Ok(())
+}
+
 fn spawn_backend(
     app: &AppHandle,
     config: &LoomConfig,
@@ -589,6 +635,33 @@ async fn restart_backend(app: AppHandle) -> Result<(), String> {
     }
 }
 
+// ipc command: destructive reset of the local Loom install. used by
+// the login-page "Reset Loom" affordance for the operator who can't
+// sign in and has no valid recovery code. wipes the sqlite db plus
+// the buckets/ subtree under data_dir, clears the data-dir preference
+// so the next launch routes through first-run, and respawns the
+// sidecar. ``secrets.json`` is intentionally left in place so the
+// install's bootstrap secrets stay stable across resets — rotating
+// them would invalidate nothing useful once the db is gone.
+#[tauri::command]
+async fn factory_reset(app: AppHandle) -> Result<(), String> {
+    let sidecar_state = app.state::<SidecarProcess>();
+    sidecar_state.take_and_kill();
+
+    let config = load_config(&app)?;
+    let data_dir = config.resolve_data_dir();
+
+    purge_lite_data(&data_dir)?;
+    clear_data_dir_preference(&app)?;
+
+    // restart_backend re-reads the (now-cleared) config, respawns the
+    // sidecar against the default ``~/.loom/data`` location, and
+    // waits for /api/v1/health. once back up, /first-run/status will
+    // report ``first_run_required: true`` and the frontend's existing
+    // redirect sends the operator into onboarding.
+    restart_backend(app).await
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -603,6 +676,7 @@ fn main() {
             disk_usage,
             persist_data_directory,
             restart_backend,
+            factory_reset,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -653,5 +727,79 @@ fn main() {
                 }
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    fn touch(path: &Path) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(path, b"placeholder").unwrap();
+    }
+
+    #[test]
+    fn purge_removes_known_artefacts() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+        touch(&root.join("loom.db"));
+        touch(&root.join("loom.db-wal"));
+        touch(&root.join("loom.db-shm"));
+        touch(&root.join("buckets/loom-originals/case-a/asset.bin"));
+        touch(&root.join("buckets/loom-derivatives/case-a/thumb.jpg"));
+
+        purge_lite_data(root).expect("purge should succeed");
+
+        assert!(!root.join("loom.db").exists());
+        assert!(!root.join("loom.db-wal").exists());
+        assert!(!root.join("loom.db-shm").exists());
+        assert!(!root.join("buckets").exists());
+    }
+
+    #[test]
+    fn purge_leaves_unrelated_files_alone() {
+        // anything the user dropped in by hand stays put. only the
+        // hard-coded PURGE_FILES + PURGE_DIRS are touched.
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+        touch(&root.join("loom.db"));
+        touch(&root.join("user-notes.txt"));
+        touch(&root.join("photos/family.jpg"));
+
+        purge_lite_data(root).expect("purge should succeed");
+
+        assert!(!root.join("loom.db").exists());
+        assert!(root.join("user-notes.txt").exists());
+        assert!(root.join("photos/family.jpg").exists());
+    }
+
+    #[test]
+    fn purge_is_noop_when_data_dir_missing() {
+        // never-completed first-run: data_dir doesn't exist yet.
+        // factory_reset must still succeed so the caller can move on
+        // to clearing the preference and respawning the sidecar.
+        let dir = tempdir().unwrap();
+        let missing = dir.path().join("never-created");
+        assert!(!missing.exists());
+
+        purge_lite_data(&missing).expect("missing dir should be a no-op");
+    }
+
+    #[test]
+    fn purge_is_idempotent() {
+        // second invocation after a successful purge must not error
+        // on already-missing artefacts.
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+        touch(&root.join("loom.db"));
+        touch(&root.join("buckets/loom-originals/case-a/asset.bin"));
+
+        purge_lite_data(root).expect("first purge");
+        purge_lite_data(root).expect("second purge should be idempotent");
+    }
 }
 
