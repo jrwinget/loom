@@ -278,3 +278,84 @@ docker compose -f docker/docker-compose.yml --profile app up -d --scale worker=3
 
 5. **Notify affected parties** per your organization's incident
    response procedures.
+
+## Desktop Hotfix Release
+
+The `Desktop` workflow attaches artifacts to a tag-named GitHub
+release via `softprops/action-gh-release@v2`, which **appends** to
+an existing release rather than replacing its assets. If a workflow
+rerun (or a manual artifact upload) leaves stale files behind --
+for example, multiple version-stamped binaries from different tags
+mixed on one release page -- use this procedure to publish a clean
+re-cut.
+
+This was the exact failure mode behind the v0.1.1 boot-hang
+remediation: the v0.1.1 release page accumulated assets from a
+reverted v0.1.2 release after the workflow's append semantics
+attached them, and from a stale v0.1.0 rebuild.
+
+### Preconditions
+
+1. The fix branches have merged to `main` and CI is green on `main`
+   (including the new sidecar smoke step on all three OS matrix
+   entries).
+2. You have write access to the repository and to the tag namespace
+   -- check `gh api repos/{owner}/{repo}/rulesets` returns no tag
+   protection for the tag you intend to force-move.
+
+### Re-cut procedure
+
+```bash
+# 1. confirm the new main HEAD is what you intend to ship
+git fetch origin main
+git log origin/main -1 --oneline
+
+# 2. delete the contaminated release, keeping the tag pinned so the
+#    old SHA remains reachable for forensics
+gh release delete v0.1.1 --yes --cleanup-tag=false
+
+# 3. force-move the tag to the new HEAD
+git tag -f v0.1.1 origin/main
+git push origin v0.1.1 --force
+
+# 4. the Desktop workflow re-runs on the tag push and creates a
+#    fresh release. wait for it -- expect ~15 minutes for the
+#    matrix to finish.
+gh run watch $(gh run list --workflow=desktop.yml --limit 1 \
+  --json databaseId --jq '.[0].databaseId')
+
+# 5. verify the release contains only the expected artifacts (one
+#    per matrix bundle target: deb, AppImage, msi, exe, dmg)
+gh release view v0.1.1 --json assets --jq '.assets[].name'
+
+# 6. update the release body to reflect the hotfix scope
+gh release edit v0.1.1 --notes-file docs/release-notes/v0.1.1.md
+```
+
+### Verification on real hardware
+
+Before announcing the hotfix, install one artifact per OS and
+confirm the desktop bundle now boots:
+
+- **Linux** (`Loom_0.1.1_amd64.deb`): `sudo dpkg -i Loom_*.deb &&
+  loom`. The main window must open within ~2 s. The GTK "Wait or
+  Force Quit" dialog must NOT appear during cold-start.
+- **Windows** (`Loom_0.1.1_x64-setup.exe`): install, launch from
+  Start menu. Title bar must read `Loom`, never
+  `Loom (Not Responding)`.
+- **macOS arm64** (`Loom_0.1.1_aarch64.dmg`): mount, drag to
+  Applications, launch. Main window opens, boot panel transitions
+  to app.
+
+Intel-Mac (`x86_64-apple-darwin`) is a known gap in v0.1.1 -- the
+workflow matrix only includes `macos-latest`, which resolves to
+Apple Silicon. Adding a `macos-13` matrix entry is tracked for
+v0.1.2.
+
+### When this happens to a future release
+
+The append-vs-replace behaviour of `softprops/action-gh-release@v2`
+is a footgun on every release, not just v0.1.1. Until the workflow
+adopts `make_latest: true` plus an explicit delete-then-attach
+step, treat the runbook above as the canonical re-cut procedure for
+*any* release whose asset list shows mixed versions.

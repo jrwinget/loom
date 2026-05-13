@@ -2,7 +2,9 @@
 //   1. bootstrap LOOM_SECRET_KEY + LOOM_STORAGE_SIGNING_SECRET via
 //      tauri-plugin-store (generated once per install; persisted).
 //   2. launch the python backend as a sidecar with lite-profile env.
-//   3. block-wait for /api/v1/health to return 200 before showing UI.
+//   3. poll /api/v1/health off the main thread, emitting
+//      ``backend-ready`` or ``backend-error`` so the frontend boot
+//      gate can render without ever blocking the os event loop.
 //   4. kill the sidecar on every catchable exit path (window close,
 //      signal, panic, sidecar-death).
 //   5. expose ipc commands for the storage ux flow: pick_directory,
@@ -14,14 +16,16 @@
 
 use std::panic;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use rand::RngCore;
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use sysinfo::Disks;
-use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
@@ -30,6 +34,22 @@ use tauri_plugin_store::StoreExt;
 const BACKEND_HEALTH_URL: &str = "http://127.0.0.1:8000/api/v1/health";
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(60);
 const HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(500);
+
+// surfaced stderr is rendered inside a <pre> block in the boot
+// gate. cap it so a misbehaving backend dumping a multi-mb
+// traceback does not push a huge string through the ipc channel
+// and into the dom. 4 kib is enough room for any reasonable
+// stack trace; anything past it is truncated with an ellipsis.
+const MAX_ERROR_PAYLOAD_CHARS: usize = 4096;
+
+fn truncate_error(msg: String) -> String {
+    if msg.chars().count() <= MAX_ERROR_PAYLOAD_CHARS {
+        return msg;
+    }
+    let mut out: String = msg.chars().take(MAX_ERROR_PAYLOAD_CHARS).collect();
+    out.push_str("… [truncated]");
+    out
+}
 
 // secrets live in their own store file so they are easy to rotate
 // by deletion and do not mingle with user-visible preferences.
@@ -100,6 +120,21 @@ impl SidecarProcess {
 // shared state held across commands so ``restart_backend`` can
 // respawn the sidecar with the same secrets but a fresh config.
 struct BackendState(Mutex<BootstrapSecrets>);
+
+// last stderr line captured from the sidecar. populated by the drain
+// task and read by the boot watcher to build a meaningful
+// ``backend-error`` payload.
+#[derive(Default)]
+struct LastBackendStderr(Arc<Mutex<Option<String>>>);
+
+// flips to true once the boot watcher emits ``backend-ready`` for
+// the current sidecar. used so that a sidecar that dies before
+// becoming healthy emits ``backend-error`` rather than ``backend-
+// ready``: the watcher only emits ready if it wins the cas race
+// against the drain task's terminated branch. reset on every
+// respawn from ``restart_backend``.
+#[derive(Default)]
+struct BootReady(Arc<AtomicBool>);
 
 #[derive(Debug, Clone, Serialize)]
 struct DiskUsage {
@@ -198,16 +233,32 @@ fn spawn_backend(
         .map_err(|e| format!("failed to spawn sidecar: {e}"))?;
 
     // drain sidecar stdout/stderr so the process does not block on a
-    // full pipe buffer. log everything at debug. on Terminated, drop
-    // our handle (the child is gone anyway) and tell the shell to
-    // exit so the UI does not hang on a dead backend — see #57.
+    // full pipe buffer. every stderr line is also kept in the shared
+    // ``LastBackendStderr`` slot so the boot watcher and the
+    // terminated branch can build a meaningful error payload.
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
+        let last_stderr = app_handle
+            .try_state::<LastBackendStderr>()
+            .map(|s| s.0.clone());
+        let boot_ready = app_handle
+            .try_state::<BootReady>()
+            .map(|s| s.0.clone());
+
         while let Some(event) = rx.recv().await {
             match event {
-                CommandEvent::Stdout(line) | CommandEvent::Stderr(line) => {
+                CommandEvent::Stdout(line) => {
                     let text = String::from_utf8_lossy(&line);
                     eprintln!("[loom-backend] {text}");
+                }
+                CommandEvent::Stderr(line) => {
+                    let text = String::from_utf8_lossy(&line).to_string();
+                    eprintln!("[loom-backend] {text}");
+                    if let Some(slot) = last_stderr.as_ref() {
+                        if let Ok(mut guard) = slot.lock() {
+                            *guard = Some(text);
+                        }
+                    }
                 }
                 CommandEvent::Terminated(payload) => {
                     eprintln!("[loom-backend] terminated: {payload:?}");
@@ -218,7 +269,30 @@ fn spawn_backend(
                             let _ = guard.take();
                         }
                     }
-                    app_handle.exit(1);
+                    // claim the boot slot so a concurrent watcher
+                    // does not also emit ``backend-ready`` for this
+                    // same boot attempt. if the cas fails the
+                    // watcher already won and this terminated is a
+                    // post-boot crash; either way the user needs an
+                    // error surface, so emit unconditionally.
+                    if let Some(flag) = boot_ready.as_ref() {
+                        let _ = flag.compare_exchange(
+                            false,
+                            true,
+                            Ordering::SeqCst,
+                            Ordering::SeqCst,
+                        );
+                    }
+                    let message = last_stderr
+                        .as_ref()
+                        .and_then(|slot| slot.lock().ok()?.clone())
+                        .unwrap_or_else(|| {
+                            format!(
+                                "backend exited unexpectedly: {payload:?}"
+                            )
+                        });
+                    let _ = app_handle
+                        .emit("backend-error", truncate_error(message));
                     break;
                 }
                 _ => {}
@@ -229,7 +303,14 @@ fn spawn_backend(
     Ok(child)
 }
 
-async fn wait_for_health() -> Result<(), String> {
+// polls the backend health endpoint until success or the deadline.
+// when ``boot_ready`` is supplied the loop also bails if the drain
+// task has already flipped the flag (sidecar terminated during
+// boot), so the user is not held on the boot panel for the full
+// health timeout when the backend is already dead.
+async fn wait_for_health(
+    boot_ready: Option<Arc<AtomicBool>>,
+) -> Result<(), String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(2))
         .build()
@@ -237,6 +318,11 @@ async fn wait_for_health() -> Result<(), String> {
 
     let deadline = std::time::Instant::now() + HEALTH_TIMEOUT;
     loop {
+        if let Some(flag) = boot_ready.as_ref() {
+            if flag.load(Ordering::SeqCst) {
+                return Err("backend exited before answering health".into());
+            }
+        }
         if let Ok(resp) = client.get(BACKEND_HEALTH_URL).send().await {
             if resp.status().is_success() {
                 return Ok(());
@@ -249,6 +335,95 @@ async fn wait_for_health() -> Result<(), String> {
             ));
         }
         tokio::time::sleep(HEALTH_POLL_INTERVAL).await;
+    }
+}
+
+// runs the full boot sequence (config + spawn + health wait) off
+// the setup hook so the main thread is never blocked. emits
+// ``backend-ready`` on success and ``backend-error`` with a string
+// payload on every reachable failure path; only one of the two
+// fires per boot attempt, gated by the ``BootReady`` cas race
+// against the sidecar drain task.
+async fn run_initial_boot(app: AppHandle) {
+    let secrets = match app.try_state::<BackendState>() {
+        Some(state) => match state.0.lock() {
+            Ok(guard) => guard.clone(),
+            Err(_) => {
+                let _ = app.emit(
+                    "backend-error",
+                    truncate_error(
+                        "backend state poisoned during boot".into(),
+                    ),
+                );
+                return;
+            }
+        },
+        None => {
+            let _ = app.emit(
+                "backend-error",
+                truncate_error("bootstrap secrets unavailable".into()),
+            );
+            return;
+        }
+    };
+
+    let config = match load_config(&app) {
+        Ok(cfg) => cfg,
+        Err(err) => {
+            let _ = app.emit("backend-error", truncate_error(err));
+            return;
+        }
+    };
+
+    let child = match spawn_backend(&app, &config, &secrets) {
+        Ok(c) => c,
+        Err(err) => {
+            let _ = app.emit("backend-error", truncate_error(err));
+            return;
+        }
+    };
+    app.state::<SidecarProcess>().replace(child);
+
+    let boot_ready = app.state::<BootReady>().0.clone();
+    match wait_for_health(Some(boot_ready.clone())).await {
+        Ok(()) => {
+            // only emit ready if the drain task has not already
+            // claimed the boot slot via Terminated.
+            if boot_ready
+                .compare_exchange(
+                    false,
+                    true,
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                )
+                .is_ok()
+            {
+                let _ = app.emit("backend-ready", ());
+            }
+        }
+        Err(err) => {
+            // the drain task may already have emitted via the
+            // Terminated branch; the cas tells us which path fires
+            // the error payload.
+            if boot_ready
+                .compare_exchange(
+                    false,
+                    true,
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                )
+                .is_ok()
+            {
+                let message = app
+                    .state::<LastBackendStderr>()
+                    .0
+                    .lock()
+                    .ok()
+                    .and_then(|g| g.clone())
+                    .unwrap_or(err);
+                let _ = app.emit("backend-error", truncate_error(message));
+            }
+        }
     }
 }
 
@@ -344,7 +519,10 @@ fn persist_data_directory(
 
 // ipc command: kill the running sidecar and respawn it under the
 // latest persisted data dir. blocks until the new backend answers
-// /api/v1/health so the ui can trust the restart succeeded.
+// /api/v1/health so the ui can trust the restart succeeded. on
+// success emits ``backend-ready`` so the boot gate flips out of its
+// ``booting`` state; on failure emits ``backend-error`` with the
+// captured stderr.
 #[tauri::command]
 async fn restart_backend(app: AppHandle) -> Result<(), String> {
     let sidecar_state = app.state::<SidecarProcess>();
@@ -360,9 +538,55 @@ async fn restart_backend(app: AppHandle) -> Result<(), String> {
         guard.clone()
     };
 
+    // reset boot-resolution state for the new sidecar lifecycle.
+    let boot_ready = app.state::<BootReady>().0.clone();
+    boot_ready.store(false, Ordering::SeqCst);
+    if let Ok(mut guard) = app.state::<LastBackendStderr>().0.lock() {
+        *guard = None;
+    }
+
     let child = spawn_backend(&app, &config, &secrets)?;
     app.state::<SidecarProcess>().replace(child);
-    wait_for_health().await
+
+    match wait_for_health(Some(boot_ready.clone())).await {
+        Ok(()) => {
+            let won = boot_ready
+                .compare_exchange(
+                    false,
+                    true,
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                )
+                .is_ok();
+            if won {
+                let _ = app.emit("backend-ready", ());
+            }
+            Ok(())
+        }
+        Err(err) => {
+            // if the drain task has not already emitted, surface the
+            // error with the freshest stderr we captured.
+            let already = boot_ready
+                .compare_exchange(
+                    false,
+                    true,
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                )
+                .is_err();
+            if !already {
+                let message = app
+                    .state::<LastBackendStderr>()
+                    .0
+                    .lock()
+                    .ok()
+                    .and_then(|g| g.clone())
+                    .unwrap_or_else(|| err.clone());
+                let _ = app.emit("backend-error", truncate_error(message));
+            }
+            Err(err)
+        }
+    }
 }
 
 fn main() {
@@ -372,6 +596,8 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(SidecarProcess(Mutex::new(None)))
+        .manage(LastBackendStderr::default())
+        .manage(BootReady::default())
         .invoke_handler(tauri::generate_handler![
             pick_directory,
             disk_usage,
@@ -390,19 +616,16 @@ fn main() {
                 .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             app.manage(BackendState(Mutex::new(secrets.clone())));
 
-            let config = load_config(&handle)
-                .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
-
-            let child = spawn_backend(&handle, &config, &secrets)
-                .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
-            app.state::<SidecarProcess>().replace(child);
-
-            // block the setup hook until the backend is healthy so
-            // the webview never sees a connection refused.
-            tauri::async_runtime::block_on(async {
-                wait_for_health().await
-            })
-            .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+            // boot the sidecar on the async runtime so the setup
+            // closure returns immediately; the os never sees the
+            // main thread block and the webview opens on its normal
+            // schedule. the boot-gate ui sits on ``booting`` until
+            // the watcher emits ``backend-ready`` or
+            // ``backend-error``.
+            let boot_handle = handle.clone();
+            tauri::async_runtime::spawn(async move {
+                run_initial_boot(boot_handle).await;
+            });
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -418,8 +641,7 @@ fn main() {
             // final safety net: cover exit paths that bypass the
             // window CloseRequested handler (RunEvent::Exit fires on
             // normal shutdown; ExitRequested fires when app.exit()
-            // is called from a signal handler or the sidecar-
-            // terminated branch).
+            // is called from a signal handler).
             if matches!(
                 event,
                 RunEvent::Exit | RunEvent::ExitRequested { .. }

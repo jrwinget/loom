@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
+import { BackendBootGate } from '@/components/system/backend-boot-gate';
 import '@/styles/globals.css';
 
 // register service worker for offline support
@@ -14,6 +15,8 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <BackendBootGate>
+      <App />
+    </BackendBootGate>
   </StrictMode>,
 );
