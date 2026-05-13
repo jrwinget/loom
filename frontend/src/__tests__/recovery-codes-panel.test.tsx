@@ -17,9 +17,7 @@ const SAMPLE_CODES = [
 
 describe('RecoveryCodesPanel', () => {
   it('renders all supplied codes', () => {
-    render(
-      <RecoveryCodesPanel codes={SAMPLE_CODES} onAcknowledge={vi.fn()} />,
-    );
+    render(<RecoveryCodesPanel codes={SAMPLE_CODES} onAcknowledge={vi.fn()} />);
 
     const items = screen.getAllByTestId('recovery-code');
     expect(items).toHaveLength(SAMPLE_CODES.length);
@@ -50,9 +48,7 @@ describe('RecoveryCodesPanel', () => {
     // "Copied!" within the 2s window.
     const user = userEvent.setup();
 
-    render(
-      <RecoveryCodesPanel codes={SAMPLE_CODES} onAcknowledge={vi.fn()} />,
-    );
+    render(<RecoveryCodesPanel codes={SAMPLE_CODES} onAcknowledge={vi.fn()} />);
 
     await user.click(screen.getByRole('button', { name: /copy/i }));
 

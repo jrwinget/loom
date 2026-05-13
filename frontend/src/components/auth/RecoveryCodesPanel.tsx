@@ -70,9 +70,9 @@ export function RecoveryCodesPanel({
           Save your recovery codes
         </h2>
         <p className="text-sm text-muted-foreground">
-          Loom cannot reset your password for you — there is no email server
-          and no second admin. These eight single-use codes are the only way
-          to recover your account without losing your data. Store them in a
+          Loom cannot reset your password for you — there is no email server and
+          no second admin. These eight single-use codes are the only way to
+          recover your account without losing your data. Store them in a
           password manager or print them.
         </p>
       </header>

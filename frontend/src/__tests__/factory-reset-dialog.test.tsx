@@ -19,13 +19,11 @@ describe('FactoryResetDialog', () => {
 
   it('renders nothing when closed', () => {
     render(
-      <FactoryResetDialog
-        open={false}
-        onClose={vi.fn()}
-        onSuccess={vi.fn()}
-      />,
+      <FactoryResetDialog open={false} onClose={vi.fn()} onSuccess={vi.fn()} />,
     );
-    expect(screen.queryByTestId('factory-reset-dialog')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('factory-reset-dialog'),
+    ).not.toBeInTheDocument();
   });
 
   it('disables the reset button until RESET is typed exactly', async () => {
