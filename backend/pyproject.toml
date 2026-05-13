@@ -12,6 +12,13 @@ dependencies = [
     "pydantic-settings>=2.1.0",
     "sqlalchemy[asyncio]>=2.0.23",
     "asyncpg>=0.30.0",
+    # aiosqlite is the sqlite+async driver used by the lite
+    # deployment profile (desktop sidecar). server profile uses
+    # postgres via asyncpg above, but the same codebase must boot
+    # under sqlite+aiosqlite:// for ``make dev`` and the bundled
+    # desktop binary -- otherwise the lifespan blows up at engine
+    # construction with ModuleNotFoundError.
+    "aiosqlite>=0.20.0",
     "alembic>=1.13.0",
     "minio>=7.2.0",
     "temporalio>=1.27.0",
