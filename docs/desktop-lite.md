@@ -137,16 +137,41 @@ For the exact bundle schema and verification procedure, see
 `docs/architecture.md` (export section) — the dedicated
 court-bundle spec document is a follow-up.
 
+## Boot sequence
+
+On launch, Loom opens its window immediately and shows a "Loom is
+starting…" panel while the local backend boots in the background.
+The panel transitions to the app within a few seconds on Linux and
+macOS; Windows cold-start can take up to ~10 seconds the first
+time after install because antivirus rescans the PyInstaller
+payload. After the first launch, subsequent starts are faster.
+
+If the backend cannot start, the panel switches to an error view
+with the sidecar's captured stderr and a Retry button. Retry kills
+the current sidecar and respawns it; the panel returns to "Loom is
+starting…" until the next outcome.
+
 ## Troubleshooting
 
-**The app opens but the UI shows "backend unreachable".**
-The backend sidecar failed to start. Check the log at:
+**The app stays on "Loom is starting…" forever.**
+The sidecar binary is alive but `127.0.0.1:8000` never answers.
+Most common cause is a port conflict — quit whatever else is using
+that port and click Retry. If the boot panel does not appear and
+the app window itself never opens, the desktop shell crashed
+before mounting; see the system journal (`journalctl --user`) on
+Linux or Event Viewer on Windows.
+
+**The boot panel switches to an error view.**
+Read the captured stderr in the panel; that line is the sidecar's
+own diagnosis. The full log lives at:
 
 - macOS/Linux: `~/.loom/logs/backend.log`
 - Windows: `%USERPROFILE%\.loom\logs\backend.log`
 
-The most common cause is a port conflict on `127.0.0.1:8000`. Quit
-whatever else is using that port, then relaunch.
+A common case is `LOOM_DATABASE_URL` pointing at a path Loom cannot
+write to (read-only mount, missing parent directory). Pick a fresh
+data directory via Settings → Storage or delete `~/.loom/config.json`
+and relaunch to re-run the first-run picker.
 
 **First run fails with "permission denied" on the data directory.**
 The user account running Loom does not have write access to the
