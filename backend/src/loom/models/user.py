@@ -37,6 +37,13 @@ class User(UUIDMixin, TimestampMixin, Base):
         String,
         nullable=True,
     )
+    # comma-separated sha256 hashes of single-use password-recovery
+    # codes minted at first-run. distinct from `recovery_codes`,
+    # which scopes to mfa second-factor recovery only.
+    password_recovery_codes: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+    )
     is_active: Mapped[bool] = mapped_column(
         default=True,
     )

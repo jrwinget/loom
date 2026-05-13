@@ -1,5 +1,6 @@
 """tests for the /first-run onboarding endpoints."""
 
+import re
 from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -393,3 +394,91 @@ async def test_complete_rejects_short_password(
 
     assert resp.status_code == 422
     assert session.added == []
+
+
+async def test_complete_returns_eight_recovery_codes(
+    settings: Settings,
+) -> None:
+    """POST /first-run/complete returns 8 plaintext recovery codes."""
+    session = _StatusSession(user_count=0)
+    app = _build_app(session, settings)
+
+    payload = {
+        "admin_email": "admin@example.com",
+        "admin_password": "supersecret-password-12",
+        "admin_full_name": "Admin Example",
+    }
+
+    with patch("loom.security.auth.get_settings", return_value=settings):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                "/api/v1/first-run/complete",
+                json=payload,
+            )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    codes = body["password_recovery_codes"]
+    assert isinstance(codes, list)
+    assert len(codes) == 8
+    # display format: four hyphen-separated groups of 5 hex chars.
+    group = r"[0-9a-f]{5}"
+    code_pattern = re.compile(rf"^{group}-{group}-{group}-{group}$")
+    for code in codes:
+        assert code_pattern.match(code), f"unexpected code shape: {code!r}"
+    # uniqueness: no duplicates within a single batch
+    assert len(set(codes)) == 8
+
+
+async def test_complete_persists_hashed_codes_not_plaintext(
+    settings: Settings,
+) -> None:
+    """the INSERT must bind sha256 hashes, never the plaintext codes."""
+    session = _CapturingSession(user_count=0)
+    app = _build_app(session, settings)
+
+    payload = {
+        "admin_email": "admin@example.com",
+        "admin_password": "supersecret-password-12",
+        "admin_full_name": "Admin Example",
+    }
+
+    with patch("loom.security.auth.get_settings", return_value=settings):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                "/api/v1/first-run/complete",
+                json=payload,
+            )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    plaintext_codes: list[str] = body["password_recovery_codes"]
+
+    # the column is bound via a literal in an INSERT...SELECT, so the
+    # param key is auto-named (param_N). scan the bound values for the
+    # one matching our expected shape: comma-joined 64-char hex digests.
+    sha_csv = re.compile(r"^[0-9a-f]{64}(,[0-9a-f]{64})*$")
+    candidates = [
+        v
+        for v in session.insert_params.values()
+        if isinstance(v, str) and sha_csv.fullmatch(v)
+    ]
+    assert len(candidates) == 1, (
+        f"expected exactly one sha256-csv bound value, got {candidates!r}"
+    )
+    bound = candidates[0]
+
+    # plaintext (with or without hyphens) must not appear in the stored value
+    for code in plaintext_codes:
+        assert code not in bound
+        assert code.replace("-", "") not in bound
+
+    # exactly 8 comma-separated 64-char sha256 hex digests
+    stored = bound.split(",")
+    assert len(stored) == 8

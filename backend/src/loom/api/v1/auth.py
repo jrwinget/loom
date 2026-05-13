@@ -8,9 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.dependencies import get_db_session
 from loom.metrics import auth_failures
+from loom.models.audit import AuditLogEntry
 from loom.models.user import User
 from loom.schemas.user import (
     MfaRequiredResponse,
+    PasswordRecoveryRequest,
+    PasswordRecoveryResponse,
     TokenRefresh,
     TokenResponse,
     UserCreate,
@@ -24,6 +27,10 @@ from loom.security.auth import (
     decode_token,
     hash_password,
     verify_password,
+)
+from loom.security.password_recovery import parse as parse_rec_codes
+from loom.security.password_recovery import (
+    verify_and_consume as verify_rec_code,
 )
 from loom.security.rate_limit import limiter
 from loom.security.rbac import (
@@ -329,4 +336,69 @@ async def get_me(
         role=user.role,
         is_active=user.is_active,
         created_at=user.created_at,
+    )
+
+
+@router.post("/recover-password", response_model=PasswordRecoveryResponse)
+@limiter.limit("3/hour")
+async def recover_password(
+    request: Request,
+    body: PasswordRecoveryRequest,
+    session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
+        get_db_session
+    ),
+) -> PasswordRecoveryResponse:
+    """reset a forgotten password using a single-use recovery code.
+
+    no auth required by design: the operator has lost their password.
+    on success the matched code is removed from storage (single-use),
+    the password is rotated, and the operator must sign in normally
+    on the next request — mfa is intentionally not bypassed here so
+    that a leaked recovery code alone cannot defeat the second factor.
+
+    rate-limited to 3/hour. unknown emails and wrong codes return the
+    same 401 with constant-time effort so the endpoint cannot be used
+    to enumerate accounts.
+    """
+    db: AsyncSession = session  # type: ignore[assignment]
+
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+
+    # walk the same code path whether or not the user exists so the
+    # timing profile of "no such email" matches "wrong code". the
+    # dummy stored value parses to an empty set so verify always
+    # fails — verify_and_consume does the sha256 hash unconditionally
+    # before the membership check.
+    stored = user.password_recovery_codes if user else None
+    ok, remaining = verify_rec_code(stored, body.recovery_code)
+
+    if not user or not ok or not user.is_active:
+        auth_failures.labels(reason="recovery_code_invalid").inc()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid email or recovery code",
+        )
+
+    user.password_hash = hash_password(body.new_password)
+    user.password_recovery_codes = remaining
+
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("User-Agent")
+    db.add(
+        AuditLogEntry(
+            actor_id=str(user.id),
+            action="user.password.recover",
+            resource_type="users",
+            resource_id=str(user.id),
+            detail={"codes_remaining": len(parse_rec_codes(remaining))},
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+    )
+
+    await db.commit()
+
+    return PasswordRecoveryResponse(
+        codes_remaining=len(parse_rec_codes(remaining)),
     )

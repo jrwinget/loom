@@ -22,9 +22,16 @@ class FirstRunCompleteRequest(BaseModel):
 
 
 class FirstRunCompleteResponse(BaseModel):
-    """tokens + user id issued after first-run bootstrap."""
+    """tokens + user id issued after first-run bootstrap.
+
+    `password_recovery_codes` is the plaintext, hyphen-grouped form of
+    the user's single-use password-recovery codes. these are shown to
+    the operator exactly once: the backend only retains sha256 hashes,
+    so a lost code cannot be recovered after this response.
+    """
 
     user_id: UUID
     access_token: str
     refresh_token: str
     token_type: str = "bearer"  # noqa: S105
+    password_recovery_codes: list[str]
