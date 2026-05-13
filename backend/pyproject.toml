@@ -131,6 +131,11 @@ known-first-party = ["loom"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "S105", "S106"]
+# scripts/ are operator tools (smoke tests, ad-hoc utilities) whose
+# stdout/stderr is the user interface -- print is the right call,
+# not a logger; and they intentionally use S-flagged subprocess
+# patterns with controlled, non-shell argv lists.
+"scripts/**/*.py" = ["T20", "S603", "S607"]
 
 [tool.mypy]
 python_version = "3.12"
