@@ -76,3 +76,13 @@ export async function restartBackend(): Promise<void> {
   if (!isTauri) return;
   await invokeCommand<void>('restart_backend');
 }
+
+// destructive: wipes loom.db + buckets/ under the chosen data dir,
+// clears the data-dir preference, and restarts the sidecar. invoked
+// only from the FactoryResetDialog after a typed-confirmation gate.
+export async function factoryReset(): Promise<void> {
+  if (!isTauri) {
+    throw new Error('factory_reset is only available inside the desktop app');
+  }
+  await invokeCommand<void>('factory_reset');
+}

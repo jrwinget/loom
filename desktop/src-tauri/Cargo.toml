@@ -1,6 +1,6 @@
 [package]
 name = "loom-desktop"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Tauri v2 desktop shell for the Loom evidence OS"
 license = "AGPL-3.0-or-later"
@@ -33,6 +33,11 @@ ctrlc = { version = "3", features = ["termination"] }
 # introduced in 0.31; on 0.30.x the Disks struct lives in the
 # default feature set so the previous declaration failed to resolve.
 sysinfo = { version = "0.31", default-features = false, features = ["disk"] }
+
+[dev-dependencies]
+# tempdir-based unit tests for the factory_reset purge helper, so we
+# never touch the real ~/.loom data during ``cargo test``.
+tempfile = "3"
 
 [features]
 # this feature is used for production builds or when a dev server is

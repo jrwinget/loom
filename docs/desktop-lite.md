@@ -66,10 +66,32 @@ On first launch Loom walks through three screens:
    with room for the footage you plan to ingest. This path is
    remembered across launches.
 3. **Create admin account** — sets up the single local user. The
-   password is hashed with argon2 and stored in the local database;
-   there is no password reset over network, so write it down.
+   password is hashed with argon2 and stored in the local database.
+4. **Save your recovery codes** — eight single-use codes are minted
+   alongside the admin and shown exactly once. Store them in a
+   password manager (or download the .txt). Each code can reset your
+   password once if you forget it; once all eight are spent, the
+   only path back in is a factory reset (see below).
 
-After these three screens, Loom opens the main case workspace.
+After these four screens, Loom opens the main case workspace.
+
+## Forgot your password?
+
+If you have at least one unused recovery code:
+
+1. From the sign-in screen, click **Forgot your password?**.
+2. Enter your email, one recovery code, and a new password.
+3. Sign in normally with the new password. Any MFA enrollment is
+   unaffected — the code resets the password only.
+
+If you have lost both the password and every recovery code, the
+only path forward is a destructive reset. From the sign-in screen
+click **Reset Loom (deletes all data)** — this is only visible inside
+the Desktop Lite shell. The confirmation dialog requires you to type
+`RESET` and lists exactly what gets deleted: the SQLite database,
+all originals and derivatives, and your chosen data-directory
+preference. Bootstrap secrets are preserved. After the reset, Loom
+re-runs the first-run wizard.
 
 ## What Desktop Lite does vs what it does NOT
 

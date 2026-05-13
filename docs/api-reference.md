@@ -22,6 +22,10 @@ Most endpoints require a JWT access token in the
 - `POST /api/v1/auth/register` — register first user (admin)
 - `POST /api/v1/auth/login` — get access + refresh tokens
 - `POST /api/v1/auth/refresh` — refresh access token
+- `POST /api/v1/auth/recover-password` — reset a forgotten password
+  using a single-use recovery code minted at first-run; returns
+  `{codes_remaining}`. No token is issued; sign in normally afterward
+  so MFA still applies. Rate-limited 3/hour.
 - `GET /api/v1/auth/me` — current user profile
 
 ## Cases

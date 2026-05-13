@@ -28,6 +28,9 @@ from loom.security.auth import (
     create_refresh_token,
     hash_password,
 )
+from loom.security.password_recovery import generate_codes as gen_codes
+from loom.security.password_recovery import hash_code as hash_rec_code
+from loom.security.password_recovery import serialize as ser_codes
 from loom.security.rate_limit import limiter
 
 router = APIRouter(prefix="/first-run", tags=["first-run"])
@@ -93,6 +96,14 @@ async def complete(
     new_id = _generate_uuid7()
     hashed = hash_password(body.admin_password)
 
+    # mint single-use password-recovery codes. plaintext is returned
+    # once in the response below; only the hashes are persisted, so a
+    # code that isn't saved by the operator is unrecoverable.
+    recovery_plaintext = gen_codes()
+    recovery_serialized = ser_codes(
+        [hash_rec_code(c) for c in recovery_plaintext]
+    )
+
     # atomic "insert only if no user exists" — SQLite + Postgres
     # both evaluate the SELECT subquery and INSERT in the same
     # statement, closing the TOCTOU between count() and add().
@@ -105,6 +116,7 @@ async def complete(
         literal("admin").label("role"),
         literal(True).label("is_active"),
         literal(False).label("mfa_enabled"),
+        literal(recovery_serialized).label("password_recovery_codes"),
     ).where(~exists(user_exists))
     stmt = insert(User).from_select(
         [
@@ -115,6 +127,7 @@ async def complete(
             "role",
             "is_active",
             "mfa_enabled",
+            "password_recovery_codes",
         ],
         src,
     )
@@ -156,4 +169,5 @@ async def complete(
         user_id=new_id,
         access_token=access,
         refresh_token=refresh,
+        password_recovery_codes=recovery_plaintext,
     )
