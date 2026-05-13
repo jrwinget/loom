@@ -10,6 +10,17 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  pull_request:
+    # run on prs that touch anything load-bearing for the desktop
+    # bundle: the rust shell, the python sidecar, or this workflow
+    # itself. the smoke step (added in #127) is the regression guard
+    # against shipping a sidecar that does not bind a socket; gating
+    # merges on it is the whole point.
+    paths:
+      - "desktop/**"
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/desktop.yml"
   workflow_dispatch:
 
 permissions:
