@@ -126,16 +126,27 @@ describe('FirstRunPage', () => {
     expect(mockedPost).not.toHaveBeenCalled();
   });
 
-  it('completes onboarding and navigates to /', async () => {
+  it('shows the recovery codes step after successful onboarding', async () => {
     mockedGet.mockResolvedValueOnce({
       first_run_required: true,
       deployment_profile: 'server',
       data_dir: null,
     });
+    const sampleCodes = [
+      'aaaaa-bbbbb-ccccc-ddddd',
+      'eeeee-fffff-00000-11111',
+      '22222-33333-44444-55555',
+      '66666-77777-88888-99999',
+      'a1b2c-3d4e5-f6789-0abcd',
+      'feedb-eef00-1234-cafe1',
+      'deadb-eef00-1234-cafe2',
+      '12345-67890-abcde-fghi0',
+    ];
     mockedPost.mockResolvedValueOnce({
       user_id: 'user-123',
       access_token: 'access',
       refresh_token: 'refresh',
+      password_recovery_codes: sampleCodes,
     });
     mockedGet.mockResolvedValueOnce({
       id: 'user-123',
@@ -161,10 +172,58 @@ describe('FirstRunPage', () => {
       screen.getByRole('button', { name: /Create admin account/i }),
     );
 
+    // dashboard should not appear yet — the codes panel intercepts.
+    expect(
+      await screen.findByTestId('recovery-codes-panel'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('recovery-code')).toHaveLength(8);
+    expect(useAuthStore.getState().token).toBe('access');
+  });
+
+  it('navigates to / once the operator acknowledges the codes', async () => {
+    mockedGet.mockResolvedValueOnce({
+      first_run_required: true,
+      deployment_profile: 'server',
+      data_dir: null,
+    });
+    mockedPost.mockResolvedValueOnce({
+      user_id: 'user-123',
+      access_token: 'access',
+      refresh_token: 'refresh',
+      password_recovery_codes: ['aaaaa-bbbbb-ccccc-ddddd'],
+    });
+    mockedGet.mockResolvedValueOnce({
+      id: 'user-123',
+      email: 'ada@example.org',
+      displayName: 'Ada Lovelace',
+      role: 'admin',
+      mfaEnabled: false,
+    });
+    const user = userEvent.setup();
+
+    renderWithProviders();
+    await screen.findByText('Welcome to Loom');
+
+    await user.type(screen.getByLabelText(/Full name/i), 'Ada Lovelace');
+    await user.type(screen.getByLabelText(/Email/i), 'ada@example.org');
+    const pw = 'correct-horse-battery-staple';
+    await user.type(
+      screen.getByLabelText('Password (minimum 12 characters)'),
+      pw,
+    );
+    await user.type(screen.getByLabelText(/Confirm password/i), pw);
+    await user.click(
+      screen.getByRole('button', { name: /Create admin account/i }),
+    );
+
+    await screen.findByTestId('recovery-codes-panel');
+    await user.click(screen.getByTestId('recovery-codes-ack'));
+    await user.click(screen.getByRole('button', { name: /continue to loom/i }));
+
     await waitFor(() => {
       expect(screen.getByText('Dashboard')).toBeInTheDocument();
     });
-    expect(useAuthStore.getState().token).toBe('access');
   });
 
   it('surfaces a 409 conflict as a readable error', async () => {

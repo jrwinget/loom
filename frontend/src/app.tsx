@@ -7,6 +7,7 @@ import { Shell } from '@/components/layout/shell';
 import { ToastContainer } from '@/components/layout/toast-container';
 import { Dashboard } from '@/routes/index';
 import { FirstRunPage } from '@/routes/first-run';
+import { ForgotPasswordPage } from '@/routes/forgot-password';
 import { LoginPage } from '@/routes/login';
 import { CaseListPage } from '@/routes/cases/index';
 import { CaseDetailPage } from '@/routes/cases/[caseId]/index';
@@ -50,6 +51,7 @@ export function App(): React.ReactElement {
             <Routes>
               <Route path="first-run" element={<FirstRunPage />} />
               <Route path="login" element={<LoginPage />} />
+              <Route path="forgot-password" element={<ForgotPasswordPage />} />
               <Route element={<ProtectedRoute />}>
                 <Route element={<Shell />}>
                   <Route index element={<Dashboard />} />

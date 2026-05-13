@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { FactoryResetDialog } from '@/components/auth/FactoryResetDialog';
 import { MfaChallenge } from '@/components/auth/MfaChallenge';
 import { useFirstRunStatus } from '@/hooks/use-first-run';
 import { apiClient } from '@/lib/api-client';
+import { isTauri } from '@/lib/tauri-bridge';
 import { useAuthStore } from '@/stores/auth-store';
 import type { User } from '@/types';
 
@@ -18,9 +20,18 @@ export function LoginPage(): React.ReactElement {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
   const { setAuth, setMfaChallenge, requiresMfa } = useAuthStore();
   const navigate = useNavigate();
   const { data: firstRun } = useFirstRunStatus();
+
+  // recovery affordances are lite-only: server-profile installs have
+  // admin reset paths instead. the factory-reset button additionally
+  // requires the tauri bridge — the deletion runs in the desktop
+  // shell, not the backend.
+  const isLite = firstRun?.deployment_profile === 'lite';
+  const showRecoveryLink = isLite;
+  const showFactoryReset = isLite && isTauri;
 
   // fresh deploy with no users: send the operator through onboarding.
   useEffect(() => {
@@ -120,7 +131,43 @@ export function LoginPage(): React.ReactElement {
             {submitting ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
+
+        {(showRecoveryLink || showFactoryReset) && (
+          <div className="space-y-2 border-t border-border pt-4 text-center text-sm">
+            {showRecoveryLink && (
+              <Link
+                to="/forgot-password"
+                className="block text-muted-foreground hover:underline"
+                data-testid="forgot-password-link"
+              >
+                Forgot your password?
+              </Link>
+            )}
+            {showFactoryReset && (
+              <button
+                type="button"
+                onClick={() => setResetOpen(true)}
+                className="text-xs text-destructive hover:underline"
+                data-testid="factory-reset-link"
+              >
+                Reset Loom (deletes all data)
+              </button>
+            )}
+          </div>
+        )}
       </div>
+      {showFactoryReset && (
+        <FactoryResetDialog
+          open={resetOpen}
+          onClose={() => setResetOpen(false)}
+          onSuccess={() => {
+            setResetOpen(false);
+            // sidecar respawns into a fresh first-run state; route
+            // there so the operator picks up onboarding.
+            navigate('/first-run', { replace: true });
+          }}
+        />
+      )}
     </div>
   );
 }

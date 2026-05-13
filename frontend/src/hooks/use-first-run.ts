@@ -17,6 +17,11 @@ export interface FirstRunCompleteResponse {
   user_id: string;
   access_token: string;
   refresh_token: string;
+  // single-use password-recovery codes, plaintext. backend retains
+  // only sha256 hashes, so this is the only time the operator sees
+  // these values. eight codes; each is four hyphen-separated groups
+  // of five hex chars (``a1b2c-3d4e5-f6789-0abcd``).
+  password_recovery_codes: string[];
 }
 
 export const firstRunKeys = {

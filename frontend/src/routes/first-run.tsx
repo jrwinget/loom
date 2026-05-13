@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { RecoveryCodesPanel } from '@/components/auth/RecoveryCodesPanel';
 import { apiClient } from '@/lib/api-client';
 import {
   pickDirectory,
@@ -13,7 +14,7 @@ import type { User } from '@/types';
 
 const MIN_PASSWORD_LENGTH = 12;
 
-type Step = 'data_dir' | 'admin';
+type Step = 'data_dir' | 'admin' | 'recovery_codes';
 
 export function FirstRunPage(): React.ReactElement {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ export function FirstRunPage(): React.ReactElement {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 
   // pick the initial step once the status payload arrives.
   useEffect(() => {
@@ -45,12 +47,15 @@ export function FirstRunPage(): React.ReactElement {
     }
   }, [status, isLite, chosenDir]);
 
-  // already-onboarded installs should not see this page.
+  // already-onboarded installs should not see this page. exempt the
+  // recovery_codes step: by the time we're there we've already
+  // completed onboarding in *this* render, and we must not bounce
+  // the operator out before they save their codes.
   useEffect(() => {
-    if (status && !status.first_run_required) {
+    if (status && !status.first_run_required && step !== 'recovery_codes') {
       navigate('/', { replace: true });
     }
-  }, [status, navigate]);
+  }, [status, navigate, step]);
 
   const defaultDir = status?.data_dir ?? null;
   const changed =
@@ -118,7 +123,12 @@ export function FirstRunPage(): React.ReactElement {
           // best-effort; surface-level failure is non-fatal here.
         }
       }
-      navigate('/', { replace: true });
+      // hold the operator on a "save your codes" step before
+      // navigating into the app. the codes returned here are
+      // plaintext and only exist in memory; once the user
+      // acknowledges we drop the state and route to /.
+      setRecoveryCodes(resp.password_recovery_codes);
+      setStep('recovery_codes');
     } catch (err) {
       if (err instanceof Error) {
         const msg = err.message.toLowerCase();
@@ -329,6 +339,19 @@ export function FirstRunPage(): React.ReactElement {
               </button>
             </form>
           </>
+        )}
+
+        {step === 'recovery_codes' && (
+          <RecoveryCodesPanel
+            codes={recoveryCodes}
+            onAcknowledge={() => {
+              // drop the plaintext codes from memory before routing
+              // out; even though react will gc the state, this makes
+              // the lifecycle obvious to anyone reading the source.
+              setRecoveryCodes([]);
+              navigate('/', { replace: true });
+            }}
+          />
         )}
       </div>
     </div>
