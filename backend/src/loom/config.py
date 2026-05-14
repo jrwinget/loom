@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     # and has no separate worker container to scrape.
     worker_metrics_addr: str = "0.0.0.0:9100"
 
+    # per-launch shared secret for POST /admin/shutdown. the desktop
+    # shell generates this in main.rs, passes it to the sidecar via
+    # this env var (LOOM_SHUTDOWN_TOKEN), then sends it back with the
+    # shutdown request on app close. unset on server-profile deploys
+    # so the endpoint returns 404 there; an external attacker who
+    # discovered the route would only see a missing-endpoint response.
+    shutdown_token: str | None = None
+
     # connection pool settings
     db_pool_size: int = 20
     db_max_overflow: int = 10

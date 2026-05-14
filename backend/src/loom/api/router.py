@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from loom.api.v1.admin import router as admin_router
 from loom.api.v1.annotations import router as annotations_router
 from loom.api.v1.assets import router as assets_router
 from loom.api.v1.audit import router as audit_router
@@ -58,3 +59,4 @@ api_router.include_router(custody_router)
 api_router.include_router(integrity_router)
 api_router.include_router(plugins_router)
 api_router.include_router(workflows_router)
+api_router.include_router(admin_router)

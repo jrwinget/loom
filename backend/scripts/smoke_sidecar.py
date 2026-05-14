@@ -3,10 +3,19 @@
 usage: ``python smoke_sidecar.py <path-to-binary>``
 
 spawns the binary with the lite-profile env (no minio, no temporal),
-polls ``http://127.0.0.1:8000/api/v1/health`` for up to 30 seconds at
+polls ``http://127.0.0.1:8000/api/v1/health`` for up to 60 seconds at
 200ms intervals, and exits 0 the moment a 200 is observed. anything
 else -- non-200, connection refused for the full window, or the
 binary exiting on its own -- is a failure.
+
+the 60s budget matches ``HEALTH_TIMEOUT`` in ``desktop/src-tauri/
+src/main.rs``. a sidecar that has not bound a socket within that
+window would also fail the desktop shell's own ``wait_for_health``
+on startup, so the smoke test fails on exactly the same condition
+the operator would see. the 60s also covers pyinstaller --onefile's
+cold-start unpack on the windows runner, where defender scans the
+freshly extracted exe on first launch and consistently pushes
+startup into the 15-25s range.
 
 this script is the long-term regression guard for the v0.1.0/v0.1.1
 "sidecar never starts a server" bug. it is intentionally a single
@@ -32,7 +41,7 @@ from typing import Final
 
 HEALTH_URL: Final = "http://127.0.0.1:8000/api/v1/health"
 POLL_INTERVAL_S: Final = 0.2
-DEADLINE_S: Final = 30.0
+DEADLINE_S: Final = 60.0
 KILL_GRACE_S: Final = 5.0
 
 
