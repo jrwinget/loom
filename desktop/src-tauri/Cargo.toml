@@ -34,6 +34,18 @@ ctrlc = { version = "3", features = ["termination"] }
 # default feature set so the previous declaration failed to resolve.
 sysinfo = { version = "0.31", default-features = false, features = ["disk"] }
 
+# windows-only: a job object holds the sidecar bootloader so that
+# closing the handle on shell exit cascades termination to every
+# descendant process (the pyinstaller --onefile python child in
+# particular). non-windows targets rely on the parent-pid watchdog
+# baked into the python sidecar instead.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+] }
+
 [dev-dependencies]
 # tempdir-based unit tests for the factory_reset purge helper, so we
 # never touch the real ~/.loom data during ``cargo test``.

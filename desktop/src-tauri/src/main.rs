@@ -32,8 +32,14 @@ use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_store::StoreExt;
 
 const BACKEND_HEALTH_URL: &str = "http://127.0.0.1:8000/api/v1/health";
+const BACKEND_SHUTDOWN_URL: &str =
+    "http://127.0.0.1:8000/api/v1/admin/shutdown";
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(60);
 const HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(500);
+// short, bounded window for the sidecar to flush its 204 and call
+// os._exit. anything longer makes the window-close interaction feel
+// hung; anything shorter risks racing the loopback roundtrip.
+const SHUTDOWN_REQUEST_TIMEOUT: Duration = Duration::from_millis(1500);
 
 // surfaced stderr is rendered inside a <pre> block in the boot
 // gate. cap it so a misbehaving backend dumping a multi-mb
@@ -91,6 +97,12 @@ impl LoomConfig {
 struct BootstrapSecrets {
     secret_key: String,
     storage_signing_secret: String,
+    // per-launch shared secret for POST /admin/shutdown. regenerated
+    // every time the tauri shell starts so a leaked token from one
+    // session cannot terminate a later one. handed to the sidecar via
+    // LOOM_SHUTDOWN_TOKEN env and presented back in the X-Loom-
+    // Shutdown-Token header on app close.
+    shutdown_token: String,
 }
 
 // the spawned sidecar handle, held for graceful shutdown. every
@@ -176,9 +188,15 @@ fn ensure_bootstrap_secrets(
         .save()
         .map_err(|e| format!("failed to persist secrets: {e}"))?;
 
+    // shutdown token is intentionally NOT persisted: regenerating it
+    // per launch is the whole point. it lives only in process memory
+    // and the sidecar's env block.
+    let shutdown_token = generate_hex_secret();
+
     Ok(BootstrapSecrets {
         secret_key,
         storage_signing_secret,
+        shutdown_token,
     })
 }
 
@@ -272,11 +290,26 @@ fn spawn_backend(
         .env(
             "LOOM_STORAGE_SIGNING_SECRET",
             secrets.storage_signing_secret.clone(),
-        );
+        )
+        .env("LOOM_SHUTDOWN_TOKEN", secrets.shutdown_token.clone());
 
     let (mut rx, child) = sidecar
         .spawn()
         .map_err(|e| format!("failed to spawn sidecar: {e}"))?;
+
+    // assign the bootloader to the per-app job object so closing the
+    // tauri process cascades termination to any descendant the
+    // bootloader spawned. no-op on non-windows targets — those rely
+    // on the python-side parent-pid watchdog instead.
+    #[cfg(windows)]
+    if let Some(job) = app.try_state::<sidecar_job::JobHandle>() {
+        let pid = child.pid();
+        if let Err(err) = sidecar_job::assign(job.inner(), pid) {
+            eprintln!(
+                "[loom] failed to assign sidecar pid {pid} to job: {err}"
+            );
+        }
+    }
 
     // drain sidecar stdout/stderr so the process does not block on a
     // full pipe buffer. every stderr line is also kept in the shared
@@ -473,16 +506,55 @@ async fn run_initial_boot(app: AppHandle) {
     }
 }
 
+// best-effort graceful shutdown: ask the sidecar to release port 8000
+// via POST /admin/shutdown (authenticated by the per-launch shared
+// secret), wait at most SHUTDOWN_REQUEST_TIMEOUT for the request to
+// settle, then fall through to a hard kill regardless of outcome.
+//
+// the request result is intentionally discarded. the python side
+// schedules os._exit ~100ms after responding 204, so by the time the
+// reqwest future resolves the process has already begun exiting and a
+// subsequent take_and_kill() is a no-op. if the sidecar is wedged or
+// the token is wrong (it shouldn't be — we generated and injected it
+// in the same launch), the timeout fires and we kill the bootloader.
+fn graceful_shutdown_sidecar(app: &AppHandle) {
+    let token = app
+        .try_state::<BackendState>()
+        .and_then(|state| {
+            state.0.lock().ok().map(|guard| guard.shutdown_token.clone())
+        })
+        .unwrap_or_default();
+
+    if !token.is_empty() {
+        let _ = tauri::async_runtime::block_on(async {
+            let client = reqwest::Client::builder()
+                .timeout(SHUTDOWN_REQUEST_TIMEOUT)
+                .build()
+                .map_err(|e| format!("reqwest build: {e}"))?;
+            client
+                .post(BACKEND_SHUTDOWN_URL)
+                .header("X-Loom-Shutdown-Token", token)
+                .send()
+                .await
+                .map_err(|e| format!("shutdown request: {e}"))
+        });
+    }
+
+    if let Some(state) = app.try_state::<SidecarProcess>() {
+        state.take_and_kill();
+    }
+}
+
 fn install_signal_handlers(app_handle: AppHandle) {
     // ctrlc with the ``termination`` feature catches SIGINT, SIGTERM
     // and SIGHUP on unix (plus Ctrl+C/Break on windows). SIGKILL
     // cannot be caught by design — closing that hole requires the
-    // child to watch its parent and is tracked separately.
+    // child to watch its parent, which the python sidecar's orphan
+    // watchdog handles on unix. windows installs additionally rely on
+    // the job object attached at spawn.
     let _ = ctrlc::set_handler(move || {
         eprintln!("[loom] termination signal received; cleaning up");
-        if let Some(state) = app_handle.try_state::<SidecarProcess>() {
-            state.take_and_kill();
-        }
+        graceful_shutdown_sidecar(&app_handle);
         app_handle.exit(0);
     });
 }
@@ -491,6 +563,11 @@ fn install_panic_hook(app_handle: AppHandle) {
     let default = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
         eprintln!("[loom] tauri shell panicked; killing sidecar");
+        // skip the graceful path here: we're already crashing and
+        // blocking the panic handler for an http roundtrip courts
+        // double-faults. fall straight to the hard kill; the python
+        // orphan watchdog will pick up any descendants on unix and
+        // the job object will on windows.
         if let Some(state) = app_handle.try_state::<SidecarProcess>() {
             state.take_and_kill();
         }
@@ -571,8 +648,12 @@ fn persist_data_directory(
 // captured stderr.
 #[tauri::command]
 async fn restart_backend(app: AppHandle) -> Result<(), String> {
-    let sidecar_state = app.state::<SidecarProcess>();
-    sidecar_state.take_and_kill();
+    // graceful first: the abrupt kill path can leave a pyinstaller
+    // python child orphaned holding port 8000, which would then prevent
+    // the new sidecar from binding. graceful_shutdown asks the sidecar
+    // to exit cleanly via /admin/shutdown before falling through to a
+    // hard kill on timeout.
+    graceful_shutdown_sidecar(&app);
 
     let config = load_config(&app)?;
     let secrets = {
@@ -645,8 +726,9 @@ async fn restart_backend(app: AppHandle) -> Result<(), String> {
 // them would invalidate nothing useful once the db is gone.
 #[tauri::command]
 async fn factory_reset(app: AppHandle) -> Result<(), String> {
-    let sidecar_state = app.state::<SidecarProcess>();
-    sidecar_state.take_and_kill();
+    // same port-8000 reasoning as restart_backend: the respawn at the
+    // tail of this function needs a clean socket.
+    graceful_shutdown_sidecar(&app);
 
     let config = load_config(&app)?;
     let data_dir = config.resolve_data_dir();
@@ -686,6 +768,25 @@ fn main() {
             install_panic_hook(handle.clone());
             install_signal_handlers(handle.clone());
 
+            // windows-only: create the job object that will hold every
+            // sidecar bootloader spawned during this app lifetime.
+            // closing the handle (which happens automatically on
+            // process exit) cascades termination to all in-job
+            // processes via JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE.
+            #[cfg(windows)]
+            {
+                match sidecar_job::create() {
+                    Ok(job) => {
+                        app.manage(job);
+                    }
+                    Err(err) => {
+                        eprintln!(
+                            "[loom] could not create sidecar job object: {err}"
+                        );
+                    }
+                }
+            }
+
             let secrets = ensure_bootstrap_secrets(&handle)
                 .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             app.manage(BackendState(Mutex::new(secrets.clone())));
@@ -704,9 +805,7 @@ fn main() {
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { .. } = event {
-                if let Some(state) = window.try_state::<SidecarProcess>() {
-                    state.take_and_kill();
-                }
+                graceful_shutdown_sidecar(window.app_handle());
             }
         })
         .build(tauri::generate_context!())
@@ -720,13 +819,119 @@ fn main() {
                 event,
                 RunEvent::Exit | RunEvent::ExitRequested { .. }
             ) {
-                if let Some(state) =
-                    app_handle.try_state::<SidecarProcess>()
-                {
-                    state.take_and_kill();
-                }
+                graceful_shutdown_sidecar(app_handle);
             }
         });
+}
+
+#[cfg(windows)]
+mod sidecar_job {
+    //! windows job object that owns every sidecar bootloader spawned
+    //! during the lifetime of the tauri shell.
+    //!
+    //! created once at app setup and tucked into tauri state. each
+    //! sidecar pid is assigned to the job after spawn. when the tauri
+    //! process exits — for any reason, including SIGKILL, force-quit,
+    //! or an unhandled panic — the os closes the job handle, which
+    //! triggers JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE and terminates
+    //! every process still in the job. that covers the pyinstaller
+    //! --onefile orphan case (bootloader -> python child) without
+    //! relying on cooperation from either process.
+
+    use std::mem::MaybeUninit;
+
+    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows_sys::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
+        SetInformationJobObject,
+    };
+    use windows_sys::Win32::System::Threading::{
+        OpenProcess, PROCESS_SET_QUOTA, PROCESS_TERMINATE,
+    };
+
+    // BOOL in windows-sys is a plain i32 alias and FALSE is 0. avoid
+    // depending on the FALSE constant's import location (it has moved
+    // between minor releases of the crate) by spelling it as the
+    // literal where required.
+    const FALSE_BOOL: i32 = 0;
+
+    pub struct JobHandle(HANDLE);
+
+    // HANDLE is a raw pointer alias; the kernel object behind it is
+    // refcounted and thread-safe. assigning processes from any thread
+    // is supported and the only mutation we perform.
+    unsafe impl Send for JobHandle {}
+    unsafe impl Sync for JobHandle {}
+
+    impl Drop for JobHandle {
+        fn drop(&mut self) {
+            if !self.0.is_null() {
+                // closing the last handle to a job with the
+                // KILL_ON_JOB_CLOSE limit terminates every process in
+                // it. that's the whole point — this is what cleans up
+                // orphaned sidecars on app exit.
+                unsafe {
+                    CloseHandle(self.0);
+                }
+            }
+        }
+    }
+
+    pub fn create() -> Result<JobHandle, String> {
+        let raw = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+        if raw.is_null() {
+            return Err("CreateJobObjectW returned null".into());
+        }
+
+        let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION =
+            unsafe { MaybeUninit::zeroed().assume_init() };
+        info.BasicLimitInformation.LimitFlags =
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+
+        let ok = unsafe {
+            SetInformationJobObject(
+                raw,
+                JobObjectExtendedLimitInformation,
+                &info as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+                    as *const std::ffi::c_void,
+                std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>()
+                    as u32,
+            )
+        };
+        if ok == 0 {
+            unsafe {
+                CloseHandle(raw);
+            }
+            return Err(
+                "SetInformationJobObject failed for KILL_ON_JOB_CLOSE".into(),
+            );
+        }
+
+        Ok(JobHandle(raw))
+    }
+
+    pub fn assign(job: &JobHandle, pid: u32) -> Result<(), String> {
+        let process = unsafe {
+            OpenProcess(
+                PROCESS_TERMINATE | PROCESS_SET_QUOTA,
+                FALSE_BOOL,
+                pid,
+            )
+        };
+        if process.is_null() {
+            return Err(format!("OpenProcess({pid}) returned null"));
+        }
+        let ok = unsafe { AssignProcessToJobObject(job.0, process) };
+        unsafe {
+            CloseHandle(process);
+        }
+        if ok == 0 {
+            return Err(format!("AssignProcessToJobObject({pid}) failed"));
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
