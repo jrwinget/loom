@@ -280,9 +280,11 @@ jobs:
       # smoke-test the sidecar binary before tauri bundles it. this
       # is the long-term guard against the v0.1.0/v0.1.1 regression
       # where the binary built fine but exited without binding a
-      # socket. the script polls /api/v1/health for up to 30s; the
-      # 5-minute step timeout is slack for windows cold-start under
-      # av exclusions that did not fully apply.
+      # socket. the script polls /api/v1/health for up to 60s, matching
+      # the desktop shell's own HEALTH_TIMEOUT — anything slower would
+      # fail the operator's launch too, so the smoke fails on the same
+      # condition. the 5-minute step timeout is slack for windows
+      # cold-start under av exclusions that did not fully apply.
       - name: Smoke-test sidecar binary
         working-directory: backend
         shell: bash

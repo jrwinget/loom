@@ -1,6 +1,6 @@
 [package]
 name = "loom-desktop"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 description = "Tauri v2 desktop shell for the Loom evidence OS"
 license = "AGPL-3.0-or-later"
@@ -33,6 +33,25 @@ ctrlc = { version = "3", features = ["termination"] }
 # introduced in 0.31; on 0.30.x the Disks struct lives in the
 # default feature set so the previous declaration failed to resolve.
 sysinfo = { version = "0.31", default-features = false, features = ["disk"] }
+
+# windows-only: a job object holds the sidecar bootloader so that
+# closing the handle on shell exit cascades termination to every
+# descendant process (the pyinstaller --onefile python child in
+# particular). non-windows targets rely on the parent-pid watchdog
+# baked into the python sidecar instead.
+[target.'cfg(windows)'.dependencies]
+# Win32_Security is required even though we never construct a
+# SECURITY_ATTRIBUTES: CreateJobObjectW's signature in windows-sys 0.59
+# is `#[cfg(feature = "Win32_Security")]` because it takes
+# `*const SECURITY_ATTRIBUTES`, and the symbol is omitted from the
+# compiled crate when the feature is off. dropping the feature here
+# regresses to E0432 on the windows desktop build.
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+] }
 
 [dev-dependencies]
 # tempdir-based unit tests for the factory_reset purge helper, so we

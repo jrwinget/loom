@@ -23,7 +23,11 @@ export function LoginPage(): React.ReactElement {
   const [resetOpen, setResetOpen] = useState(false);
   const { setAuth, setMfaChallenge, requiresMfa } = useAuthStore();
   const navigate = useNavigate();
-  const { data: firstRun } = useFirstRunStatus();
+  const {
+    data: firstRun,
+    isLoading: firstRunLoading,
+    isError: firstRunError,
+  } = useFirstRunStatus();
 
   // recovery affordances are lite-only: server-profile installs have
   // admin reset paths instead. the factory-reset button additionally
@@ -31,7 +35,11 @@ export function LoginPage(): React.ReactElement {
   // shell, not the backend.
   const isLite = firstRun?.deployment_profile === 'lite';
   const showRecoveryLink = isLite;
-  const showFactoryReset = isLite && isTauri;
+  // even when the status query is errored we still want Reset Loom
+  // available inside the desktop shell: the operator's only escape
+  // hatch from a wedged install must not depend on a backend that
+  // already isn't answering.
+  const canFactoryReset = isTauri && (isLite || firstRunError);
 
   // fresh deploy with no users: send the operator through onboarding.
   useEffect(() => {
@@ -132,31 +140,44 @@ export function LoginPage(): React.ReactElement {
           </button>
         </form>
 
-        {(showRecoveryLink || showFactoryReset) && (
-          <div className="space-y-2 border-t border-border pt-4 text-center text-sm">
-            {showRecoveryLink && (
-              <Link
-                to="/forgot-password"
-                className="block text-muted-foreground hover:underline"
-                data-testid="forgot-password-link"
-              >
-                Forgot your password?
-              </Link>
-            )}
-            {showFactoryReset && (
-              <button
-                type="button"
-                onClick={() => setResetOpen(true)}
-                className="text-xs text-destructive hover:underline"
-                data-testid="factory-reset-link"
-              >
-                Reset Loom (deletes all data)
-              </button>
-            )}
-          </div>
-        )}
+        <div className="space-y-2 border-t border-border pt-4 text-center text-sm">
+          {firstRunLoading && (
+            <p className="text-muted-foreground" data-testid="recovery-loading">
+              Loading recovery options…
+            </p>
+          )}
+          {firstRunError && (
+            <p
+              role="alert"
+              className="text-destructive"
+              data-testid="recovery-error"
+            >
+              Couldn't reach the backend. If recovery options are missing,
+              restart Loom.
+            </p>
+          )}
+          {!firstRunLoading && !firstRunError && showRecoveryLink && (
+            <Link
+              to="/forgot-password"
+              className="block text-muted-foreground hover:underline"
+              data-testid="forgot-password-link"
+            >
+              Forgot your password?
+            </Link>
+          )}
+          {canFactoryReset && (
+            <button
+              type="button"
+              onClick={() => setResetOpen(true)}
+              className="text-xs text-destructive hover:underline"
+              data-testid="factory-reset-link"
+            >
+              Reset Loom (deletes all data)
+            </button>
+          )}
+        </div>
       </div>
-      {showFactoryReset && (
+      {canFactoryReset && (
         <FactoryResetDialog
           open={resetOpen}
           onClose={() => setResetOpen(false)}

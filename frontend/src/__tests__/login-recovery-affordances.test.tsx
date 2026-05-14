@@ -104,4 +104,45 @@ describe('LoginPage recovery affordances', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByTestId('factory-reset-link')).not.toBeInTheDocument();
   });
+
+  it('renders a loading placeholder while the status query is in flight', async () => {
+    // never resolve the query, keep it in the loading state for the
+    // duration of the assertion. the affordance block must not be
+    // hidden — that was the v0.1.2 regression that stranded users.
+    mockedGet.mockImplementationOnce(() => new Promise(() => {}));
+
+    renderLogin();
+
+    expect(await screen.findByTestId('recovery-loading')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('forgot-password-link'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps Reset Loom visible inside tauri when the status query errors', async () => {
+    // the operator's only escape from a wedged install is Reset Loom;
+    // it must not depend on the backend that is already broken.
+    mockedIsTauri = true;
+    mockedGet.mockRejectedValue(new Error('backend unreachable'));
+
+    renderLogin();
+
+    expect(await screen.findByTestId('recovery-error')).toBeInTheDocument();
+    expect(screen.getByTestId('factory-reset-link')).toBeInTheDocument();
+    // forgot-password requires a backend round-trip, so it stays
+    // hidden when we cannot confirm the profile.
+    expect(
+      screen.queryByTestId('forgot-password-link'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the error message without Reset Loom in a plain web context', async () => {
+    mockedIsTauri = false;
+    mockedGet.mockRejectedValue(new Error('backend unreachable'));
+
+    renderLogin();
+
+    expect(await screen.findByTestId('recovery-error')).toBeInTheDocument();
+    expect(screen.queryByTestId('factory-reset-link')).not.toBeInTheDocument();
+  });
 });

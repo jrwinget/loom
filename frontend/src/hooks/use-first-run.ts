@@ -36,7 +36,12 @@ export function useFirstRunStatus(): ReturnType<
     queryFn: () => apiClient.get<FirstRunStatus>('/first-run/status'),
     // status rarely changes; do not refetch on focus
     staleTime: 60_000,
-    retry: false,
+    // intentionally inherit the QueryClient's default retry policy
+    // (3 attempts, exponential backoff). the previous ``retry: false``
+    // hid every login recovery affordance permanently on a single
+    // transient 5xx, because the login page derives the lite/server
+    // profile from this query's data field. losing the data once was
+    // unrecoverable until the operator force-quit the app.
   });
 }
 
