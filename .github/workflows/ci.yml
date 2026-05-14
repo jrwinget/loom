@@ -282,11 +282,24 @@ jobs:
         working-directory: frontend
         run: pnpm audit --prod
 
+      # the runner's default docker builder shares one buildkit daemon
+      # across the host, which sporadically loses track of in-flight
+      # jobs and fails with ``forwarding Ping: no such job <id>`` (see
+      # moby/buildkit#5171). provision a dedicated buildx instance so
+      # each scan run gets a fresh daemon — matches the pattern used
+      # by the Build & Verify job below.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Docker images for scanning
+        # --load is required when using a docker-container driver so
+        # the scan image lands in the local engine for trivy to pick
+        # up. without it the build would only populate buildx's own
+        # cache and trivy could not resolve the tag.
         run: |
-          docker build -t loom-backend:scan backend/
-          docker build -t loom-worker:scan -f backend/Dockerfile.worker backend/
-          docker build -t loom-frontend:scan frontend/
+          docker buildx build --load -t loom-backend:scan backend/
+          docker buildx build --load -t loom-worker:scan -f backend/Dockerfile.worker backend/
+          docker buildx build --load -t loom-frontend:scan frontend/
 
       - name: Trivy scan - backend
         uses: aquasecurity/trivy-action@master
