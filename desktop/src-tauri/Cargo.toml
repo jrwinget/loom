@@ -40,8 +40,15 @@ sysinfo = { version = "0.31", default-features = false, features = ["disk"] }
 # particular). non-windows targets rely on the parent-pid watchdog
 # baked into the python sidecar instead.
 [target.'cfg(windows)'.dependencies]
+# Win32_Security is required even though we never construct a
+# SECURITY_ATTRIBUTES: CreateJobObjectW's signature in windows-sys 0.59
+# is `#[cfg(feature = "Win32_Security")]` because it takes
+# `*const SECURITY_ATTRIBUTES`, and the symbol is omitted from the
+# compiled crate when the feature is off. dropping the feature here
+# regresses to E0432 on the windows desktop build.
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
+    "Win32_Security",
     "Win32_System_JobObjects",
     "Win32_System_Threading",
 ] }
