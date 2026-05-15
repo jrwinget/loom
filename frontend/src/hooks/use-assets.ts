@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
 import { queryKeys } from '@/lib/query-keys';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, getApiOrigin } from '@/lib/api-client';
 import { useToastStore } from '@/stores/toast-store';
 import type { Asset, AssetListResponse } from '@/types/asset';
 
@@ -46,7 +46,7 @@ export function useUploadAsset(
 
       return new Promise<Asset>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', `/api/v1/cases/${caseId}/assets`);
+        xhr.open('POST', `${getApiOrigin()}/cases/${caseId}/assets`);
 
         if (token) {
           xhr.setRequestHeader('Authorization', `Bearer ${token}`);

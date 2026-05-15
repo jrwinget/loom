@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { create } from 'zustand';
+import { getApiOrigin } from '@/lib/api-client';
 
 type FileStatus = 'pending' | 'uploading' | 'complete' | 'error';
 
@@ -95,7 +96,7 @@ export function useUpload(): UseUploadReturn {
 
           await new Promise<void>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', `/api/v1/cases/${caseId}/assets`);
+            xhr.open('POST', `${getApiOrigin()}/cases/${caseId}/assets`);
 
             if (token) {
               xhr.setRequestHeader('Authorization', `Bearer ${token}`);
