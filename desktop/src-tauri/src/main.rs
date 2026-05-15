@@ -517,7 +517,18 @@ async fn run_initial_boot(app: AppHandle) {
 // subsequent take_and_kill() is a no-op. if the sidecar is wedged or
 // the token is wrong (it shouldn't be — we generated and injected it
 // in the same launch), the timeout fires and we kill the bootloader.
-fn graceful_shutdown_sidecar(app: &AppHandle) {
+//
+// two entry points share one body:
+//   * graceful_shutdown_sidecar_async — awaited from #[tauri::command]
+//     async fns (factory_reset, restart_backend). calling block_on
+//     from inside an async task nested on tokio's multi-thread runtime
+//     panics with "Cannot start a runtime from within a runtime", so
+//     the async commands must await directly.
+//   * graceful_shutdown_sidecar — sync wrapper for synchronous
+//     handlers (ctrlc, panic hook, window CloseRequested, RunEvent).
+//     block_on is legal here because the caller is not already on a
+//     tokio worker.
+async fn graceful_shutdown_sidecar_async(app: &AppHandle) {
     let token = app
         .try_state::<BackendState>()
         .and_then(|state| {
@@ -526,7 +537,7 @@ fn graceful_shutdown_sidecar(app: &AppHandle) {
         .unwrap_or_default();
 
     if !token.is_empty() {
-        let _ = tauri::async_runtime::block_on(async {
+        let _: Result<_, String> = async {
             let client = reqwest::Client::builder()
                 .timeout(SHUTDOWN_REQUEST_TIMEOUT)
                 .build()
@@ -537,12 +548,17 @@ fn graceful_shutdown_sidecar(app: &AppHandle) {
                 .send()
                 .await
                 .map_err(|e| format!("shutdown request: {e}"))
-        });
+        }
+        .await;
     }
 
     if let Some(state) = app.try_state::<SidecarProcess>() {
         state.take_and_kill();
     }
+}
+
+fn graceful_shutdown_sidecar(app: &AppHandle) {
+    tauri::async_runtime::block_on(graceful_shutdown_sidecar_async(app));
 }
 
 fn install_signal_handlers(app_handle: AppHandle) {
@@ -652,8 +668,9 @@ async fn restart_backend(app: AppHandle) -> Result<(), String> {
     // python child orphaned holding port 8000, which would then prevent
     // the new sidecar from binding. graceful_shutdown asks the sidecar
     // to exit cleanly via /admin/shutdown before falling through to a
-    // hard kill on timeout.
-    graceful_shutdown_sidecar(&app);
+    // hard kill on timeout. await the async entry point directly —
+    // block_on inside this command would panic on tokio multi-thread.
+    graceful_shutdown_sidecar_async(&app).await;
 
     let config = load_config(&app)?;
     let secrets = {
@@ -727,8 +744,10 @@ async fn restart_backend(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 async fn factory_reset(app: AppHandle) -> Result<(), String> {
     // same port-8000 reasoning as restart_backend: the respawn at the
-    // tail of this function needs a clean socket.
-    graceful_shutdown_sidecar(&app);
+    // tail of this function needs a clean socket. await the async
+    // entry point directly — block_on inside this command would panic
+    // on tokio multi-thread.
+    graceful_shutdown_sidecar_async(&app).await;
 
     let config = load_config(&app)?;
     let data_dir = config.resolve_data_dir();
