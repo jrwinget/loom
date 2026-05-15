@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getApiOrigin } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 
 interface MfaSetupData {
@@ -18,7 +19,7 @@ export function MfaSetup() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/v1/mfa/setup', {
+      const res = await fetch(`${getApiOrigin()}/mfa/setup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -40,7 +41,7 @@ export function MfaSetup() {
   async function handleVerify() {
     setError('');
     try {
-      const res = await fetch('/api/v1/mfa/verify', {
+      const res = await fetch(`${getApiOrigin()}/mfa/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
