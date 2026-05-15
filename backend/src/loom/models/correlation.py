@@ -3,6 +3,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     DateTime,
     Float,
@@ -14,6 +15,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+
+# JSONB on postgres for indexable structured payloads, JSON on sqlite
+# (lite profile). the orm hides the type difference from query code;
+# only ``->`` / ``@>`` operator usage would need to branch, and the
+# reasoning column is only read whole.
+_JSON_TYPE = JSONB().with_variant(JSON(), "sqlite")
 
 from loom.models.base import Base, TimestampMixin, UUIDMixin
 
@@ -74,7 +81,7 @@ class CorrelationCandidate(UUIDMixin, TimestampMixin, Base):
         nullable=False,
     )
     reasoning: Mapped[dict[str, Any]] = mapped_column(
-        JSONB,
+        _JSON_TYPE,
         nullable=False,
     )
     status: Mapped[str] = mapped_column(
