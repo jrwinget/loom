@@ -1,7 +1,27 @@
 import { useAuthStore } from '@/stores/auth-store';
 import type { ApiError } from '@/types';
 
-const BASE_URL = '/api/v1';
+// in a tauri webview the document origin is tauri://localhost (or
+// http://tauri.localhost on windows), so a relative '/api/v1' URL
+// resolves against tauri's asset protocol handler, never the
+// sidecar at 127.0.0.1:8000. detect the tauri runtime by probing
+// window.__TAURI_INTERNALS__ at call time -- module-load detection
+// would race the tauri bootstrap script in some bundlers. the CSP
+// in desktop/src-tauri/tauri.conf.json whitelists this exact origin
+// under connect-src.
+const SIDECAR_ORIGIN = 'http://127.0.0.1:8000';
+const API_PREFIX = '/api/v1';
+
+export function getApiOrigin(): string {
+  if (
+    typeof window !== 'undefined' &&
+    typeof (window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !==
+      'undefined'
+  ) {
+    return `${SIDECAR_ORIGIN}${API_PREFIX}`;
+  }
+  return API_PREFIX;
+}
 
 class ApiClientError extends Error {
   status: number;
@@ -41,7 +61,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
   }
 
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(`${getApiOrigin()}${path}`, {
     ...options,
     headers,
   });

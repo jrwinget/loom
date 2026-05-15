@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FactoryResetDialog } from '@/components/auth/FactoryResetDialog';
 import { RecoveryCodesPanel } from '@/components/auth/RecoveryCodesPanel';
 import { apiClient } from '@/lib/api-client';
 import {
+  isTauri,
   pickDirectory,
   persistDataDirectory,
   restartBackend,
@@ -36,6 +38,7 @@ export function FirstRunPage(): React.ReactElement {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [resetOpen, setResetOpen] = useState(false);
 
   // pick the initial step once the status payload arrives.
   useEffect(() => {
@@ -155,9 +158,38 @@ export function FirstRunPage(): React.ReactElement {
   if (isError || !status) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p role="alert" className="text-destructive">
-          Unable to reach the backend. Is it running?
-        </p>
+        <div className="bg-card w-full max-w-sm space-y-4 rounded-lg border border-border p-8 text-center">
+          <p
+            role="alert"
+            className="text-sm text-destructive"
+            data-testid="first-run-error"
+          >
+            Couldn&apos;t reach the backend. If this persists, restart Loom or
+            reset this install.
+          </p>
+          {isTauri && (
+            <button
+              type="button"
+              onClick={() => setResetOpen(true)}
+              className="text-xs text-destructive hover:underline"
+              data-testid="factory-reset-link"
+            >
+              Reset Loom (deletes all data)
+            </button>
+          )}
+        </div>
+        {isTauri && (
+          <FactoryResetDialog
+            open={resetOpen}
+            onClose={() => setResetOpen(false)}
+            onSuccess={() => {
+              setResetOpen(false);
+              // sidecar respawns into a fresh first-run state; remount
+              // this page so the new instance answers /first-run/status.
+              navigate('/first-run', { replace: true });
+            }}
+          />
+        )}
       </div>
     );
   }

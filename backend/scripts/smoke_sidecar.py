@@ -2,30 +2,34 @@
 
 usage: ``python smoke_sidecar.py <path-to-binary>``
 
-spawns the binary with the lite-profile env (no minio, no temporal),
-polls ``http://127.0.0.1:8000/api/v1/health`` for up to 60 seconds at
-200ms intervals, and exits 0 the moment a 200 is observed. anything
-else -- non-200, connection refused for the full window, or the
-binary exiting on its own -- is a failure.
+spawns the binary with the lite-profile env (no minio, no temporal)
+and asserts two contracts:
 
-the 60s budget matches ``HEALTH_TIMEOUT`` in ``desktop/src-tauri/
-src/main.rs``. a sidecar that has not bound a socket within that
-window would also fail the desktop shell's own ``wait_for_health``
-on startup, so the smoke test fails on exactly the same condition
-the operator would see. the 60s also covers pyinstaller --onefile's
-cold-start unpack on the windows runner, where defender scans the
-freshly extracted exe on first launch and consistently pushes
-startup into the 15-25s range.
+  1. ``GET /api/v1/health`` returns 200 within 60s — guards the
+     v0.1.0/v0.1.1 "sidecar never binds a socket" regression,
+  2. ``GET /api/v1/first-run/status`` then returns 200 with
+     ``{first_run_required: True, deployment_profile: "lite"}``
+     — guards the v0.1.3 outage where a fresh install had no
+     ``users`` table and the route 500s on ``SELECT COUNT(*)``.
 
-this script is the long-term regression guard for the v0.1.0/v0.1.1
-"sidecar never starts a server" bug. it is intentionally a single
-file with only the standard library so it runs on every os runner
-without an extra dependency install step.
+the 60s health budget matches ``HEALTH_TIMEOUT`` in ``desktop/
+src-tauri/src/main.rs``. a sidecar that has not bound a socket
+within that window would also fail the desktop shell's own
+``wait_for_health`` on startup, so the smoke fails on exactly the
+same condition the operator would see. the 60s also covers
+pyinstaller --onefile's cold-start unpack on the windows runner,
+where defender scans the freshly extracted exe on first launch and
+consistently pushes startup into the 15-25s range.
+
+the script is intentionally a single file with only the standard
+library so it runs on every os runner without an extra dependency
+install step.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import secrets
 import signal
@@ -40,6 +44,7 @@ from pathlib import Path
 from typing import Final
 
 HEALTH_URL: Final = "http://127.0.0.1:8000/api/v1/health"
+FIRST_RUN_URL: Final = "http://127.0.0.1:8000/api/v1/first-run/status"
 POLL_INTERVAL_S: Final = 0.2
 DEADLINE_S: Final = 60.0
 KILL_GRACE_S: Final = 5.0
@@ -75,6 +80,50 @@ def _poll_health() -> bool:
                 return True
         time.sleep(POLL_INTERVAL_S)
     return False
+
+
+def _check_first_run_status() -> tuple[bool, str]:
+    """fetch /first-run/status and validate the lite-bootstrap contract.
+
+    catches two regressions in one request:
+      1. /first-run/status 500s when the schema bootstrap is missing
+         (no ``users`` table) — would surface as an exception or non-2xx,
+      2. the lite profile env did not reach the sidecar.
+
+    returns ``(ok, message)``. ``message`` is the failure detail or a
+    success summary suitable for logging.
+    """
+    try:
+        # FIRST_RUN_URL is a hardcoded http://127.0.0.1 literal -- bandit
+        # S310 does not apply.
+        with urllib.request.urlopen(  # noqa: S310
+            FIRST_RUN_URL, timeout=5
+        ) as resp:
+            status = resp.status
+            raw = resp.read()
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        return False, f"HTTP {exc.code} from {FIRST_RUN_URL}: {body}"
+    except (urllib.error.URLError, ConnectionError, OSError) as exc:
+        return False, f"transport error from {FIRST_RUN_URL}: {exc!r}"
+
+    if not 200 <= status < 300:
+        return False, f"non-2xx status {status} from {FIRST_RUN_URL}"
+
+    try:
+        body = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return False, f"non-json body from {FIRST_RUN_URL}: {exc}"
+
+    if body.get("first_run_required") is not True:
+        return False, (
+            f"first_run_required is not True on a fresh install: {body!r}"
+        )
+    if body.get("deployment_profile") != "lite":
+        return False, (
+            f"deployment_profile is not 'lite' under smoke env: {body!r}"
+        )
+    return True, f"{FIRST_RUN_URL} -> 200 {body!r}"
 
 
 def _terminate(proc: subprocess.Popen[bytes]) -> None:
@@ -129,6 +178,11 @@ def main() -> int:
         try:
             if _poll_health():
                 print(f"OK: {HEALTH_URL} -> 200")
+                ok, message = _check_first_run_status()
+                if not ok:
+                    print(f"FAIL: {message}")
+                    return 1
+                print(f"OK: {message}")
                 return 0
 
             # if the binary exited on its own, surface its stderr --
