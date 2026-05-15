@@ -11,11 +11,7 @@ import '@/styles/globals.css';
 const isTauriWebview =
   typeof (window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !==
   'undefined';
-if (
-  'serviceWorker' in navigator &&
-  import.meta.env.PROD &&
-  !isTauriWebview
-) {
+if ('serviceWorker' in navigator && import.meta.env.PROD && !isTauriWebview) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {
       // sw registration failed — app works without it
