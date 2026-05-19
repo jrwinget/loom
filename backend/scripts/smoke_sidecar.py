@@ -3,14 +3,18 @@
 usage: ``python smoke_sidecar.py <path-to-binary>``
 
 spawns the binary with the lite-profile env (no minio, no temporal)
-and asserts two contracts:
+and asserts three contracts:
 
   1. ``GET /api/v1/health`` returns 200 within 60s — guards the
      v0.1.0/v0.1.1 "sidecar never binds a socket" regression,
   2. ``GET /api/v1/first-run/status`` then returns 200 with
      ``{first_run_required: True, deployment_profile: "lite"}``
      — guards the v0.1.3 outage where a fresh install had no
-     ``users`` table and the route 500s on ``SELECT COUNT(*)``.
+     ``users`` table and the route 500s on ``SELECT COUNT(*)``,
+  3. ``OPTIONS /api/v1/auth/login`` with ``Origin: tauri://localhost``
+     echoes the origin in ``Access-Control-Allow-Origin`` — guards
+     the v0.1.4 leftover where the cors allowlist did not include
+     the tauri webview origin so production builds could not log in.
 
 the 60s health budget matches ``HEALTH_TIMEOUT`` in ``desktop/
 src-tauri/src/main.rs``. a sidecar that has not bound a socket
@@ -45,6 +49,11 @@ from typing import Final
 
 HEALTH_URL: Final = "http://127.0.0.1:8000/api/v1/health"
 FIRST_RUN_URL: Final = "http://127.0.0.1:8000/api/v1/first-run/status"
+PREFLIGHT_URL: Final = "http://127.0.0.1:8000/api/v1/auth/login"
+# webview origin in production tauri 2 on macos/linux. windows uses
+# ``http://tauri.localhost``; checking one is sufficient to catch
+# allowlist drift because both ride the same config code path.
+TAURI_ORIGIN: Final = "tauri://localhost"
 POLL_INTERVAL_S: Final = 0.2
 DEADLINE_S: Final = 60.0
 KILL_GRACE_S: Final = 5.0
@@ -126,6 +135,55 @@ def _check_first_run_status() -> tuple[bool, str]:
     return True, f"{FIRST_RUN_URL} -> 200 {body!r}"
 
 
+def _check_preflight_cors() -> tuple[bool, str]:
+    """fetch the cors preflight for /auth/login from the tauri webview.
+
+    catches the v0.1.4-class regression where the cors allowlist did
+    not cover the tauri webview origin. urllib does not send an
+    ``Origin`` header by default, which is why the existing health
+    and first-run checks above do not exercise the cors middleware —
+    only an explicit ``OPTIONS`` with an ``Origin`` header reproduces
+    what the bundled webview does on its first ``fetch()``.
+
+    returns ``(ok, message)``. ``message`` is the failure detail or a
+    success summary suitable for logging.
+    """
+    # PREFLIGHT_URL is a hardcoded http://127.0.0.1 literal -- bandit
+    # S310 does not apply.
+    req = urllib.request.Request(  # noqa: S310
+        PREFLIGHT_URL,
+        method="OPTIONS",
+        headers={
+            "Origin": TAURI_ORIGIN,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310
+            allow = resp.headers.get("Access-Control-Allow-Origin", "")
+            status_code = resp.status
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        return False, f"HTTP {exc.code} from {PREFLIGHT_URL}: {body}"
+    except (urllib.error.URLError, ConnectionError, OSError) as exc:
+        return False, f"transport error from {PREFLIGHT_URL}: {exc!r}"
+
+    if status_code != 200:
+        return False, (
+            f"preflight status {status_code} from {PREFLIGHT_URL} "
+            f"(expected 200)"
+        )
+    if allow != TAURI_ORIGIN:
+        return False, (
+            f"preflight did not echo {TAURI_ORIGIN!r} in "
+            f"Access-Control-Allow-Origin: got {allow!r}"
+        )
+    return True, (
+        f"{PREFLIGHT_URL} OPTIONS -> Access-Control-Allow-Origin={allow!r}"
+    )
+
+
 def _terminate(proc: subprocess.Popen[bytes]) -> None:
     if proc.poll() is not None:
         return
@@ -179,6 +237,11 @@ def main() -> int:
             if _poll_health():
                 print(f"OK: {HEALTH_URL} -> 200")
                 ok, message = _check_first_run_status()
+                if not ok:
+                    print(f"FAIL: {message}")
+                    return 1
+                print(f"OK: {message}")
+                ok, message = _check_preflight_cors()
                 if not ok:
                     print(f"FAIL: {message}")
                     return 1
