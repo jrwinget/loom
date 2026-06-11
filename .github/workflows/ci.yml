@@ -272,7 +272,16 @@ jobs:
         # (the install tool, not a runtime dependency we ship). no
         # fix version has been published upstream; revisit when one
         # lands and drop this ignore.
-        run: uv run pip-audit --desc --ignore-vuln CVE-2026-3219
+        #
+        # CVE-2025-3000 is a local-only memory corruption in
+        # torch.jit.script with no fixed release. loom never calls
+        # torch.jit.script, and torch is an optional ai extra that
+        # only processes operator-supplied media. revisit when a
+        # fix version is published and drop this ignore.
+        run: >-
+          uv run pip-audit --desc
+          --ignore-vuln CVE-2026-3219
+          --ignore-vuln CVE-2025-3000
 
       - name: Install frontend dependencies
         working-directory: frontend
