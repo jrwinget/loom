@@ -1,0 +1,44 @@
+name: Branch Guard
+
+on:
+  pull_request:
+    branches: [dev, "release/*", main]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-name:
+    name: Validate branch name
+    # skip auto-named bot branches by prefix, not just by actor — a
+    # human pushing a fix to a `dependabot/*` branch flips the actor
+    # and would otherwise trip the name check.
+    if: ${{ !startsWith(github.head_ref, 'dependabot/') && github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name against the convention
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          b="$HEAD_REF"
+          fail() {
+            echo "::error::$1"
+            echo "See docs/contributing.md: <type>/<kebab>, release/<semver>"
+            exit 1
+          }
+          types='feat|feature|fix|hotfix|chore|docs|test|ci|refactor|perf|build'
+          case "$b" in
+            dev|main)
+              # permanent branches are valid PR heads for promotion
+              # flows: dev -> release/* / main, main -> dev back-merge
+              ;;
+            feat/*|feature/*|fix/*|hotfix/*|chore/*|docs/*|test/*|ci/*|refactor/*|perf/*|build/*)
+              echo "$b" | grep -Eq "^($types)/[a-z0-9][a-z0-9._/-]*$" \
+                || fail "Branch must be '<type>/<kebab>' (lowercase, digits, ._/-), got '$b'." ;;
+            release/*)
+              echo "$b" | grep -Eq '^release/v?[0-9]+\.[0-9]+\.[0-9]+([.-][a-z0-9]+)*$' \
+                || fail "Release branch must be 'release/<semver>', got '$b'." ;;
+            *)
+              fail "Branch '$b' must start with a known type: $types|release." ;;
+          esac
+          echo "ok: $b"

@@ -1,4 +1,4 @@
-.PHONY: dev test lint up down build deploy clean help backup restore verify-backup
+.PHONY: dev test lint up down build deploy clean help backup restore verify-backup hooks
 
 help: ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -35,6 +35,11 @@ lint-backend: ## lint and type-check backend
 lint-frontend: ## lint and type-check frontend
 	cd frontend && pnpm lint
 	cd frontend && pnpm typecheck
+
+hooks: ## install git hooks (pre-commit lint, pre-push version sync)
+	cd backend && uv run pre-commit install \
+		--hook-type pre-commit --hook-type pre-push
+	@echo "hooks installed from .pre-commit-config.yaml"
 
 format: ## auto-format all code
 	cd backend && uv run ruff format src tests

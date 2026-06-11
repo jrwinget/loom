@@ -49,3 +49,16 @@ repos:
     hooks:
       - id: yamllint
         args: [-d, '{extends: relaxed, rules: {line-length: {max: 120}}}']
+
+  # version lockstep: the five version-bearing files must agree, and a
+  # release/* branch name must match them. blocks the push, not the
+  # commit, so wip commits stay cheap.
+  - repo: local
+    hooks:
+      - id: version-sync
+        name: version sync
+        entry: bash -c 'scripts/check-version-sync.sh "$(git symbolic-ref --short -q HEAD)"'
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true
