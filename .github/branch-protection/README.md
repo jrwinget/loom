@@ -5,36 +5,37 @@ plus a one-shot script to apply them. The configs match the
 two-trunk workflow described in
 [`docs/contributing.md`](../../docs/contributing.md).
 
-## Why this is in the repo
-
-`jrwinget/loom` is currently a **free-tier private** GitHub
-repository. Branch-protection and ruleset APIs are gated
-behind GitHub Pro on private repos and return:
-
-> Upgrade to GitHub Pro or make this repository public to
-> enable this feature.
-
-These configs cannot be applied today. They live in the repo
-so that the moment the repo goes public (or upgrades to a
-paid plan) the protections are a one-shot `gh api` call away
-— no model-design work needed at that moment.
+These are **applied** (the repo is public). The files remain
+the source of truth: edit here, then re-run `apply.sh` —
+never adjust protections only in the GitHub UI, or the next
+apply will silently revert them.
 
 ## Files
 
 - **`main.json`** — protection for the release branch. Full
-  CI must pass, conversation resolution required, linear
-  history, no force pushes, no deletions, 1 review. Mirrors
-  `Beesystrategy/capacity-calc`'s `main` rules adapted to
-  the Loom check names.
+  CI must pass (including `Verify Versions`, `Security Scan`
+  and `Build & Verify`), conversation resolution required,
+  linear history, no force pushes, no deletions.
 - **`dev.json`** — relaxed integration-branch protection.
-  Strips the slowest checks (`Security Scan`, `Build &
-  Verify`) for fast iteration; keeps lint + unit tests +
-  migrations. Force pushes allowed for clean rebases.
+  Strips the two slowest checks (`Security Scan`, `Build &
+  Verify`) for fast iteration; keeps version sync + lint +
+  unit tests + migrations. Force pushes allowed for clean
+  rebases.
 - **`apply.sh`** — applies both configs via `gh api`.
 
-## Applying
+Neither branch requires an approving review: this is a
+solo-maintainer repo and a review requirement would block
+self-merge. Status checks gate every merge instead, and the
+Dependabot auto-merge workflow adds its own approval. Add a
+`required_pull_request_reviews` block back when a second
+maintainer joins.
 
-Once the repo is public (or upgraded), run:
+`Validate branch name` (branch-guard) is deliberately not a
+required check: it is skipped for `dependabot/*` branches,
+and a skipped run would otherwise hold those PRs forever.
+It still fails visibly on misnamed human branches.
+
+## Applying
 
 ```bash
 ./.github/branch-protection/apply.sh
@@ -53,27 +54,9 @@ After applying:
 
 ```bash
 gh api repos/jrwinget/loom/branches/main/protection \
-    --jq '{checks: .required_status_checks.contexts, reviews: .required_pull_request_reviews.required_approving_review_count, linear: .required_linear_history.enabled}'
+    --jq '{checks: .required_status_checks.contexts, linear: .required_linear_history.enabled}'
 gh api repos/jrwinget/loom/branches/dev/protection \
-    --jq '{checks: .required_status_checks.contexts, reviews: .required_pull_request_reviews.required_approving_review_count, force_push: .allow_force_pushes.enabled}'
+    --jq '{checks: .required_status_checks.contexts, force_push: .allow_force_pushes.enabled}'
 ```
 
 Or visit <https://github.com/jrwinget/loom/settings/branches>.
-
-## Adjusting for solo development
-
-If you're the only committer, the `required_approving_review_count: 1`
-rule on both branches blocks self-merge. Two options:
-
-1. **Drop the review requirement** by setting
-   `required_pull_request_reviews` to `null` in `main.json` /
-   `dev.json` and re-applying. Status checks still gate
-   merges.
-2. **Keep the rule and use admin override** by setting
-   `enforce_admins: false` (already set) and having the
-   maintainer click "merge without waiting for requirements"
-   in the PR UI when no other reviewer is available.
-
-Option 2 keeps the audit trail honest (every merge is logged
-as an admin override) and matches the capacity-calc
-pattern.

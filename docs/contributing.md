@@ -82,11 +82,54 @@ feature/* ──► dev ──► main
 Promotion to `main` happens via a release PR from `dev`,
 generally batching several merged feature PRs.
 
-The intended branch protections are checked in under
-[`.github/branch-protection/`](../.github/branch-protection/).
-They cannot be applied directly while the repo is on the
-free-tier private plan; a one-shot apply script is included
-for the moment the repo goes public (or upgrades).
+Branch protections are checked in under
+[`.github/branch-protection/`](../.github/branch-protection/)
+and applied to the repo; edit the JSON there and re-run
+`apply.sh` rather than changing settings in the GitHub UI.
+
+Branch names are enforced in CI by the Branch Guard workflow:
+`<type>/<kebab>` where type is one of `feat|feature|fix|
+hotfix|chore|docs|test|ci|refactor|perf|build`, or
+`release/<semver>` for promotions.
+
+## Local hooks and versioning
+
+Enable the repo's git hooks once per clone:
+
+```bash
+make hooks
+```
+
+Hooks come from [`.pre-commit-config.yaml`](../.pre-commit-config.yaml):
+
+- **pre-commit** lints exactly what is staged (ruff for
+  `backend/**.py`, eslint + prettier + tsc for
+  `frontend/src/**.ts{,x}`, plus whitespace / large-file /
+  merge-conflict / yaml checks), so it stays fast.
+- **pre-push** runs `scripts/check-version-sync.sh`: the five
+  version-bearing files (`backend/pyproject.toml`,
+  `frontend/package.json`, `desktop/package.json`,
+  `desktop/src-tauri/tauri.conf.json`,
+  `desktop/src-tauri/Cargo.toml`) must agree, and a
+  `release/*` branch name must match that version.
+
+Never edit version numbers by hand — bump all five files in
+lockstep with:
+
+```bash
+scripts/bump-version.sh 0.2.0
+```
+
+CI repeats the sync check as the required `Verify Versions`
+job, so a drifted version can't merge even without the hooks.
+
+## Dependency updates
+
+Dependabot runs weekly (Monday) against **`dev`** for the
+backend (uv), frontend (npm), desktop shell (npm + cargo),
+and GitHub Actions. Non-major bumps are grouped per
+ecosystem, auto-approved, and squash-auto-merged once the
+required checks pass. Major bumps wait for manual review.
 
 ## Commits and pull requests
 
@@ -98,12 +141,11 @@ for the moment the repo goes public (or upgrades).
 - Use `Fixes #<n>` (or `Closes #<n>`) trailers when a PR
   resolves an issue. **Do not include `Co-authored-by`
   trailers.**
-- Open feature PRs against **`dev`**. The full check set
-  (lint, tests, migrations, security scan, Docker build)
-  must pass before merge. `dev` strips the slowest checks
-  (Security Scan, Build & Verify) for fast iteration once
-  protections are applied; for now run them locally with
-  `make lint && make test` before pushing.
+- Open feature PRs against **`dev`**. `dev` requires version
+  sync, lint, unit tests, and migrations; it strips the two
+  slowest checks (Security Scan, Build & Verify) for fast
+  iteration. Those still run on every PR — they just don't
+  block `dev` merges.
 - Open release PRs from `dev` against **`main`**. The full
   check set is required.
 - Squash-merge is the default — keeps the history scannable
