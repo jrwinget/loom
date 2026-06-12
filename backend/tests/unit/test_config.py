@@ -40,9 +40,14 @@ class TestCorsOriginsDefault:
     """cors_origins field defaults."""
 
     def test_cors_origins_default(self) -> None:
-        """default cors_origins is localhost:3000."""
+        """default covers vite dev (both spellings) and tauri prod webviews."""
         settings = Settings()
-        assert settings.cors_origins == ["http://localhost:3000"]
+        assert settings.cors_origins == [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "tauri://localhost",
+            "http://tauri.localhost",
+        ]
 
 
 class TestCorsOriginsValidation:
@@ -88,6 +93,32 @@ class TestCorsOriginsValidation:
     def test_rejects_origin_with_path(self) -> None:
         with pytest.raises(ValidationError, match="path"):
             Settings(cors_origins=["https://example.com/app"])
+
+    def test_accepts_tauri_localhost(self) -> None:
+        """production tauri webview origin on macos/linux."""
+        settings = Settings(cors_origins=["tauri://localhost"])
+        assert settings.cors_origins == ["tauri://localhost"]
+
+    def test_accepts_http_tauri_localhost(self) -> None:
+        """production tauri webview origin on windows."""
+        settings = Settings(cors_origins=["http://tauri.localhost"])
+        assert settings.cors_origins == ["http://tauri.localhost"]
+
+    def test_widening_to_tauri_does_not_admit_other_schemes(self) -> None:
+        """guard: allowing tauri:// must not relax other unknown schemes."""
+        for origin in (
+            "file:///etc/passwd",
+            "chrome-extension://abcdef/",
+            "data:text/html,evil",
+            "javascript:alert(1)",
+        ):
+            with pytest.raises(ValidationError):
+                Settings(cors_origins=[origin])
+
+    def test_rejects_path_on_tauri_origin(self) -> None:
+        """defense-in-depth: the no-path rule still applies under tauri://."""
+        with pytest.raises(ValidationError, match="path"):
+            Settings(cors_origins=["tauri://localhost/api"])
 
 
 class TestValidateProductionSettings:

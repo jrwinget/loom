@@ -11,6 +11,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verify-versions:
+    name: Verify Versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check version lockstep across all five files
+        run: bash scripts/check-version-sync.sh "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+
   lint-backend:
     name: Lint Backend
     runs-on: ubuntu-latest

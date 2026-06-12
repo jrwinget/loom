@@ -1,6 +1,6 @@
 [package]
 name = "loom-desktop"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 description = "Tauri v2 desktop shell for the Loom evidence OS"
 license = "AGPL-3.0-or-later"
@@ -33,6 +33,13 @@ ctrlc = { version = "3", features = ["termination"] }
 # introduced in 0.31; on 0.30.x the Disks struct lives in the
 # default feature set so the previous declaration failed to resolve.
 sysinfo = { version = "0.31", default-features = false, features = ["disk"] }
+# not used directly. time 0.3.48 (published 2026-06-12) fails to
+# compile inside tauri-utils 2.9.2 with E0119 (conflicting From
+# impls), and with no committed Cargo.lock every ci build resolves
+# the latest patch release. this pin holds the whole graph at the
+# last good version. remove once tauri-utils ships a release that
+# builds against time >= 0.3.48, or once a lockfile is committed.
+time = "=0.3.47"
 
 # windows-only: a job object holds the sidecar bootloader so that
 # closing the handle on shell exit cascades termination to every

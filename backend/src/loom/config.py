@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 _INSECURE_DEFAULT = "change-me-in-production"
 _MIN_SECRET_LENGTH = 32
-_CORS_ALLOWED_SCHEMES = {"http", "https"}
+_CORS_ALLOWED_SCHEMES = {"http", "https", "tauri"}
 
 DeploymentProfile = Literal["server", "lite"]
 
@@ -38,7 +38,19 @@ class Settings(BaseSettings):
     secret_key: str = _INSECURE_DEFAULT
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
-    cors_origins: list[str] = ["http://localhost:3000"]
+    # vite dev server (both spellings — `tauri dev` loads the bundle
+    # from 127.0.0.1:3000 while `pnpm dev` web uses localhost:3000) plus
+    # the two production tauri webview origins: `tauri://localhost` on
+    # macOS/linux, `http://tauri.localhost` on windows. the tauri entries
+    # are inert under server-profile deploys because no public browser
+    # ever sends those values as `Origin`; server operators who set
+    # LOOM_CORS_ORIGINS replace the whole list anyway.
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "tauri://localhost",
+        "http://tauri.localhost",
+    ]
 
     # signing secret for lite-profile loopback presigned urls. must be
     # persisted per-install (e.g. via tauri-plugin-store) so it stays

@@ -303,6 +303,58 @@ The algorithm is documented at:
 
 ---
 
+## ffmpeg — Deterministic Clarity Assist
+
+Not an AI model. Included here because enhanced derivatives
+carry the same `model_name` / `model_version` / `model_params`
+provenance fields as AI-produced rows, with
+`model_name="ffmpeg-deterministic-filter"`.
+
+### Package
+
+`ffmpeg` (system binary), invoked by
+`backend/src/loom/services/enhancement.py`.
+
+### Where it is invoked
+
+`enhance_video()` and `enhance_image()` produce an enhanced
+derivative of a video or image asset. `analyze_video()` +
+`suggest_params()` measure luma statistics (`signalstats`) and
+interlacing (`idet`) on a leading sample and map them to
+suggested starting parameters via fixed, documented thresholds.
+
+### Intended use
+
+Make dark, flat, noisy, interlaced, or low-resolution footage
+easier for a human reviewer to see. Classical filters only:
+deinterlace (yadif), denoise (hqdn3d), brightness/contrast/
+saturation/gamma (eq), sharpen (unsharp), and Lanczos upscale.
+The filter chain order is fixed and recorded; identical
+parameters always produce the identical chain.
+
+### Known limitations
+
+- Enhancement brings out what the camera captured; it cannot
+  recover detail that was never recorded.
+- Upscaling interpolates existing pixels (Lanczos); it adds
+  smoothness, not information.
+- Auto-suggestions are heuristic starting points measured from
+  the first seconds of footage; a human adjusts and confirms
+  before any derivative is generated.
+
+### What it does NOT do
+
+- No AI super-resolution or generative enhancement of any
+  kind, by policy: generative models hallucinate detail that
+  was never captured, which is indefensible for evidence.
+- Does not modify originals. Output is a separate derivative
+  labeled as enhanced, with the full parameter set and rendered
+  filter chain stored in `generation_params`.
+- No face recognition, suspicion scoring, or automated
+  identity resolution of any kind.
+
+---
+
 ## Reproducibility
 
 The `model_version` field on every AI-produced row is captured
