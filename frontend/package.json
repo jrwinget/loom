@@ -52,7 +52,7 @@
     "autoprefixer": "^10.4.0",
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.0",
-    "jest-axe": "^9.0.0",
+    "jest-axe": "^10.0.0",
     "jsdom": "^24.0.0",
     "msw": "^2.0.0",
     "postcss": "^8.5.10",
