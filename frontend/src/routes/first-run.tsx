@@ -31,6 +31,7 @@ export function FirstRunPage(): React.ReactElement {
 
   const [step, setStep] = useState<Step>('admin');
   const [chosenDir, setChosenDir] = useState<string | null>(null);
+  const [stepInitialized, setStepInitialized] = useState(false);
   const [dirError, setDirError] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -40,15 +41,15 @@ export function FirstRunPage(): React.ReactElement {
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [resetOpen, setResetOpen] = useState(false);
 
-  // pick the initial step once the status payload arrives.
-  useEffect(() => {
-    if (status && status.first_run_required) {
-      setStep(isLite ? 'data_dir' : 'admin');
-      if (isLite && !chosenDir) {
-        setChosenDir(status.data_dir ?? null);
-      }
+  // pick the initial step once the status payload arrives. done during
+  // render so the first paint already reflects the right step.
+  if (!stepInitialized && status && status.first_run_required) {
+    setStepInitialized(true);
+    setStep(isLite ? 'data_dir' : 'admin');
+    if (isLite && !chosenDir) {
+      setChosenDir(status.data_dir ?? null);
     }
-  }, [status, isLite, chosenDir]);
+  }
 
   // already-onboarded installs should not see this page. exempt the
   // recovery_codes step: by the time we're there we've already
