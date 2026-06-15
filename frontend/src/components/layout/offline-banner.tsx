@@ -6,13 +6,15 @@ export function OfflineBanner(): React.ReactElement | null {
   const { isOnline, wasOffline, acknowledgeReconnection } = useNetworkStatus();
   const { isSyncing, queueLength, retrySync } = useSyncManager();
   const [dismissed, setDismissed] = useState(false);
+  const [prevQueueLength, setPrevQueueLength] = useState(queueLength);
 
-  // show again when new items are queued
-  useEffect(() => {
+  // un-dismiss during render when the queue changes and items remain.
+  if (queueLength !== prevQueueLength) {
+    setPrevQueueLength(queueLength);
     if (queueLength > 0) {
       setDismissed(false);
     }
-  }, [queueLength]);
+  }
 
   // show "back online" toast briefly
   useEffect(() => {

@@ -215,7 +215,12 @@ def main() -> int:
         print(f"sidecar binary not found: {args.binary}", file=sys.stderr)
         return 2
 
-    with tempfile.TemporaryDirectory(prefix="loom-smoke-") as tmp:
+    # ignore_cleanup_errors: on windows the sidecar can still hold the
+    # sqlite loom.db handle for a moment after exit, so rmtree on block
+    # exit would raise WinError 32 and fail the smoke after it passed.
+    with tempfile.TemporaryDirectory(
+        prefix="loom-smoke-", ignore_cleanup_errors=True
+    ) as tmp:
         data_dir = Path(tmp)
         env = _build_env(data_dir)
 

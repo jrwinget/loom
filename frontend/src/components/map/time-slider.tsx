@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 interface TimeSliderProps {
   min: string;
@@ -36,11 +36,14 @@ export function TimeSlider(props: TimeSliderProps): React.ReactElement {
   const [localEnd, setLocalEnd] = useState(toTimestamp(endValue));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // sync props -> local state
-  useEffect(() => {
+  // adjust local state during render when the controlling props move,
+  // so external range changes reset the sliders without an effect.
+  const [prevRange, setPrevRange] = useState({ startValue, endValue });
+  if (prevRange.startValue !== startValue || prevRange.endValue !== endValue) {
+    setPrevRange({ startValue, endValue });
     setLocalStart(toTimestamp(startValue));
     setLocalEnd(toTimestamp(endValue));
-  }, [startValue, endValue]);
+  }
 
   const emitChange = useCallback(
     (start: number, end: number) => {

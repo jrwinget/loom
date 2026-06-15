@@ -96,22 +96,32 @@ function MoveDialog(props: {
   );
   const [jobId, setJobId] = useState<string | null>(null);
   const [pickError, setPickError] = useState('');
+  const [wasOpen, setWasOpen] = useState(open);
 
   const job = useRelocationJob(jobId);
   const addToast = useToastStore((s) => s.addToast);
 
-  // reset local state whenever the dialog opens.
+  // reset local state during render on each open transition so a
+  // reopened dialog starts clean.
+  if (open && !wasOpen) {
+    setWasOpen(true);
+    setTarget(null);
+    setCheckResult(null);
+    setJobId(null);
+    setPickError('');
+  } else if (!open && wasOpen) {
+    setWasOpen(false);
+  }
+
+  // mutation caches live outside react state, so clear them in an
+  // effect when the dialog opens.
   useEffect(() => {
     if (open) {
-      setTarget(null);
-      setCheckResult(null);
-      setJobId(null);
-      setPickError('');
       check.reset();
       relocate.reset();
     }
-    // intentionally omit check/relocate — their identities change
-    // across renders but we only want to reset on open transitions.
+    // identities of check/relocate change every render; only the open
+    // transition should trigger a reset.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
