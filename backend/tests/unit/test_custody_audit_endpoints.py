@@ -103,9 +103,7 @@ class TestCustodyAuthorization:
         with pytest.raises(HTTPException) as exc_info:
             import asyncio
 
-            asyncio.get_event_loop().run_until_complete(
-                _check_access(session, _CASE_ID, _USER_ID)
-            )
+            asyncio.run(_check_access(session, _CASE_ID, _USER_ID))
 
         assert exc_info.value.status_code == 403
 
