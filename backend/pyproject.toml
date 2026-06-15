@@ -29,7 +29,7 @@ dependencies = [
     "python-multipart>=0.0.27",
     "httpx>=0.27.0",
     "argon2-cffi>=23.1.0",
-    "pyjwt[crypto]>=2.8.0",
+    "pyjwt[crypto]>=2.13.0",
     "slowapi>=0.1.9",
     # puremagic is a pure-python magic-bytes detector — no native
     # libmagic dependency. previously we used python-magic +
