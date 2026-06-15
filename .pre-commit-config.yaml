@@ -25,14 +25,16 @@ repos:
     hooks:
       - id: prettier
         name: prettier
-        entry: pnpm --dir frontend exec prettier --write --ignore-unknown
+        # pre-commit passes repo-root-relative paths; strip the leading
+        # frontend/ so they resolve under the frontend/ working dir.
+        entry: bash -c 'cd frontend && exec pnpm exec prettier --write --ignore-unknown "${@#frontend/}"' --
         language: system
         files: ^frontend/src/.*\.(ts|tsx|css)$
         pass_filenames: true
 
       - id: eslint
         name: eslint
-        entry: pnpm --dir frontend exec eslint --max-warnings=0
+        entry: bash -c 'cd frontend && exec pnpm exec eslint --max-warnings=0 "${@#frontend/}"' --
         language: system
         files: ^frontend/src/.*\.(ts|tsx)$
         pass_filenames: true
