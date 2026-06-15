@@ -54,7 +54,7 @@ ai = [
     "pyannote.audio>=3.1.0",
     "pytesseract>=0.3.10",
     "Pillow>=12.2.0",
-    "scenedetect[opencv]>=0.7",
+    "scenedetect>=0.7",
 ]
 provenance = [
     "c2pa-python>=0.34.0",
