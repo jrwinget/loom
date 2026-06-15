@@ -16,6 +16,7 @@ export function MultiVideoSync(props: MultiVideoSyncProps): React.ReactElement {
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
   // master is the first video
   const masterCaptureMs =
@@ -109,6 +110,11 @@ export function MultiVideoSync(props: MultiVideoSyncProps): React.ReactElement {
                 }}
                 src={asset.src}
                 onTimeUpdate={i === 0 ? handleTimeUpdate : undefined}
+                onLoadedMetadata={
+                  i === 0
+                    ? (e) => setDuration(e.currentTarget.duration)
+                    : undefined
+                }
                 className="h-full w-full rounded bg-black"
                 data-testid={`video-${asset.id}`}
                 muted
@@ -141,7 +147,7 @@ export function MultiVideoSync(props: MultiVideoSyncProps): React.ReactElement {
         <input
           type="range"
           min={0}
-          max={videoRefs.current[0]?.duration || 100}
+          max={duration || 100}
           value={currentTime}
           onChange={handleSeek}
           data-testid="seek-slider"

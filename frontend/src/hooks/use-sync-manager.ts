@@ -87,6 +87,9 @@ export function useSyncManager(): SyncManagerResult {
   // also try to sync on mount if there are pending items
   useEffect(() => {
     if (navigator.onLine && queueLength > 0) {
+      // sync() only sets state later, inside its async body, so this
+      // is external work on mount rather than a synchronous cascade.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void sync();
     }
     // only run on mount

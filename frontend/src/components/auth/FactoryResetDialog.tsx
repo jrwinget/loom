@@ -25,18 +25,25 @@ export function FactoryResetDialog({
   const [confirmation, setConfirmation] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // clear the gate during render on each open transition so a reopened
+  // dialog never shows a stale confirmation or error.
+  if (open && !wasOpen) {
+    setWasOpen(true);
+    setConfirmation('');
+    setError('');
+    setSubmitting(false);
+  } else if (!open && wasOpen) {
+    setWasOpen(false);
+  }
+
   useEffect(() => {
-    if (open) {
-      setConfirmation('');
-      setError('');
-      setSubmitting(false);
-      // give the dialog a tick to mount before focusing.
-      const id = window.setTimeout(() => inputRef.current?.focus(), 0);
-      return () => window.clearTimeout(id);
-    }
-    return undefined;
+    if (!open) return undefined;
+    // give the dialog a tick to mount before focusing.
+    const id = window.setTimeout(() => inputRef.current?.focus(), 0);
+    return () => window.clearTimeout(id);
   }, [open]);
 
   // close on Escape so keyboard users aren't trapped.

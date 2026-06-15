@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useSearch } from '@/hooks/use-search';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
 import type { SearchResult } from '@/types/transcript';
@@ -23,7 +23,7 @@ export function SearchBar(props: SearchBarProps): React.ReactElement {
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [selectedTab, setSelectedTab] = useState<string | null>(null);
 
   const { data } = useSearch(caseId, query);
 
@@ -39,14 +39,12 @@ export function SearchBar(props: SearchBarProps): React.ReactElement {
 
   const availableTypes = typeOrder.filter((t) => grouped.has(t));
 
-  // reset active tab when results change
-  useEffect(() => {
-    if (availableTypes.length > 0 && !activeTab) {
-      setActiveTab(availableTypes[0]);
-    } else if (activeTab && !availableTypes.includes(activeTab)) {
-      setActiveTab(availableTypes[0] ?? null);
-    }
-  }, [availableTypes, activeTab]);
+  // derive the active tab: honor the explicit selection while it's
+  // still present, otherwise fall back to the first available type.
+  const activeTab =
+    selectedTab && availableTypes.includes(selectedTab)
+      ? selectedTab
+      : (availableTypes[0] ?? null);
 
   // cmd/ctrl+k to focus
   useKeyboardShortcut(
@@ -142,7 +140,7 @@ export function SearchBar(props: SearchBarProps): React.ReactElement {
                   key={t}
                   type="button"
                   data-testid={`search-tab-${t}`}
-                  onClick={() => setActiveTab(t)}
+                  onClick={() => setSelectedTab(t)}
                   className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                     activeTab === t
                       ? 'border-b-2 border-primary' + ' text-foreground'
