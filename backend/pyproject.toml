@@ -10,7 +10,7 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
     "pydantic[email]>=2.13.4",
     "pydantic-settings>=2.1.0",
-    "sqlalchemy[asyncio]>=2.0.23",
+    "sqlalchemy[asyncio]>=2.0.51",
     "asyncpg>=0.30.0",
     # aiosqlite is the sqlite+async driver used by the lite
     # deployment profile (desktop sidecar). server profile uses
