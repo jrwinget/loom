@@ -32,7 +32,7 @@ ctrlc = { version = "3", features = ["termination"] }
 # process-listing code we never use.  the ``disk`` feature was
 # introduced in 0.31; on 0.30.x the Disks struct lives in the
 # default feature set so the previous declaration failed to resolve.
-sysinfo = { version = "0.31", default-features = false, features = ["disk"] }
+sysinfo = { version = "0.39", default-features = false, features = ["disk"] }
 # not used directly. time 0.3.48 (published 2026-06-12) fails to
 # compile inside tauri-utils 2.9.2 with E0119 (conflicting From
 # impls), and with no committed Cargo.lock every ci build resolves
