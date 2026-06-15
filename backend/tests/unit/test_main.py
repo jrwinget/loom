@@ -146,5 +146,5 @@ class TestRouterIncluded:
         ):
             app = create_app()
 
-        paths = [r.path for r in app.routes]
+        paths = app.openapi()["paths"]
         assert any(p.startswith("/api/v1") for p in paths)

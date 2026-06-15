@@ -6,9 +6,13 @@ can import and use them without passing state around.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from prometheus_client import Counter, Gauge, Histogram
+
+if TYPE_CHECKING:
+    from starlette.requests import HTTPConnection
+    from starlette.types import Scope
 
 
 class _NoOpHistogram:
@@ -81,3 +85,48 @@ db_pool_checked_out = Gauge(
     "loom_db_pool_checked_out",
     "connections currently checked out of the pool",
 )
+
+
+def _resolve_route_name(routes: list[Any], scope: Scope) -> str | None:
+    """resolve the templated route name for a request scope.
+
+    fastapi 0.137 stopped flattening nested ``include_router`` calls
+    into ``app.routes``; an included router now appears as a single
+    ``_IncludedRouter`` entry that matches requests but exposes no
+    ``.path``. prometheus-fastapi-instrumentator (8.0.0, latest) still
+    reads ``route.path`` directly and raises on the new entry. walk the
+    included router's effective candidates so metric labels keep their
+    low-cardinality templated paths.
+    """
+    from fastapi.routing import _IncludedRouter
+    from starlette.routing import Match, Mount
+
+    for route in routes:
+        match, child_scope = route.matches(scope)
+        if match != Match.FULL:
+            continue
+        merged = {**scope, **child_scope}
+        if isinstance(route, _IncludedRouter):
+            return _resolve_route_name(route.effective_candidates(), merged)
+        segment = getattr(route, "path", None) or getattr(
+            route, "path_format", None
+        )
+        if isinstance(route, Mount) and route.routes:
+            child = _resolve_route_name(route.routes, merged)
+            return f"{segment}{child}" if child else None
+        return segment
+    return None
+
+
+def install_route_name_compat() -> None:
+    """patch the instrumentator's route resolver for fastapi 0.137.
+
+    the upstream resolver cannot see through ``_IncludedRouter``; until a
+    compatible release ships, route this through ``_resolve_route_name``.
+    """
+    from prometheus_fastapi_instrumentator import routing
+
+    def get_route_name(request: HTTPConnection) -> str | None:
+        return _resolve_route_name(request.app.routes, request.scope)
+
+    routing.get_route_name = get_route_name
