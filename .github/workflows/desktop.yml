@@ -81,7 +81,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # node + pnpm for the frontend build and the tauri CLI invocation
       - name: Setup pnpm
