@@ -85,7 +85,7 @@ jobs:
 
       # node + pnpm for the frontend build and the tauri CLI invocation
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
 
