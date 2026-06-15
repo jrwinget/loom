@@ -189,6 +189,9 @@ def create_app() -> FastAPI:
     # prometheus metrics endpoint
     from prometheus_fastapi_instrumentator import Instrumentator
 
+    from loom.metrics import install_route_name_compat
+
+    install_route_name_compat()
     Instrumentator().instrument(application).expose(
         application, endpoint="/metrics", include_in_schema=False
     )
