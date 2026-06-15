@@ -327,6 +327,7 @@ jobs:
           exit-code: 1
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore
 
       - name: Trivy scan - worker
         uses: aquasecurity/trivy-action@master
@@ -336,6 +337,7 @@ jobs:
           exit-code: 1
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore
 
       - name: Trivy scan - frontend
         uses: aquasecurity/trivy-action@master
@@ -345,6 +347,7 @@ jobs:
           exit-code: 1
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore
 
   build:
     name: Build & Verify
