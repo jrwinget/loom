@@ -21,8 +21,8 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use rand::RngCore;
-use rand::rngs::OsRng;
+use rand::TryRng;
+use rand::rngs::SysRng;
 use serde::{Deserialize, Serialize};
 use sysinfo::Disks;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
@@ -156,7 +156,9 @@ struct DiskUsage {
 
 fn generate_hex_secret() -> String {
     let mut buf = [0u8; SECRET_BYTES];
-    OsRng.fill_bytes(&mut buf);
+    SysRng
+        .try_fill_bytes(&mut buf)
+        .expect("system rng must provide entropy");
     hex::encode(buf)
 }
 
@@ -1026,4 +1028,3 @@ mod tests {
         purge_lite_data(root).expect("second purge should be idempotent");
     }
 }
-

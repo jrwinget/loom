@@ -22,7 +22,7 @@ reqwest = { version = "0.13", default-features = false, features = ["rustls", "w
 dirs = "6"
 # cryptographically-random bootstrap secrets (LOOM_SECRET_KEY,
 # LOOM_STORAGE_SIGNING_SECRET) generated once per install.
-rand = "0.8"
+rand = { version = "0.10", features = ["sys_rng"] }
 hex = "0.4"
 # catches SIGINT/SIGTERM/SIGHUP so the sidecar is killed on signal-
 # triggered exits, not only on window-close.
