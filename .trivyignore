@@ -1,0 +1,11 @@
+# GHSA-36hh-v3qg-5jq4 -- pyo3 0.25.1 out-of-bounds read in the
+# nth/nth_back iterator path (fixed in pyo3 0.29.0). pyo3 is vendored
+# inside the temporalio python sdk's compiled rust bridge
+# (site-packages/temporalio/bridge/Cargo.lock); it is not a dependency
+# we declare or can override -- the bridge ships as a prebuilt wheel.
+# temporalio 1.28.0 (the latest release) still pins pyo3 0.25.1, so
+# there is no upgrade path on our side. the vulnerable code path is an
+# internal iterator method the bridge does not expose to our workflow
+# code. remove this entry once temporalio publishes a release built
+# against pyo3 >= 0.29.0.
+GHSA-36hh-v3qg-5jq4
