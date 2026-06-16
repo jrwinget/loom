@@ -42,6 +42,27 @@ export function getCsrfToken(): string | null {
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+// the desktop webview reuses an idle keep-alive socket for the submit
+// POST after the initial GET (/first-run/status). once the sidecar
+// closes that socket the reused-socket write fails at the transport
+// layer and fetch rejects with a TypeError -- "Load failed" in WebKit.
+// a transport reject means no HTTP response was received, so the
+// request was never processed by the server: replaying it on a fresh
+// connection is safe even for a POST (and /first-run/complete is
+// additionally idempotent -- 201 then 409). an ApiClientError is only
+// ever thrown AFTER a response arrives, so HTTP 4xx/5xx are never
+// retried here.
+const MAX_TRANSPORT_RETRIES = 2;
+const RETRY_BASE_DELAY_MS = 150;
+
+function isTransportError(err: unknown): boolean {
+  return err instanceof TypeError;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = useAuthStore.getState().token;
   const headers: Record<string, string> = {
@@ -61,10 +82,23 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
   }
 
-  const response = await fetch(`${getApiOrigin()}${path}`, {
-    ...options,
-    headers,
-  });
+  const url = `${getApiOrigin()}${path}`;
+  let response: Response;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      response = await fetch(url, { ...options, headers });
+      break;
+    } catch (err) {
+      // retry only a transport reject (the request was never
+      // processed); exhausted attempts and non-transport errors
+      // propagate unchanged.
+      if (attempt < MAX_TRANSPORT_RETRIES && isTransportError(err)) {
+        await sleep(RETRY_BASE_DELAY_MS * (attempt + 1));
+        continue;
+      }
+      throw err;
+    }
+  }
 
   if (response.status === 401) {
     useAuthStore.getState().clearAuth();

@@ -22,7 +22,12 @@ export function FirstRunPage(): React.ReactElement {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
 
-  const { data: status, isLoading, isError } = useFirstRunStatus();
+  const {
+    data: status,
+    isLoading,
+    isError,
+    refetch: refetchStatus,
+  } = useFirstRunStatus();
   const complete = useCompleteFirstRun();
   const check = useStorageCheck();
 
@@ -40,6 +45,7 @@ export function FirstRunPage(): React.ReactElement {
   const [error, setError] = useState('');
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [resetOpen, setResetOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
 
   // pick the initial step once the status payload arrives. done during
   // render so the first paint already reflects the right step.
@@ -90,7 +96,29 @@ export function FirstRunPage(): React.ReactElement {
     }
   }
 
-  function handleContinueFromDir(): void {
+  async function handleContinueFromDir(): Promise<void> {
+    setDirError('');
+    // switch the sidecar onto the chosen dir BEFORE creating the admin,
+    // so the bootstrap user lands in the final database. restartBackend
+    // resolves only once the new sidecar passes /health, so awaiting it
+    // is the readiness signal; then refetch status against the new dir.
+    if (isLite && changed) {
+      setSwitching(true);
+      try {
+        await persistDataDirectory(chosenDir!);
+        await restartBackend();
+        await refetchStatus();
+      } catch (err) {
+        setDirError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to switch data directory',
+        );
+        return;
+      } finally {
+        setSwitching(false);
+      }
+    }
     setStep('admin');
   }
 
@@ -117,16 +145,10 @@ export function FirstRunPage(): React.ReactElement {
       useAuthStore.setState({ token: resp.access_token });
       const user = await apiClient.get<User>('/auth/me');
       setAuth(resp.access_token, user);
-      // if the admin chose a new data dir, restart the backend so it
-      // reopens under the new LOOM_DATA_DIR. the tauri bridge is a
-      // no-op in plain web context.
-      if (isLite && changed) {
-        try {
-          await restartBackend();
-        } catch {
-          // best-effort; surface-level failure is non-fatal here.
-        }
-      }
+      // the data dir was already switched (and the sidecar restarted)
+      // before this step, so the admin we just created lives in the
+      // final database — nothing to restart here.
+      //
       // hold the operator on a "save your codes" step before
       // navigating into the app. the codes returned here are
       // plaintext and only exist in memory; once the user
@@ -245,8 +267,7 @@ export function FirstRunPage(): React.ReactElement {
 
             {changed && (
               <p className="rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
-                Requires restart to take effect — we&apos;ll restart after you
-                finish setup.
+                Loom will switch to this directory when you continue.
               </p>
             )}
 
@@ -254,14 +275,15 @@ export function FirstRunPage(): React.ReactElement {
               <button
                 type="button"
                 onClick={handleContinueFromDir}
-                className="flex-1 rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
+                disabled={switching || check.isPending}
+                className="flex-1 rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
-                Use this directory
+                {switching ? 'Switching…' : 'Use this directory'}
               </button>
               <button
                 type="button"
                 onClick={handlePickDifferent}
-                disabled={check.isPending}
+                disabled={switching || check.isPending}
                 className="flex-1 rounded-md border border-border bg-background px-4 py-2 text-foreground hover:bg-accent disabled:opacity-50"
               >
                 {check.isPending ? 'Validating…' : 'Pick different directory…'}

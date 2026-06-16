@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 
 export interface FirstRunStatus {
@@ -48,8 +48,24 @@ export function useFirstRunStatus(): ReturnType<
 export function useCompleteFirstRun(): ReturnType<
   typeof useMutation<FirstRunCompleteResponse, Error, FirstRunCompletePayload>
 > {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: FirstRunCompletePayload) =>
       apiClient.post<FirstRunCompleteResponse>('/first-run/complete', payload),
+    // flip the cached status synchronously so FirstRunGuard does not
+    // bounce the freshly-onboarded admin back to /first-run off stale
+    // ``first_run_required: true`` data (staleTime is 60s). setQueryData
+    // over invalidateQueries avoids a refetch racing a data-dir restart.
+    onSuccess: () => {
+      queryClient.setQueryData<FirstRunStatus>(firstRunKeys.status, (prev) =>
+        prev
+          ? { ...prev, first_run_required: false }
+          : {
+              first_run_required: false,
+              deployment_profile: 'lite',
+              data_dir: null,
+            },
+      );
+    },
   });
 }
