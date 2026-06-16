@@ -3,7 +3,7 @@
 usage: ``python smoke_sidecar.py <path-to-binary>``
 
 spawns the binary with the lite-profile env (no minio, no temporal)
-and asserts three contracts:
+and asserts four contracts:
 
   1. ``GET /api/v1/health`` returns 200 within 60s — guards the
      v0.1.0/v0.1.1 "sidecar never binds a socket" regression,
@@ -14,7 +14,14 @@ and asserts three contracts:
   3. ``OPTIONS /api/v1/auth/login`` with ``Origin: tauri://localhost``
      echoes the origin in ``Access-Control-Allow-Origin`` — guards
      the v0.1.4 leftover where the cors allowlist did not include
-     the tauri webview origin so production builds could not log in.
+     the tauri webview origin so production builds could not log in,
+  4. ``POST /first-run/complete`` then ``POST /auth/login`` (with a
+     differently-cased email) then ``GET /auth/me`` all succeed —
+     guards the lite-only regressions where a case-sensitive email
+     lookup rejected the just-created admin and ``/auth/me`` 500'd on
+     ``User.id == <jwt sub string>`` under the sqlite uuid binding.
+     this is the create-admin-then-sign-back-in flow that surfaced as
+     "invalid email or password" after a desktop restart.
 
 the 60s health budget matches ``HEALTH_TIMEOUT`` in ``desktop/
 src-tauri/src/main.rs``. a sidecar that has not bound a socket
@@ -50,6 +57,12 @@ from typing import Final
 HEALTH_URL: Final = "http://127.0.0.1:8000/api/v1/health"
 FIRST_RUN_URL: Final = "http://127.0.0.1:8000/api/v1/first-run/status"
 PREFLIGHT_URL: Final = "http://127.0.0.1:8000/api/v1/auth/login"
+COMPLETE_URL: Final = "http://127.0.0.1:8000/api/v1/first-run/complete"
+LOGIN_URL: Final = "http://127.0.0.1:8000/api/v1/auth/login"
+ME_URL: Final = "http://127.0.0.1:8000/api/v1/auth/me"
+# mixed-case on purpose: login must match it case-insensitively.
+SMOKE_ADMIN_EMAIL: Final = "Smoke.Admin@Example.com"
+SMOKE_ADMIN_PASSWORD: Final = "correct-horse-battery"  # noqa: S105
 # webview origin in production tauri 2 on macos/linux. windows uses
 # ``http://tauri.localhost``; checking one is sufficient to catch
 # allowlist drift because both ride the same config code path.
@@ -184,6 +197,90 @@ def _check_preflight_cors() -> tuple[bool, str]:
     )
 
 
+def _post_json(
+    url: str,
+    payload: dict[str, str],
+    headers: dict[str, str] | None = None,
+) -> tuple[int, bytes]:
+    """POST a json body and return ``(status, raw)``."""
+    data = json.dumps(payload).encode("utf-8")
+    hdrs = {"Content-Type": "application/json"}
+    if headers:
+        hdrs.update(headers)
+    # all *_URL constants are hardcoded http://127.0.0.1 literals --
+    # bandit S310 does not apply.
+    req = urllib.request.Request(  # noqa: S310
+        url, data=data, method="POST", headers=hdrs
+    )
+    with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310
+        return resp.status, resp.read()
+
+
+def _check_login_roundtrip() -> tuple[bool, str]:
+    """create the bootstrap admin, then sign back in with those creds.
+
+    the desktop shell auto-issues tokens from /first-run/complete, so
+    the email+password verify path -- and the token-authenticated
+    /auth/me lookup -- runs for the first time only on a *later*
+    sign-in. that is when "invalid email or password" surfaced after a
+    restart. exercises two lite-only regressions that server-to-server
+    postgres tests never saw: a case-sensitive email lookup, and
+    /auth/me 500ing on ``User.id == <jwt sub string>`` under sqlite.
+
+    runs last because it mutates state (creates the admin), which would
+    flip the /first-run/status contract checked earlier.
+    """
+    try:
+        status, _ = _post_json(
+            COMPLETE_URL,
+            {
+                "admin_email": SMOKE_ADMIN_EMAIL,
+                "admin_password": SMOKE_ADMIN_PASSWORD,
+                "admin_full_name": "Smoke Admin",
+            },
+        )
+        if status != 201:
+            return False, f"first-run/complete -> {status}, expected 201"
+
+        # sign in with a different email casing on purpose.
+        status, raw = _post_json(
+            LOGIN_URL,
+            {
+                "email": SMOKE_ADMIN_EMAIL.upper(),
+                "password": SMOKE_ADMIN_PASSWORD,
+            },
+        )
+        if status != 200:
+            return False, f"login -> {status}, expected 200"
+        token = json.loads(raw).get("access_token")
+        if not token:
+            return False, f"login 200 but no access_token: {raw!r}"
+
+        me_req = urllib.request.Request(  # noqa: S310
+            ME_URL,
+            method="GET",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        with urllib.request.urlopen(me_req, timeout=5) as resp:  # noqa: S310
+            me_status = resp.status
+            me_raw = resp.read()
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        return False, f"HTTP {exc.code} during login round-trip: {body}"
+    except (urllib.error.URLError, ConnectionError, OSError) as exc:
+        return False, f"transport error during login round-trip: {exc!r}"
+
+    if me_status != 200:
+        return False, f"/auth/me -> {me_status}, expected 200"
+    me_body = json.loads(me_raw)
+    if me_body.get("email") != SMOKE_ADMIN_EMAIL.lower():
+        return False, f"/auth/me email not normalized lowercase: {me_body!r}"
+    return True, (
+        f"first-run/complete -> 201; case-insensitive login -> 200; "
+        f"/auth/me -> 200 ({me_body.get('email')!r})"
+    )
+
+
 def _terminate(proc: subprocess.Popen[bytes]) -> None:
     if proc.poll() is not None:
         return
@@ -247,6 +344,11 @@ def main() -> int:
                     return 1
                 print(f"OK: {message}")
                 ok, message = _check_preflight_cors()
+                if not ok:
+                    print(f"FAIL: {message}")
+                    return 1
+                print(f"OK: {message}")
+                ok, message = _check_login_roundtrip()
                 if not ok:
                     print(f"FAIL: {message}")
                     return 1

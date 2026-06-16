@@ -53,7 +53,7 @@ export function Sidebar(): React.ReactElement {
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   // storage management only appears on desktop (lite) installs.
   const { data: firstRun } = useFirstRunStatus();
-  const showStorage = firstRun?.deployment_profile === 'lite';
+  const showStorage = firstRun?.deploymentProfile === 'lite';
 
   return (
     <aside

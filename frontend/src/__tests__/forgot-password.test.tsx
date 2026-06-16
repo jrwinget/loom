@@ -95,7 +95,7 @@ describe('ForgotPasswordPage', () => {
   });
 
   it('posts to /auth/recover-password and shows the success view', async () => {
-    mockedPost.mockResolvedValueOnce({ codes_remaining: 7 });
+    mockedPost.mockResolvedValueOnce({ codesRemaining: 7 });
     const user = userEvent.setup({
       advanceTimers: vi.advanceTimersByTime.bind(vi),
     });

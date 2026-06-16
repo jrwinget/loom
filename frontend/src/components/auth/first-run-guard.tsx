@@ -19,7 +19,7 @@ export function FirstRunGuard({
   const { data } = useFirstRunStatus();
 
   useEffect(() => {
-    if (data?.first_run_required && location.pathname !== '/first-run') {
+    if (data?.firstRunRequired && location.pathname !== '/first-run') {
       navigate('/first-run', { replace: true });
     }
   }, [data, location.pathname, navigate]);

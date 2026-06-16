@@ -23,7 +23,7 @@ export function getApiOrigin(): string {
   return API_PREFIX;
 }
 
-class ApiClientError extends Error {
+export class ApiClientError extends Error {
   status: number;
   detail: string;
 
@@ -41,6 +41,46 @@ export function getCsrfToken(): string | null {
 }
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+// the backend serializes DTOs in snake_case; every frontend type is
+// camelCase. convert response keys recursively here so a single place
+// owns the wire->type mapping. requests are sent as the caller writes
+// them and are NOT transformed (some bodies are intentionally
+// snake_case: admin_email, recovery_code, challenge_token, user_id).
+// only keys are rewritten, never values.
+//
+// free-form JSON blobs are opaque: their nested keys carry meaning and
+// must survive verbatim -- a C2PA chain-of-custody manifest must never
+// have its keys mangled. for these keys we rewrite the key itself but
+// pass the value through without recursing into it.
+const OPAQUE_VALUE_KEYS = new Set([
+  'manifestData',
+  'detail',
+  'config',
+  'metadata',
+  // correlation reasoning is keyed by dynamic signal names
+  // (e.g. "time_proximity") that are displayed verbatim.
+  'reasoning',
+]);
+
+function snakeToCamel(key: string): string {
+  return key.replace(/_([a-z0-9])/g, (_m, c: string) => c.toUpperCase());
+}
+
+function camelizeKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(camelizeKeys);
+  }
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      const camelKey = snakeToCamel(key);
+      out[camelKey] = OPAQUE_VALUE_KEYS.has(camelKey) ? val : camelizeKeys(val);
+    }
+    return out;
+  }
+  return value;
+}
 
 // the desktop webview reuses an idle keep-alive socket for the submit
 // POST after the initial GET (/first-run/status). once the sidecar
@@ -120,7 +160,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  const data = (await response.json()) as unknown;
+  return camelizeKeys(data) as T;
 }
 
 export const apiClient = {

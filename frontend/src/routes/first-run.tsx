@@ -32,7 +32,7 @@ export function FirstRunPage(): React.ReactElement {
   const check = useStorageCheck();
 
   // server-profile installs skip the data-dir step entirely.
-  const isLite = status?.deployment_profile === 'lite';
+  const isLite = status?.deploymentProfile === 'lite';
 
   const [step, setStep] = useState<Step>('admin');
   const [chosenDir, setChosenDir] = useState<string | null>(null);
@@ -49,11 +49,11 @@ export function FirstRunPage(): React.ReactElement {
 
   // pick the initial step once the status payload arrives. done during
   // render so the first paint already reflects the right step.
-  if (!stepInitialized && status && status.first_run_required) {
+  if (!stepInitialized && status && status.firstRunRequired) {
     setStepInitialized(true);
     setStep(isLite ? 'data_dir' : 'admin');
     if (isLite && !chosenDir) {
-      setChosenDir(status.data_dir ?? null);
+      setChosenDir(status.dataDir ?? null);
     }
   }
 
@@ -62,12 +62,12 @@ export function FirstRunPage(): React.ReactElement {
   // completed onboarding in *this* render, and we must not bounce
   // the operator out before they save their codes.
   useEffect(() => {
-    if (status && !status.first_run_required && step !== 'recovery_codes') {
+    if (status && !status.firstRunRequired && step !== 'recovery_codes') {
       navigate('/', { replace: true });
     }
   }, [status, navigate, step]);
 
-  const defaultDir = status?.data_dir ?? null;
+  const defaultDir = status?.dataDir ?? null;
   const changed =
     chosenDir !== null && defaultDir !== null && chosenDir !== defaultDir;
 
@@ -142,9 +142,9 @@ export function FirstRunPage(): React.ReactElement {
         admin_full_name: fullName,
       });
       // stash the token so /auth/me can identify the new admin.
-      useAuthStore.setState({ token: resp.access_token });
+      useAuthStore.setState({ token: resp.accessToken });
       const user = await apiClient.get<User>('/auth/me');
-      setAuth(resp.access_token, user);
+      setAuth(resp.accessToken, user);
       // the data dir was already switched (and the sidecar restarted)
       // before this step, so the admin we just created lives in the
       // final database — nothing to restart here.
@@ -153,7 +153,7 @@ export function FirstRunPage(): React.ReactElement {
       // navigating into the app. the codes returned here are
       // plaintext and only exist in memory; once the user
       // acknowledges we drop the state and route to /.
-      setRecoveryCodes(resp.password_recovery_codes);
+      setRecoveryCodes(resp.passwordRecoveryCodes);
       setStep('recovery_codes');
     } catch (err) {
       if (err instanceof Error) {

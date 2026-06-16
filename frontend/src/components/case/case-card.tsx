@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 interface CaseCardProps {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   status: string;
   assetCount: number;
   eventCount: number;
@@ -33,9 +33,11 @@ export function CaseCard(props: CaseCardProps): React.ReactElement {
     props;
 
   const colorClass = statusColors[status] ?? statusColors['archived'];
-  // truncate description to ~100 chars
+  // truncate description to ~100 chars (description is optional)
   const truncated =
-    description.length > 100 ? description.slice(0, 100) + '...' : description;
+    description && description.length > 100
+      ? description.slice(0, 100) + '...'
+      : (description ?? '');
 
   return (
     <button
