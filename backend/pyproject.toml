@@ -1,6 +1,6 @@
 [project]
 name = "loom"
-version = "0.1.8"
+version = "0.1.9"
 description = "Evidence operating system for civil-rights legal teams"
 readme = "README.md"
 license = { text = "MIT" }
@@ -57,7 +57,7 @@ ai = [
     "scenedetect>=0.7",
 ]
 provenance = [
-    "c2pa-python>=0.34.0",
+    "c2pa-python>=0.35.0",
 ]
 observability = [
     "opentelemetry-exporter-otlp-proto-grpc>=1.21.0",

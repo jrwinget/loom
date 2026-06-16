@@ -10,7 +10,7 @@ returns 409 Conflict once any user exists. See GitHub issue #42.
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import exists, func, insert, literal, select
+from sqlalchemy import func, insert, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.config import get_settings
@@ -107,6 +107,11 @@ async def complete(
     # atomic "insert only if no user exists" — SQLite + Postgres
     # both evaluate the SELECT subquery and INSERT in the same
     # statement, closing the TOCTOU between count() and add().
+    # ``select(...).exists()`` is already an EXISTS construct, so we
+    # negate it directly with ``~``; wrapping it in a second
+    # ``exists()`` compiled to ``NOT EXISTS (SELECT EXISTS (...))``,
+    # whose inner scalar subquery always returns one row, making the
+    # guard always-true and inserting zero rows on every install.
     user_exists = select(literal(1)).select_from(User).exists()
     src = select(
         literal(new_id).label("id"),
@@ -117,7 +122,7 @@ async def complete(
         literal(True).label("is_active"),
         literal(False).label("mfa_enabled"),
         literal(recovery_serialized).label("password_recovery_codes"),
-    ).where(~exists(user_exists))
+    ).where(~user_exists)
     stmt = insert(User).from_select(
         [
             "id",

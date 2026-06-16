@@ -454,7 +454,7 @@ wheels = [
 
 [[package]]
 name = "c2pa-python"
-version = "0.34.0"
+version = "0.35.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
@@ -464,15 +464,15 @@ dependencies = [
     { name = "toml" },
     { name = "wheel" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/41/44/6ef4c0a391faa5fb935284fc016d48f24db6930ba3b1735d90a0a64db1eb/c2pa_python-0.34.0.tar.gz", hash = "sha256:54445f4ba08832a5856f02188bf62779d44ee5ad0e62312e9f772f5bf244420f", size = 82564, upload-time = "2026-06-12T14:53:23.435Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/43/92/24b370b65017454b939692ea75d6032ef30ac45fb81b0098632d38aed8f2/c2pa_python-0.35.0.tar.gz", hash = "sha256:ca7642f79c05bc60aa6083337c0a49096f9fe4a30251b1b046a52581ce94b0bf", size = 84535, upload-time = "2026-06-15T18:54:36.018Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4a/a5/8fb158639c2ffddd2359f3b68cc4ecfaaf0f9ace9b08001df7437b6fcba1/c2pa_python-0.34.0-py3-none-macosx_10_9_universal2.whl", hash = "sha256:6b8c2277f618c6a222f23317d5a07f1457062eb50aaf5769b07fa732855c52be", size = 16475102, upload-time = "2026-06-12T14:52:49.542Z" },
-    { url = "https://files.pythonhosted.org/packages/8a/80/811fc97e635dbe6578091e86fbe31dd5cd5e55de1141642e815b71446613/c2pa_python-0.34.0-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:7fc67731752b8c56329c114c3c30747648f8d97327523c84cec4ccfb5a907215", size = 14922428, upload-time = "2026-06-12T14:52:53.105Z" },
-    { url = "https://files.pythonhosted.org/packages/eb/77/eb80f3f195bea7817ec8884783dfef6b9218d2527f1a0af15c5d396e8a5e/c2pa_python-0.34.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:241571ad18badb5a7a6e2e25ded2c5ac64a4d5ecd7ac432044fb02b25bacb4cd", size = 14531893, upload-time = "2026-06-12T14:52:56.165Z" },
-    { url = "https://files.pythonhosted.org/packages/d9/af/e79e2ce1ee1f469687644a24306a0e592d42f1299e69244325f40dada80f/c2pa_python-0.34.0-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:51eaf3f8a15bd6c4a80f493f7ca003ff8dca4e98a231fb809149a304f78b7519", size = 14764860, upload-time = "2026-06-12T14:52:59.143Z" },
-    { url = "https://files.pythonhosted.org/packages/ec/c4/5949d072bf56087bf07ef0e47f8a32f18fc67f66ab2a92846870266316ca/c2pa_python-0.34.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:5c0f9416a6759b45627a6de9cc2767fc2a871e17bf9dcdf0b2880b8d8c1e7f34", size = 15401072, upload-time = "2026-06-12T14:53:02.175Z" },
-    { url = "https://files.pythonhosted.org/packages/f6/c8/228fa5edd8c71805dd921bff8a80bfde67aad986f24cd6cd3242f9980f00/c2pa_python-0.34.0-py3-none-win_amd64.whl", hash = "sha256:868b5a33d39151902d84065102da2d565e9f3b06ba99c8904fc2753a5c4aaf6b", size = 89554484, upload-time = "2026-06-12T14:53:09.703Z" },
-    { url = "https://files.pythonhosted.org/packages/ea/4a/298008a78633b1de5947f4b1dc55704637805790b240b718eacf64e390ac/c2pa_python-0.34.0-py3-none-win_arm64.whl", hash = "sha256:6927c789b50316232fa94dbc1dc2c812aa247a49d97f47fde9bbe9f69f203806", size = 87089541, upload-time = "2026-06-12T14:53:19.858Z" },
+    { url = "https://files.pythonhosted.org/packages/5e/17/11071fa4e17f1c6123c4b3e7c325fc6a38ca0b51fa3c9434aa90d7544f79/c2pa_python-0.35.0-py3-none-macosx_10_9_universal2.whl", hash = "sha256:63936b67745a7dc27bb125acc71cd55b14002e24dfabe3233267c032584c7ac3", size = 16475732, upload-time = "2026-06-15T18:54:16.422Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/d6/e9d3159b44b55fb4553401589f2d3252652fd338a965153ae834ae1be93c/c2pa_python-0.35.0-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:f4f6abb30ac03c404f8451280dbfe2b9d4cc725e372b32cb0ace786a09f7eefc", size = 14923054, upload-time = "2026-06-15T18:54:19.1Z" },
+    { url = "https://files.pythonhosted.org/packages/97/1f/e0b326d9e9c35bbba7a756d63e7026b36133d5fec516aa4582e99ed62a97/c2pa_python-0.35.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:d797c430bfd89e2ea8bf7903f3b62aa57ba31967975b50a47c3e01e7781f937e", size = 14532519, upload-time = "2026-06-15T18:54:21.255Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/f2/e2768aa02dbe9925ebba2b646cb530415f3ec9cabfbfa2d058f40f455e78/c2pa_python-0.35.0-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:b85abdc9cf5d45c7f17c28f833f4194e008454e563c78902299187a6533127be", size = 14765488, upload-time = "2026-06-15T18:54:23.592Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/40/af0a37ebf956bfb8505715c0e23034a3e2d5c27cdf5f4db8fa08bc3c459c/c2pa_python-0.35.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:cc7254a38e7672d2649456ca2e1f8c7673a5c22b5b3af6c72e986cf558d0e7c0", size = 15401702, upload-time = "2026-06-15T18:54:25.908Z" },
+    { url = "https://files.pythonhosted.org/packages/03/37/b2984d594bde198b7577c80e9cb5e91ddaf60f2c909e48a37fc73afb2c88/c2pa_python-0.35.0-py3-none-win_amd64.whl", hash = "sha256:7c469de85befcb8cc63fdfc09a7976b5e615e5156b7e485008a984375fffc3df", size = 89555118, upload-time = "2026-06-15T18:54:29.18Z" },
+    { url = "https://files.pythonhosted.org/packages/65/b2/5cbab6c22c96fcc3e58bc09edbed8d53c0f58bfd007934faf56e4e8a71c3/c2pa_python-0.35.0-py3-none-win_arm64.whl", hash = "sha256:2cd216dec738ea26d254eac56b6adbc8dc5b44b16f38e285a11279fa26ee5738", size = 87090178, upload-time = "2026-06-15T18:54:33.147Z" },
 ]
 
 [[package]]
@@ -1795,7 +1795,7 @@ wheels = [
 
 [[package]]
 name = "loom"
-version = "0.1.8"
+version = "0.1.9"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
@@ -1872,7 +1872,7 @@ requires-dist = [
     { name = "argon2-cffi", specifier = ">=23.1.0" },
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "av", specifier = ">=17.1.0" },
-    { name = "c2pa-python", marker = "extra == 'provenance'", specifier = ">=0.34.0" },
+    { name = "c2pa-python", marker = "extra == 'provenance'", specifier = ">=0.35.0" },
     { name = "fastapi", specifier = ">=0.137.1" },
     { name = "faster-whisper", marker = "extra == 'ai'", specifier = ">=1.0.0" },
     { name = "httpx", specifier = ">=0.27.0" },

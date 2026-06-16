@@ -1,9 +1,14 @@
 version: 2
 updates:
   # all updates target dev (the integration branch) so they ride the
-  # normal dev -> main promotion train. non-major bumps are approved
-  # and squash-auto-merged by dependabot-auto-merge.yml once required
-  # checks pass; majors wait for manual review.
+  # normal dev -> main promotion train. dev is also the repository's
+  # default branch, which is what keeps dependabot *security* updates
+  # on dev too: the target-branch keys below only govern version
+  # updates, while security updates always open against the default
+  # branch -- so don't repoint the default to main without moving this
+  # routing somewhere else. non-major bumps are approved and squash-
+  # auto-merged by dependabot-auto-merge.yml once required checks pass;
+  # majors wait for manual review.
   - package-ecosystem: uv
     directory: /backend
     target-branch: dev
