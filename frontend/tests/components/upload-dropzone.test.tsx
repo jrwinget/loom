@@ -8,7 +8,7 @@ import { useUploadStore } from '@/hooks/use-upload';
 // and storage hooks. stub them so these tests do not need a
 // QueryClientProvider or a live backend.
 vi.mock('@/hooks/use-first-run', () => ({
-  useFirstRunStatus: () => ({ data: { deployment_profile: 'server' } }),
+  useFirstRunStatus: () => ({ data: { deploymentProfile: 'server' } }),
 }));
 
 vi.mock('@/hooks/use-storage', () => ({

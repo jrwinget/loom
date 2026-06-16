@@ -58,16 +58,16 @@ describe('FirstRunPage data-dir ordering', () => {
     getMock.mockImplementation((path: string) => {
       if (path === '/first-run/status') {
         return Promise.resolve({
-          first_run_required: true,
-          deployment_profile: 'lite',
-          data_dir: '/old-data-dir',
+          firstRunRequired: true,
+          deploymentProfile: 'lite',
+          dataDir: '/old-data-dir',
         });
       }
       if (path === '/auth/me') {
         return Promise.resolve({
           id: 'u1',
           email: 'admin@example.com',
-          display_name: 'Admin',
+          displayName: 'Admin',
           role: 'admin',
         });
       }
@@ -77,20 +77,20 @@ describe('FirstRunPage data-dir ordering', () => {
       if (path === '/storage/check') {
         return Promise.resolve({
           writable: true,
-          writable_reason: null,
-          free_bytes: 1,
-          total_bytes: 2,
-          on_system_drive: false,
+          writableReason: null,
+          freeBytes: 1,
+          totalBytes: 2,
+          onSystemDrive: false,
           advisory: null,
-          advisory_reason: null,
+          advisoryReason: null,
         });
       }
       if (path === '/first-run/complete') {
         return Promise.resolve({
-          user_id: 'u1',
-          access_token: 'tok',
-          refresh_token: 'ref',
-          password_recovery_codes: ['a-b-c-d-e'],
+          userId: 'u1',
+          accessToken: 'tok',
+          refreshToken: 'ref',
+          passwordRecoveryCodes: ['a-b-c-d-e'],
         });
       }
       return Promise.reject(new Error(`unexpected POST ${path}`));
