@@ -1,6 +1,6 @@
 [package]
 name = "loom-desktop"
-version = "0.1.8"
+version = "0.1.9"
 edition = "2021"
 description = "Tauri v2 desktop shell for the Loom evidence OS"
 license = "AGPL-3.0-or-later"
