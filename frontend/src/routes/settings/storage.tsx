@@ -343,7 +343,7 @@ function MoveDialog(props: {
 
 export function StorageSettingsPage(): React.ReactElement {
   const { data: firstRun } = useFirstRunStatus();
-  const isLite = firstRun?.deployment_profile === 'lite';
+  const isLite = firstRun?.deploymentProfile === 'lite';
   const usageQuery = useStorageUsage({ enabled: isLite });
   const [moveOpen, setMoveOpen] = useState(false);
 

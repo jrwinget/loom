@@ -2,9 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 
 export interface FirstRunStatus {
-  first_run_required: boolean;
-  deployment_profile: 'server' | 'lite';
-  data_dir: string | null;
+  firstRunRequired: boolean;
+  deploymentProfile: 'server' | 'lite';
+  dataDir: string | null;
 }
 
 export interface FirstRunCompletePayload {
@@ -14,14 +14,14 @@ export interface FirstRunCompletePayload {
 }
 
 export interface FirstRunCompleteResponse {
-  user_id: string;
-  access_token: string;
-  refresh_token: string;
+  userId: string;
+  accessToken: string;
+  refreshToken: string;
   // single-use password-recovery codes, plaintext. backend retains
   // only sha256 hashes, so this is the only time the operator sees
   // these values. eight codes; each is four hyphen-separated groups
   // of five hex chars (``a1b2c-3d4e5-f6789-0abcd``).
-  password_recovery_codes: string[];
+  passwordRecoveryCodes: string[];
 }
 
 export const firstRunKeys = {
@@ -54,16 +54,16 @@ export function useCompleteFirstRun(): ReturnType<
       apiClient.post<FirstRunCompleteResponse>('/first-run/complete', payload),
     // flip the cached status synchronously so FirstRunGuard does not
     // bounce the freshly-onboarded admin back to /first-run off stale
-    // ``first_run_required: true`` data (staleTime is 60s). setQueryData
+    // ``firstRunRequired: true`` data (staleTime is 60s). setQueryData
     // over invalidateQueries avoids a refetch racing a data-dir restart.
     onSuccess: () => {
       queryClient.setQueryData<FirstRunStatus>(firstRunKeys.status, (prev) =>
         prev
-          ? { ...prev, first_run_required: false }
+          ? { ...prev, firstRunRequired: false }
           : {
-              first_run_required: false,
-              deployment_profile: 'lite',
-              data_dir: null,
+              firstRunRequired: false,
+              deploymentProfile: 'lite',
+              dataDir: null,
             },
       );
     },

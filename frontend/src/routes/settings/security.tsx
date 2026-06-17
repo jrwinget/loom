@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { apiClient } from '@/lib/api-client';
 
 interface SetupResponse {
-  provisioning_uri: string;
+  provisioningUri: string;
 }
 
 interface VerifyResponse {
-  recovery_codes: string[];
+  recoveryCodes: string[];
 }
 
 export function SecuritySettingsPage(): React.ReactElement {
@@ -22,7 +22,7 @@ export function SecuritySettingsPage(): React.ReactElement {
     setError('');
     try {
       const resp = await apiClient.post<SetupResponse>('/auth/mfa/setup');
-      setUri(resp.provisioning_uri);
+      setUri(resp.provisioningUri);
       setStep('setup');
     } catch {
       setError('Failed to start MFA setup.');
@@ -36,7 +36,7 @@ export function SecuritySettingsPage(): React.ReactElement {
       const resp = await apiClient.post<VerifyResponse>('/auth/mfa/verify', {
         code,
       });
-      setRecoveryCodes(resp.recovery_codes);
+      setRecoveryCodes(resp.recoveryCodes);
       setStep('done');
     } catch {
       setError('Invalid code. Please try again.');

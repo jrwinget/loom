@@ -20,41 +20,41 @@ const STORAGE_USAGE_STALE_MS = 30_000;
 
 function mapUsage(wire: StorageUsageWire): StorageUsage {
   return {
-    dataDir: wire.data_dir,
-    freeBytes: wire.free_bytes,
-    totalBytes: wire.total_bytes,
-    originalsBytes: wire.originals_bytes,
-    derivativesBytes: wire.derivatives_bytes,
-    dbBytes: wire.db_bytes,
-    logsBytes: wire.logs_bytes,
-    assetCount: wire.asset_count,
-    onSystemDrive: wire.on_system_drive,
+    dataDir: wire.dataDir,
+    freeBytes: wire.freeBytes,
+    totalBytes: wire.totalBytes,
+    originalsBytes: wire.originalsBytes,
+    derivativesBytes: wire.derivativesBytes,
+    dbBytes: wire.dbBytes,
+    logsBytes: wire.logsBytes,
+    assetCount: wire.assetCount,
+    onSystemDrive: wire.onSystemDrive,
   };
 }
 
 function mapCheck(wire: StorageCheckResultWire): StorageCheckResult {
   return {
     writable: wire.writable,
-    writableReason: wire.writable_reason,
-    freeBytes: wire.free_bytes,
-    totalBytes: wire.total_bytes,
-    onSystemDrive: wire.on_system_drive,
+    writableReason: wire.writableReason,
+    freeBytes: wire.freeBytes,
+    totalBytes: wire.totalBytes,
+    onSystemDrive: wire.onSystemDrive,
     advisory: wire.advisory,
-    advisoryReason: wire.advisory_reason,
+    advisoryReason: wire.advisoryReason,
   };
 }
 
 function mapJob(wire: RelocationJobWire): RelocationJob {
   return {
-    jobId: wire.job_id,
+    jobId: wire.jobId,
     status: wire.status,
-    assetsCopied: wire.assets_copied,
-    assetsTotal: wire.assets_total,
-    bytesCopied: wire.bytes_copied,
-    bytesTotal: wire.bytes_total,
+    assetsCopied: wire.assetsCopied,
+    assetsTotal: wire.assetsTotal,
+    bytesCopied: wire.bytesCopied,
+    bytesTotal: wire.bytesTotal,
     error: wire.error,
-    startedAt: wire.started_at,
-    completedAt: wire.completed_at,
+    startedAt: wire.startedAt,
+    completedAt: wire.completedAt,
   };
 }
 
@@ -105,7 +105,7 @@ export function useRelocateStorage(): ReturnType<
         '/storage/relocate',
         { target_path: payload.targetPath },
       );
-      return wire.job_id;
+      return wire.jobId;
     },
     onError: (error) => {
       useToastStore.getState().addToast({

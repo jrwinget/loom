@@ -3,8 +3,8 @@ import { apiClient } from '@/lib/api-client';
 import { useToastStore } from '@/stores/toast-store';
 
 interface MfaSetupResponse {
-  provisioning_uri: string;
-  mfa_enabled: boolean;
+  provisioningUri: string;
+  mfaEnabled: boolean;
 }
 
 interface MfaVerifyRequest {
@@ -12,8 +12,8 @@ interface MfaVerifyRequest {
 }
 
 interface MfaVerifyResponse {
-  mfa_enabled: boolean;
-  recovery_codes: string[];
+  mfaEnabled: boolean;
+  recoveryCodes: string[];
 }
 
 interface MfaChallengeRequest {
@@ -22,9 +22,9 @@ interface MfaChallengeRequest {
 }
 
 interface MfaChallengeResponse {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
 }
 
 interface MfaDisableRequest {

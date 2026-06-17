@@ -74,7 +74,7 @@ export function TimelinePage(): React.ReactElement {
       if (c.status === 'pending' && c.confidence < confidenceThreshold) {
         continue;
       }
-      for (const m of c.members) correlatedAssetIds.add(m.asset_id);
+      for (const m of c.members) correlatedAssetIds.add(m.assetId);
     }
     if (correlatedAssetIds.size === 0) return new Set();
     const ids = new Set<string>();

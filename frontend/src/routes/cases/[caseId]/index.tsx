@@ -25,7 +25,7 @@ function formatAuditTimestamp(iso: string): string {
 
 function describeAuditEntry(entry: AuditEntry): string {
   const action = entry.action.replace(/_/g, ' ');
-  const resource = entry.resource_type.replace(/_/g, ' ');
+  const resource = entry.resourceType.replace(/_/g, ' ');
   return `${action} on ${resource}`;
 }
 

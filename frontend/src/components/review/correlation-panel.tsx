@@ -65,10 +65,10 @@ function formatOffset(seconds: number): string {
 function memberOffsets(
   members: CorrelationCandidateMember[],
 ): Record<string, number | null> {
-  // capture_time is server-formatted ISO string; if any member lacks one
+  // captureTime is server-formatted ISO string; if any member lacks one
   // we return null for that member so the UI can show "—".
   const captures = members.map((m) =>
-    m.capture_time ? Date.parse(m.capture_time) : null,
+    m.captureTime ? Date.parse(m.captureTime) : null,
   );
   const known = captures.filter((c): c is number => c !== null);
   if (known.length === 0) {
@@ -198,7 +198,7 @@ function CandidateRow(props: {
               className="flex items-center gap-2"
             >
               <span className="flex-1 truncate text-foreground">
-                {m.original_filename ?? m.asset_id}
+                {m.originalFilename ?? m.assetId}
               </span>
               <span className="text-xs tabular-nums text-muted-foreground">
                 {offset === null ? '—' : formatOffset(offset)}

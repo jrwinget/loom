@@ -15,7 +15,7 @@ import { apiClient } from '@/lib/api-client';
 const MIN_PASSWORD_LENGTH = 12;
 
 interface RecoverResponse {
-  codes_remaining: number;
+  codesRemaining: number;
 }
 
 export function ForgotPasswordPage(): React.ReactElement {
@@ -51,7 +51,7 @@ export function ForgotPasswordPage(): React.ReactElement {
           new_password: password,
         },
       );
-      setRemaining(resp.codes_remaining);
+      setRemaining(resp.codesRemaining);
       // redirect after a short pause so the operator sees the
       // "codes remaining" hint before the page changes.
       window.setTimeout(() => navigate('/login', { replace: true }), 2500);

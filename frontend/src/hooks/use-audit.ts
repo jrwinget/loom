@@ -4,13 +4,13 @@ import { queryKeys } from '@/lib/query-keys';
 
 export interface AuditEntry {
   id: string;
-  actor_id: string | null;
+  actorId: string | null;
   action: string;
-  resource_type: string;
-  resource_id: string;
+  resourceType: string;
+  resourceId: string;
   detail: unknown;
-  ip_address: string | null;
-  user_agent: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
   timestamp: string;
 }
 

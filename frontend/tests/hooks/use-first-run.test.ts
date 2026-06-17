@@ -41,9 +41,9 @@ function setup(): {
 
 const completeResponse = {
   user_id: 'u1',
-  access_token: 'tok',
-  refresh_token: 'ref',
-  password_recovery_codes: ['a-b-c-d-e'],
+  accessToken: 'tok',
+  refreshToken: 'ref',
+  passwordRecoveryCodes: ['a-b-c-d-e'],
 };
 
 describe('useCompleteFirstRun', () => {
@@ -57,9 +57,9 @@ describe('useCompleteFirstRun', () => {
 
     const { queryClient, wrapper } = setup();
     queryClient.setQueryData<FirstRunStatus>(firstRunKeys.status, {
-      first_run_required: true,
-      deployment_profile: 'lite',
-      data_dir: '/case-files',
+      firstRunRequired: true,
+      deploymentProfile: 'lite',
+      dataDir: '/case-files',
     });
 
     const { result } = renderHook(() => useCompleteFirstRun(), { wrapper });
@@ -72,9 +72,9 @@ describe('useCompleteFirstRun', () => {
     expect(
       queryClient.getQueryData<FirstRunStatus>(firstRunKeys.status),
     ).toEqual({
-      first_run_required: false,
-      deployment_profile: 'lite',
-      data_dir: '/case-files',
+      firstRunRequired: false,
+      deploymentProfile: 'lite',
+      dataDir: '/case-files',
     });
   });
 
@@ -92,7 +92,7 @@ describe('useCompleteFirstRun', () => {
 
     expect(
       queryClient.getQueryData<FirstRunStatus>(firstRunKeys.status)
-        ?.first_run_required,
+        ?.firstRunRequired,
     ).toBe(false);
   });
 });
