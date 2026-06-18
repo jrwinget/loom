@@ -116,7 +116,7 @@ function ClockDriftBadge(
           data-testid="clock-confidence-badge"
           className={
             'inline-flex items-center rounded-full px-2 py-0.5 ' +
-            'text-[10px] font-medium' +
+            'text-[10px] font-medium ' +
             badgeClass
           }
           title={
@@ -185,7 +185,7 @@ export function AssetDetail(props: AssetDetailProps): React.ReactElement {
           data-testid="processing-badge"
           className={
             'inline-flex items-center rounded-full ' +
-            'px-2.5 py-0.5 text-xs font-medium' +
+            'px-2.5 py-0.5 text-xs font-medium ' +
             processingClass
           }
         >
@@ -236,8 +236,8 @@ export function AssetDetail(props: AssetDetailProps): React.ReactElement {
           data-testid="download-button"
           className={
             'inline-flex items-center justify-center ' +
-            'rounded-md bg-primary px-4 py-2 text-sm' +
-            'font-medium text-primary-foreground' +
+            'rounded-md bg-primary px-4 py-2 text-sm ' +
+            'font-medium text-primary-foreground ' +
             'hover:bg-primary/90'
           }
         >

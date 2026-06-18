@@ -120,8 +120,8 @@ function ReasoningPopover(props: {
           data-testid={`reasoning-content-${candidateId}`}
           aria-label="Correlation reasoning"
           className={cn(
-            'bg-popover absolute z-50 mt-1 w-72 rounded border border-border p-3',
-            'text-popover-foreground text-xs shadow-md',
+            'absolute z-50 mt-1 w-72 rounded border border-border bg-popover p-3',
+            'text-xs text-popover-foreground shadow-md',
           )}
         >
           <p className="mb-2 text-[11px] font-semibold text-muted-foreground">

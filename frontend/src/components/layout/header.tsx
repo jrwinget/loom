@@ -93,8 +93,8 @@ export function Header(): React.ReactElement {
             <Dialog.Content
               data-testid="shortcuts-dialog"
               className={
-                'bg-card fixed left-1/2 top-1/2 w-full max-w-md ' +
-                '-translate-x-1/2 -translate-y-1/2 rounded-lg' +
+                'fixed left-1/2 top-1/2 w-full max-w-md bg-card ' +
+                '-translate-x-1/2 -translate-y-1/2 rounded-lg ' +
                 'border border-border p-6 shadow-lg'
               }
             >
@@ -142,7 +142,7 @@ export function Header(): React.ReactElement {
             type="button"
             className={
               'flex h-8 w-8 items-center justify-center ' +
-              'rounded-full bg-muted text-xs font-medium' +
+              'rounded-full bg-muted text-xs font-medium ' +
               'text-foreground'
             }
             aria-label="User menu"
@@ -159,7 +159,7 @@ export function Header(): React.ReactElement {
               data-testid="user-menu-dropdown"
               className={
                 'absolute right-0 top-full z-50 mt-1 w-56 ' +
-                'rounded-md border border-border bg-background' +
+                'rounded-md border border-border bg-background ' +
                 'py-1 shadow-lg'
               }
             >
