@@ -43,7 +43,7 @@ export function CaseCard(props: CaseCardProps): React.ReactElement {
     <button
       type="button"
       data-testid={`case-card-${id}`}
-      className="bg-card flex w-full flex-col rounded-lg border border-border p-4 text-left shadow-sm transition-colors hover:bg-accent/50"
+      className="flex w-full flex-col rounded-lg border border-border bg-card p-4 text-left shadow-sm transition-colors hover:bg-accent/50"
       onClick={() => navigate(`/cases/${id}`)}
     >
       {/* header row */}

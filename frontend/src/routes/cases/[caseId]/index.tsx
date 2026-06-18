@@ -76,7 +76,7 @@ export function CaseDetailPage(): React.ReactElement {
             data-testid="status-badge"
             className={
               'inline-flex items-center rounded-full ' +
-              'px-2 py-0.5 text-xs font-medium' +
+              'px-2 py-0.5 text-xs font-medium ' +
               colorClass
             }
           >
@@ -96,8 +96,8 @@ export function CaseDetailPage(): React.ReactElement {
             value="overview"
             className={
               'px-3 py-2 text-sm text-muted-foreground ' +
-              'data-[state=active]:border-b-2' +
-              'data-[state=active]:border-primary' +
+              'data-[state=active]:border-b-2 ' +
+              'data-[state=active]:border-primary ' +
               'data-[state=active]:text-foreground'
             }
           >
@@ -107,8 +107,8 @@ export function CaseDetailPage(): React.ReactElement {
             value="members"
             className={
               'px-3 py-2 text-sm text-muted-foreground ' +
-              'data-[state=active]:border-b-2' +
-              'data-[state=active]:border-primary' +
+              'data-[state=active]:border-b-2 ' +
+              'data-[state=active]:border-primary ' +
               'data-[state=active]:text-foreground'
             }
           >
@@ -118,19 +118,19 @@ export function CaseDetailPage(): React.ReactElement {
 
         <Tabs.Content value="overview" className="pt-4">
           <div className={'grid grid-cols-1 gap-4 sm:grid-cols-3'}>
-            <div className={'bg-card rounded-lg border border-border p-4'}>
+            <div className={'rounded-lg border border-border bg-card p-4'}>
               <p className="text-xs text-muted-foreground">Assets</p>
               <p className="text-2xl font-semibold text-foreground">
                 {caseData.assetCount}
               </p>
             </div>
-            <div className={'bg-card rounded-lg border border-border p-4'}>
+            <div className={'rounded-lg border border-border bg-card p-4'}>
               <p className="text-xs text-muted-foreground">Events</p>
               <p className="text-2xl font-semibold text-foreground">
                 {caseData.eventCount}
               </p>
             </div>
-            <div className={'bg-card rounded-lg border border-border p-4'}>
+            <div className={'rounded-lg border border-border bg-card p-4'}>
               <p className="text-xs text-muted-foreground">Members</p>
               <p className="text-2xl font-semibold text-foreground">
                 {members?.length ?? 0}

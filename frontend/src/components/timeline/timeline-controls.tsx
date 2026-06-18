@@ -49,7 +49,7 @@ export function TimelineControls(
   return (
     <div
       data-testid="timeline-controls"
-      className="bg-card flex flex-wrap items-center gap-3 rounded-lg border border-border p-3"
+      className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3"
     >
       {/* add event button */}
       <button

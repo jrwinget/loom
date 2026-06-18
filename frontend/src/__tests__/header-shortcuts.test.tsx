@@ -44,4 +44,18 @@ describe('Header keyboard shortcuts dialog', () => {
     expect(screen.getByTestId('shortcuts-dialog')).toBeInTheDocument();
     expect(screen.getByText('Play / pause')).toBeInTheDocument();
   });
+
+  it('applies its panel classes as discrete tokens', async () => {
+    const user = userEvent.setup();
+    renderHeader();
+    await user.click(screen.getByTestId('open-shortcuts'));
+
+    // guards against className strings being concatenated without a
+    // separating space (e.g. `rounded-lgborder`), which silently voids
+    // the glued utilities.
+    const dialog = screen.getByTestId('shortcuts-dialog');
+    expect(dialog.classList.contains('rounded-lg')).toBe(true);
+    expect(dialog.classList.contains('border')).toBe(true);
+    expect(dialog.classList.contains('bg-card')).toBe(true);
+  });
 });

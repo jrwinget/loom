@@ -97,7 +97,7 @@ export function UrlIngestForm(props: UrlIngestFormProps): React.ReactElement {
         value={input}
         onChange={(e) => setInput(e.target.value)}
         rows={5}
-        className="bg-card w-full rounded-md border border-border p-2 text-sm text-foreground"
+        className="w-full rounded-md border border-border bg-card p-2 text-sm text-foreground"
         placeholder="https://example.com/video.mp4"
         aria-label="URLs to ingest"
       />
@@ -119,7 +119,7 @@ export function UrlIngestForm(props: UrlIngestFormProps): React.ReactElement {
             <div
               key={e.id}
               data-testid={`url-entry-${e.id}`}
-              className="bg-card flex items-center gap-3 rounded-md border border-border p-3"
+              className="flex items-center gap-3 rounded-md border border-border bg-card p-3"
             >
               <p
                 className="min-w-0 flex-1 truncate text-sm text-foreground"
