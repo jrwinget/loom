@@ -1,12 +1,6 @@
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useFirstRunStatus } from '@/hooks/use-first-run';
 import { useUiStore } from '@/stores/ui-store';
-
-const navItems = [
-  { label: 'Dashboard', path: '/' },
-  { label: 'Cases', path: '/cases' },
-  { label: 'Organizations', path: '/organizations' },
-] as const;
 
 function isActive(path: string, pathname: string): boolean {
   if (path === '/') return pathname === '/';
@@ -47,13 +41,20 @@ function NavLink(props: NavLinkProps): React.ReactElement {
 }
 
 export function Sidebar(): React.ReactElement {
-  const { caseId } = useParams<{ caseId: string }>();
   const { pathname } = useLocation();
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
-  // storage management only appears on desktop (lite) installs.
   const { data: firstRun } = useFirstRunStatus();
-  const showStorage = firstRun?.deploymentProfile === 'lite';
+  // organizations and the plugin marketplace are server-only; desktop
+  // (lite) is single-user, so hide organizations and point settings at
+  // security. storage management only appears on lite.
+  const isLite = firstRun?.deploymentProfile === 'lite';
+  const showStorage = isLite;
+  const navItems = [
+    { label: 'Dashboard', path: '/' },
+    { label: 'Cases', path: '/cases' },
+    ...(isLite ? [] : [{ label: 'Organizations', path: '/organizations' }]),
+  ];
 
   return (
     <aside
@@ -82,35 +83,8 @@ export function Sidebar(): React.ReactElement {
             sidebarOpen={sidebarOpen}
           />
         ))}
-        {caseId && (
-          <NavLink
-            to={`/cases/${caseId}/conflicts`}
-            label="Conflicts"
-            collapsedGlyph="C"
-            pathname={pathname}
-            sidebarOpen={sidebarOpen}
-          />
-        )}
-        {caseId && (
-          <NavLink
-            to={`/cases/${caseId}/clusters`}
-            label="Clusters"
-            collapsedGlyph="K"
-            pathname={pathname}
-            sidebarOpen={sidebarOpen}
-          />
-        )}
-        {caseId && (
-          <NavLink
-            to={`/cases/${caseId}/map`}
-            label="Map"
-            collapsedGlyph="M"
-            pathname={pathname}
-            sidebarOpen={sidebarOpen}
-          />
-        )}
         <NavLink
-          to="/settings/plugins"
+          to={isLite ? '/settings/security' : '/settings/plugins'}
           label="Settings"
           collapsedGlyph="S"
           pathname={pathname}

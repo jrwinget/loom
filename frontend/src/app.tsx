@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { FirstRunGuard } from '@/components/auth/first-run-guard';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { ErrorBoundary } from '@/components/layout/error-boundary';
+import { CaseLayout } from '@/components/layout/case-layout';
 import { Shell } from '@/components/layout/shell';
 import { ToastContainer } from '@/components/layout/toast-container';
 import { Dashboard } from '@/routes/index';
@@ -20,6 +21,7 @@ import { MapPage } from '@/routes/cases/[caseId]/map';
 import { ReviewPage } from '@/routes/cases/[caseId]/review';
 import { OrganizationsPage } from '@/routes/organizations/index';
 import { PluginsSettingsPage } from '@/routes/settings/plugins';
+import { SecuritySettingsPage } from '@/routes/settings/security';
 import { StorageSettingsPage } from '@/routes/settings/storage';
 
 const queryClient = new QueryClient({
@@ -57,29 +59,23 @@ export function App(): React.ReactElement {
                   <Route index element={<Dashboard />} />
                   <Route path="organizations" element={<OrganizationsPage />} />
                   <Route path="cases" element={<CaseListPage />} />
-                  <Route path="cases/:caseId" element={<CaseDetailPage />} />
-                  <Route path="cases/:caseId/assets" element={<AssetsPage />} />
-                  <Route
-                    path="cases/:caseId/timeline"
-                    element={<TimelinePage />}
-                  />
-                  <Route
-                    path="cases/:caseId/conflicts"
-                    element={<ConflictsPage />}
-                  />
-                  <Route
-                    path="cases/:caseId/clusters"
-                    element={<ClustersPage />}
-                  />
-                  <Route path="cases/:caseId/map" element={<MapPage />} />
-                  <Route path="cases/:caseId/export" element={<ExportPage />} />
-                  <Route
-                    path="cases/:caseId/review/:assetId"
-                    element={<ReviewPage />}
-                  />
+                  <Route path="cases/:caseId" element={<CaseLayout />}>
+                    <Route index element={<CaseDetailPage />} />
+                    <Route path="assets" element={<AssetsPage />} />
+                    <Route path="timeline" element={<TimelinePage />} />
+                    <Route path="conflicts" element={<ConflictsPage />} />
+                    <Route path="clusters" element={<ClustersPage />} />
+                    <Route path="map" element={<MapPage />} />
+                    <Route path="export" element={<ExportPage />} />
+                    <Route path="review/:assetId" element={<ReviewPage />} />
+                  </Route>
                   <Route
                     path="settings/plugins"
                     element={<PluginsSettingsPage />}
+                  />
+                  <Route
+                    path="settings/security"
+                    element={<SecuritySettingsPage />}
                   />
                   <Route
                     path="settings/storage"
