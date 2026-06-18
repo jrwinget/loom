@@ -288,6 +288,16 @@ async def complete_presigned_upload(
     scan (``list_objects``) is minio-specific; it has no
     equivalent on the lite-profile backend and is server-only.
     """
+    # the presigned-upload flow is minio-only; lite uploads go through
+    # POST /upload directly. guard so the minio list_objects scan can't
+    # NPE on lite (minio_client is None there). 404, not 405, so probing
+    # can't confirm the profile.
+    if get_settings().is_lite:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="presigned upload completion is not available on lite",
+        )
+
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id, "editor")

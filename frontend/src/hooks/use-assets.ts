@@ -110,7 +110,7 @@ export function useAssetDownloadUrl(
     queryKey: [...queryKeys.assets.detail(assetId), 'download'],
     queryFn: async () => {
       const res = await apiClient.get<DownloadUrlResponse>(
-        `/cases/${caseId}/assets/${assetId}/download`,
+        `/cases/${caseId}/assets/${assetId}/download-url`,
       );
       return res.url;
     },

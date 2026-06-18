@@ -71,6 +71,19 @@ class StorageBackend(Protocol):
         chunk_size: int = 65536,
     ) -> tuple[int, Iterator[bytes]]: ...
 
+    def get_object_size(self, bucket: str, key: str) -> int:
+        """return the object's size in bytes; raise if it is missing."""
+
+    def get_object_range(
+        self,
+        bucket: str,
+        key: str,
+        start: int,
+        end: int,
+        chunk_size: int = 65536,
+    ) -> Iterator[bytes]:
+        """yield bytes [start, end] inclusive — backs HTTP Range reads."""
+
     def delete_object(self, bucket: str, key: str) -> None:
         """remove an object. in lite profile this bypasses the WORM
         bit for callers that legitimately need deletion (e.g. soft

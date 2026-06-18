@@ -2,6 +2,7 @@ import type { Asset } from '@/types/asset';
 import { useAssetDownloadUrl } from '@/hooks/use-assets';
 import { useAssetCustody } from '@/hooks/use-custody';
 import type { CustodyEntry } from '@/hooks/use-custody';
+import { attachmentHref } from '@/lib/utils';
 
 interface AssetDetailProps {
   asset: Asset;
@@ -231,7 +232,7 @@ export function AssetDetail(props: AssetDetailProps): React.ReactElement {
 
       {downloadUrl && (
         <a
-          href={downloadUrl}
+          href={attachmentHref(downloadUrl)}
           download={asset.originalFilename}
           data-testid="download-button"
           className={

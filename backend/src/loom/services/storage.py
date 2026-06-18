@@ -145,6 +145,28 @@ class StorageService(StorageBackend):
         size = int(response.headers.get("Content-Length", 0))
         return size, _stream_chunks(response, chunk_size)
 
+    def get_object_size(self, bucket: str, key: str) -> int:
+        """return the object's size in bytes via a stat call."""
+        return int(self._client.stat_object(bucket, key).size or 0)
+
+    def get_object_range(
+        self,
+        bucket: str,
+        key: str,
+        start: int,
+        end: int,
+        chunk_size: int = 65536,
+    ) -> "Iterator[bytes]":
+        """stream bytes [start, end] inclusive via a ranged minio GET.
+
+        retained for protocol parity; the server profile returns minio
+        presigned urls to clients, so this is not on the hot path.
+        """
+        response = self._client.get_object(
+            bucket, key, offset=start, length=end - start + 1
+        )
+        return _stream_chunks(response, chunk_size)
+
     def delete_object(self, bucket: str, key: str) -> None:
         """delete an object from minio."""
         self._client.remove_object(bucket, key)
