@@ -12,6 +12,7 @@ from loom.schemas.ocr import OcrRegionResponse, OcrResultResponse
 from loom.security.rbac import get_current_user_id, require_authenticated
 from loom.services.case import check_case_access
 from loom.services.search import _ilike_pattern
+from loom.workflows.dispatch import dispatch_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -119,19 +120,7 @@ async def start_ocr_workflow(
 
     workflow_id = f"ocr-{asset_id}"
     try:
-        from temporalio.client import Client
-
-        from loom.config import get_settings
-        from loom.workflows.ocr_workflow import OcrWorkflow
-
-        settings = get_settings()
-        client = await Client.connect(settings.temporal_host)
-        await client.start_workflow(
-            OcrWorkflow.run,
-            asset_id,
-            id=workflow_id,
-            task_queue="loom-ingest",
-        )
+        await dispatch_workflow("ocr", args=[asset_id], workflow_id=workflow_id)
     except Exception:
         logger.error(
             "failed to start ocr workflow for %s",

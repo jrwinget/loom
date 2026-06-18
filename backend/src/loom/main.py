@@ -125,7 +125,12 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
-    # shutdown
+    # shutdown. let in-flight lite in-process workflows finish (best
+    # effort) before tearing the engine down; activities are
+    # idempotent, so any that don't finish can be re-dispatched.
+    from loom.workflows.dispatch import drain_background_tasks
+
+    await drain_background_tasks()
     await engine.dispose()
     await log.ainfo("shutdown complete")
 

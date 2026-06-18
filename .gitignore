@@ -38,6 +38,9 @@ frontend/stats.html
 frontend/test-results/
 frontend/playwright-report/
 
+# vitest coverage
+frontend/coverage/
+
 # environment and secrets
 .env
 .env.local

@@ -16,6 +16,7 @@ from fastapi import (
 from minio import Minio
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from loom.config import get_settings
 from loom.dependencies import (
     get_db_session,
     get_minio_client,
@@ -59,6 +60,7 @@ from loom.services.url_ingest import (
     ExtractionError,
     select_extractor,
 )
+from loom.workflows.dispatch import dispatch_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +183,8 @@ async def upload_asset(
 
         await db.commit()
         await db.refresh(asset)
+
+        await _start_ingest(asset.id)
     finally:
         active_uploads.dec()
 
@@ -192,6 +196,27 @@ async def upload_asset(
         upload_status=asset.upload_status,
         processing_status=asset.processing_status,
     )
+
+
+async def _start_ingest(asset_id: Any) -> None:
+    """dispatch the ingest pipeline for a freshly uploaded asset.
+
+    non-fatal by design: the bytes are already stored and the asset
+    row is committed, so a dispatch failure leaves the asset
+    'pending' (re-dispatchable) rather than failing the upload.
+    """
+    try:
+        await dispatch_workflow(
+            "ingest",
+            args=[str(asset_id)],
+            workflow_id=f"ingest-{asset_id}",
+        )
+    except Exception:
+        logger.error(
+            "failed to start ingest workflow for %s",
+            asset_id,
+            exc_info=True,
+        )
 
 
 @router.post(
@@ -337,6 +362,8 @@ async def complete_presigned_upload(
     )
     await db.commit()
     await db.refresh(asset)
+
+    await _start_ingest(asset.id)
 
     return AssetUploadResponse(
         id=asset.id,
@@ -662,8 +689,9 @@ async def ingest_from_url(
     Only public content is supported — private, authenticated, or
     paywalled URLs are out of scope. Returns 501 when the matched
     extractor's optional dependency is not installed (the HTTP
-    fallback is always available). Returns 502 when Temporal is
-    unreachable.
+    fallback is always available). On the server profile, returns
+    502 when Temporal is unreachable; the lite profile runs the
+    ingest in-process and cannot hit that path.
     """
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
@@ -738,35 +766,36 @@ async def ingest_from_url(
     await db.flush()
 
     workflow_id = f"url-ingest-{asset.id}"
-    try:
-        from temporalio.client import Client
+    args = [str(asset.id), submitted_url]
 
-        from loom.config import get_settings
-        from loom.workflows.url_ingest_workflow import (
-            UrlIngestWorkflow,
+    # lite runs the pipeline in-process from a separate db session, so
+    # the placeholder row must be committed before the background task
+    # can see it. server starts a durable temporal workflow and rolls
+    # the row back if the dispatch itself fails, leaving no orphan
+    # placeholder behind.
+    if get_settings().is_lite:
+        await db.commit()
+        await dispatch_workflow(
+            "url_ingest", args=args, workflow_id=workflow_id
         )
+    else:
+        try:
+            await dispatch_workflow(
+                "url_ingest", args=args, workflow_id=workflow_id
+            )
+        except Exception:
+            await db.rollback()
+            logger.error(
+                "failed to start url-ingest workflow for %s",
+                submitted_url,
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="workflow service unavailable",
+            ) from None
+        await db.commit()
 
-        settings = get_settings()
-        client = await Client.connect(settings.temporal_host)
-        await client.start_workflow(
-            UrlIngestWorkflow.run,
-            args=[str(asset.id), submitted_url],
-            id=workflow_id,
-            task_queue="loom-ingest",
-        )
-    except Exception:
-        await db.rollback()
-        logger.error(
-            "failed to start url-ingest workflow for %s",
-            submitted_url,
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="workflow service unavailable",
-        ) from None
-
-    await db.commit()
     return IngestUrlResponse(
         asset_id=asset.id,
         workflow_id=workflow_id,

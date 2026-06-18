@@ -20,6 +20,7 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 
 from loom.workflows.ingest_workflow import IngestWorkflow
+from loom.workflows.url_ingest_workflow import UrlIngestWorkflow
 
 
 @pytest_asyncio.fixture
@@ -140,6 +141,57 @@ async def test_ingest_workflow_retries_transient_activity_failure(
     # second succeeded, downstream activities ran exactly once.
     assert result == asset_id
     assert activity_call_log == [
+        "verify_asset_hash",
+        "extract_asset_metadata",
+        "generate_asset_proxies",
+        "record_derivatives_custody",
+        "mark_asset_complete",
+    ]
+
+
+def _build_url_stub_activities(call_log: list[str]) -> list[Any]:
+    """url-ingest stubs: the two url steps plus the shared tail."""
+
+    @activity.defn(name="download_url_and_record_provenance")
+    async def download(asset_id: str, url: str) -> dict[str, Any]:
+        call_log.append("download_url_and_record_provenance")
+        return {"asset_id": asset_id}
+
+    @activity.defn(name="attempt_wayback_snapshot")
+    async def wayback(asset_id: str, url: str) -> str | None:
+        call_log.append("attempt_wayback_snapshot")
+        return None
+
+    return [download, wayback, *_build_stub_activities(call_log)]
+
+
+async def test_url_ingest_workflow_runs_download_then_shared_tail(
+    temporal_client: Client,
+    activity_call_log: list[str],
+) -> None:
+    """url ingest downloads, snapshots, then runs the ingest tail."""
+    asset_id = str(uuid4())
+    url = "https://example.com/clip.mp4"
+    task_queue = f"url-ingest-{asset_id}"
+    activities = _build_url_stub_activities(activity_call_log)
+
+    async with Worker(
+        temporal_client,
+        task_queue=task_queue,
+        workflows=[UrlIngestWorkflow],
+        activities=activities,
+    ):
+        result = await temporal_client.execute_workflow(
+            UrlIngestWorkflow.run,
+            args=[asset_id, url],
+            id=f"url-ingest-{asset_id}",
+            task_queue=task_queue,
+        )
+
+    assert result == asset_id
+    assert activity_call_log == [
+        "download_url_and_record_provenance",
+        "attempt_wayback_snapshot",
         "verify_asset_hash",
         "extract_asset_metadata",
         "generate_asset_proxies",

@@ -157,8 +157,16 @@ Desktop Lite:
   directory).
 - Stores files on the local filesystem under the data directory.
 - Runs workers in-process — no Temporal server, no Redis, no Docker.
+  Uploads, URL ingest, and court-bundle export all run as background
+  tasks inside the app; nothing needs an external workflow service.
 - Supports ingest, timeline synthesis, annotations, chain of custody,
   and court-bundle export.
+
+OCR, transcription, and scene detection run in-process too, but the
+desktop build does not bundle their AI models (faster-whisper,
+pytesseract, scenedetect). Without those installed, these steps
+complete successfully with empty results rather than failing — the
+underlying evidence and chain of custody are unaffected.
 
 Desktop Lite does **not** support:
 
