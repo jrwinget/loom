@@ -20,11 +20,14 @@ export function useAssets(
   });
 }
 
-export function useAsset(assetId: string): ReturnType<typeof useQuery<Asset>> {
+export function useAsset(
+  caseId: string,
+  assetId: string,
+): ReturnType<typeof useQuery<Asset>> {
   return useQuery({
     queryKey: queryKeys.assets.detail(assetId),
-    queryFn: () => apiClient.get<Asset>(`/assets/${assetId}`),
-    enabled: !!assetId,
+    queryFn: () => apiClient.get<Asset>(`/cases/${caseId}/assets/${assetId}`),
+    enabled: !!caseId && !!assetId,
   });
 }
 
@@ -46,7 +49,7 @@ export function useUploadAsset(
 
       return new Promise<Asset>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${getApiOrigin()}/cases/${caseId}/assets`);
+        xhr.open('POST', `${getApiOrigin()}/cases/${caseId}/assets/upload`);
 
         if (token) {
           xhr.setRequestHeader('Authorization', `Bearer ${token}`);
