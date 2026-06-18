@@ -20,6 +20,7 @@ from loom.security.rbac import (
 )
 from loom.services.case import check_case_access
 from loom.services.storage_backends import DERIVATIVES_BUCKET, StorageBackend
+from loom.workflows.dispatch import dispatch_workflow
 
 # thumbnail presigned-url ttl (seconds) — matches asset download.
 _THUMBNAIL_URL_TTL_SECONDS = 900
@@ -167,20 +168,8 @@ async def start_scene_detection(
 
     workflow_id = f"scene-detect-{asset_id}"
     try:
-        from temporalio.client import Client
-
-        from loom.config import get_settings
-        from loom.workflows.scene_workflow import (
-            SceneDetectionWorkflow,
-        )
-
-        settings = get_settings()
-        client = await Client.connect(settings.temporal_host)
-        await client.start_workflow(
-            SceneDetectionWorkflow.run,
-            asset_id,
-            id=workflow_id,
-            task_queue="loom-ingest",
+        await dispatch_workflow(
+            "scene_detection", args=[asset_id], workflow_id=workflow_id
         )
     except Exception:
         logger.error(

@@ -96,7 +96,7 @@ export function useUpload(): UseUploadReturn {
 
           await new Promise<void>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', `${getApiOrigin()}/cases/${caseId}/assets`);
+            xhr.open('POST', `${getApiOrigin()}/cases/${caseId}/assets/upload`);
 
             if (token) {
               xhr.setRequestHeader('Authorization', `Bearer ${token}`);
