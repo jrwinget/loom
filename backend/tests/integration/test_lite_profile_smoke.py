@@ -115,10 +115,10 @@ def test_ingest_then_export_round_trip_without_minio(
     backend.download_file(ORIGINALS_BUCKET, key, str(out))
     assert out.read_bytes() == payload
 
-    # --- loopback presigned url (lite has no http) ----------------
+    # --- signed http asset url (served by the sidecar endpoint) ---
     url = backend.get_presigned_download_url(ORIGINALS_BUCKET, key, expires=60)
-    assert url.startswith("loom://storage/")
-    assert backend.verify_loopback_url(url)
+    assert url.startswith("http://")
+    assert "/api/v1/storage/object/" in url
 
     # --- delete (used by soft-delete / redaction paths) -----------
     backend.delete_object(DERIVATIVES_BUCKET, proxy_key)

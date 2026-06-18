@@ -36,7 +36,7 @@ export function useStartSceneDetection(
   return useMutation({
     mutationFn: () =>
       apiClient.post<StartSceneDetectionResponse>(
-        `/cases/${caseId}/assets/${assetId}/detect-scenes`,
+        `/cases/${caseId}/assets/${assetId}/scenes/detect`,
       ),
     onSuccess: () => {
       void queryClient.invalidateQueries({

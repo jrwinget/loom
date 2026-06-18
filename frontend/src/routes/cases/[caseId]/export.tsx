@@ -6,6 +6,7 @@ import { ExportWizard } from '@/components/export/export-wizard';
 import { ReportBuilder } from '@/components/export/report-builder';
 import { ReportPreview } from '@/components/export/report-preview';
 import { useExports } from '@/hooks/use-exports';
+import { attachmentHref } from '@/lib/utils';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -99,7 +100,7 @@ export function ExportPage(): React.ReactElement {
                     </span>
                     {exp.status === 'complete' && exp.storageKey && (
                       <a
-                        href={exp.storageKey}
+                        href={attachmentHref(exp.storageKey)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm text-primary hover:underline"

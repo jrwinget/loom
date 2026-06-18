@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
+import { attachmentHref } from '@/lib/utils';
 import type { Asset } from '@/types/asset';
 
 interface AssetViewerProps {
@@ -348,23 +349,61 @@ function ImageViewer(props: { src: string; alt: string }): React.ReactElement {
   );
 }
 
-function DocumentViewer(props: {
+function DownloadFallback(props: {
   src: string;
   filename: string;
+  message: string;
 }): React.ReactElement {
   return (
-    <div
-      data-testid="document-viewer"
-      className="flex h-48 flex-col items-center justify-center rounded border border-border bg-muted"
-    >
-      <p className="text-sm text-muted-foreground">Preview not available</p>
+    <div className="flex h-48 flex-col items-center justify-center rounded border border-border bg-muted">
+      <p className="text-sm text-muted-foreground">{props.message}</p>
       <a
-        href={props.src}
+        href={attachmentHref(props.src)}
         download={props.filename}
         className="mt-2 text-sm font-medium text-primary hover:underline"
       >
         Download file
       </a>
+    </div>
+  );
+}
+
+function DocumentViewer(props: {
+  src: string;
+  filename: string;
+  mimeType: string;
+}): React.ReactElement {
+  const { src, filename, mimeType } = props;
+
+  // pdfs render inline in the webview's native viewer; the <object>
+  // fallback (a download link) shows on platforms without one. other
+  // document types are download-only.
+  if (mimeType === 'application/pdf') {
+    return (
+      <div data-testid="document-viewer">
+        <object
+          data={src}
+          type="application/pdf"
+          className="h-[600px] w-full rounded border border-border"
+          aria-label={`PDF: ${filename}`}
+        >
+          <DownloadFallback
+            src={src}
+            filename={filename}
+            message="Inline preview unavailable on this platform"
+          />
+        </object>
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="document-viewer">
+      <DownloadFallback
+        src={src}
+        filename={filename}
+        message="Preview not available"
+      />
     </div>
   );
 }
@@ -381,6 +420,12 @@ export function AssetViewer(props: AssetViewerProps): React.ReactElement {
       return <ImageViewer src={src} alt={asset.originalFilename} />;
     case 'document':
     case 'other':
-      return <DocumentViewer src={src} filename={asset.originalFilename} />;
+      return (
+        <DocumentViewer
+          src={src}
+          filename={asset.originalFilename}
+          mimeType={asset.mimeType}
+        />
+      );
   }
 }

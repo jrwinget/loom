@@ -181,6 +181,9 @@ If you need any of those, run the server deploy (see `deployment.md`)
 instead. Desktop Lite can import from and export to a server deploy
 via the court-bundle format — see below.
 
+For a feature-by-feature breakdown of what Lite supports and how, see
+[`lite-capability-matrix.md`](lite-capability-matrix.md).
+
 ## Data directory
 
 Everything Loom writes lives under the data directory you chose on
