@@ -119,7 +119,9 @@ export function WhyPopover(props: WhyPopoverProps): React.ReactElement {
           <p className="mt-2 border-t border-border pt-2 text-[10px] text-muted-foreground">
             AI output — verify before relying on it.{' '}
             <a
-              href="/docs/ai-model-cards"
+              href="https://github.com/jrwinget/loom/blob/main/docs/ai-model-cards.md"
+              target="_blank"
+              rel="noreferrer"
               className="underline hover:text-foreground"
             >
               Model card

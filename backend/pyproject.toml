@@ -1,6 +1,6 @@
 [project]
 name = "loom"
-version = "0.1.12"
+version = "0.1.13"
 description = "Evidence operating system for civil-rights legal teams"
 readme = "README.md"
 license = { text = "MIT" }
