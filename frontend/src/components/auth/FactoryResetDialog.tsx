@@ -86,7 +86,7 @@ export function FactoryResetDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
       data-testid="factory-reset-dialog"
     >
-      <div className="bg-card w-full max-w-md space-y-4 rounded-lg border border-border p-6">
+      <div className="w-full max-w-md space-y-4 rounded-lg border border-border bg-card p-6">
         <h2
           id="factory-reset-title"
           className="text-lg font-semibold text-destructive"

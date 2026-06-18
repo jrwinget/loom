@@ -116,7 +116,7 @@ export function UploadDropzone(props: UploadDropzoneProps): React.ReactElement {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors ${
-              dragOver ? 'border-primary bg-primary/5' : 'bg-card border-border'
+              dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
             }`}
           >
             <p className="text-sm text-muted-foreground">
@@ -148,7 +148,7 @@ export function UploadDropzone(props: UploadDropzoneProps): React.ReactElement {
                 <div
                   key={f.id}
                   data-testid={`upload-file-${f.id}`}
-                  className="bg-card flex items-center gap-3 rounded-md border border-border p-3"
+                  className="flex items-center gap-3 rounded-md border border-border bg-card p-3"
                 >
                   <div className="min-w-0 flex-1">
                     <p

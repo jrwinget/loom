@@ -15,7 +15,7 @@ export function StorageAdvisory(
   const { selectedFiles } = props;
 
   const { data: firstRun } = useFirstRunStatus();
-  const isLite = firstRun?.deployment_profile === 'lite';
+  const isLite = firstRun?.deploymentProfile === 'lite';
 
   const { data: usage } = useStorageUsage({ enabled: isLite });
 

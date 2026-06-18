@@ -48,8 +48,8 @@ describe('MfaChallenge', () => {
 
   it('submits the entered code and stores the returned token on success', async () => {
     mockedPost.mockResolvedValueOnce({
-      access_token: 'new-jwt',
-      refresh_token: 'new-refresh',
+      accessToken: 'new-jwt',
+      refreshToken: 'new-refresh',
     });
     mockedGet.mockResolvedValueOnce({
       id: 'u-1',
@@ -90,7 +90,7 @@ describe('MfaChallenge', () => {
 
     expect(screen.getByRole('button', { name: 'Verifying...' })).toBeDisabled();
 
-    resolvePost({ access_token: 't', refresh_token: 'r' });
+    resolvePost({ accessToken: 't', refreshToken: 'r' });
     mockedGet.mockResolvedValueOnce({
       id: 'u-1',
       email: 'ada@example.org',
@@ -117,8 +117,8 @@ describe('MfaChallenge', () => {
 
   it('submits the form when the user presses Enter inside the code input', async () => {
     mockedPost.mockResolvedValueOnce({
-      access_token: 'jwt',
-      refresh_token: 'refresh',
+      accessToken: 'jwt',
+      refreshToken: 'refresh',
     });
     mockedGet.mockResolvedValueOnce({
       id: 'u-1',

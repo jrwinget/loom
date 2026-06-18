@@ -75,6 +75,59 @@ On first launch Loom walks through three screens:
 
 After these four screens, Loom opens the main case workspace.
 
+## Quick start
+
+A short orientation for your first session. If you have not installed Loom
+yet, download the installer for your platform from the
+[releases page](https://github.com/jrwinget/loom/releases) and work through
+[Installing](#installing) and [First run](#first-run) first.
+
+Once you sign in, Loom opens on your case workspace. The left sidebar is how
+you move around — **Dashboard**, **Cases**, **Settings**, and (on Desktop
+Lite) **Storage**. The button in the top-right corner shows your account
+initial; click it for **Settings** and **Logout**. Press `?` at any time to
+see the full list of keyboard shortcuts.
+
+A typical first session:
+
+1. **Create a case.** Go to **Cases** and click **Create Case**. A case is
+   the container for one investigation — give it a name and an optional
+   description, then open it to reach the case workspace.
+2. **Add evidence.** Inside the case, open **Assets** and add material two
+   ways: drag video, image, or document files onto the upload area, or paste a
+   link to capture online media (Loom downloads it and, best-effort, requests a
+   web-archive snapshot). Every original is hashed and stored read-only for
+   chain of custody — see [Data directory](#data-directory). Ingest runs in the
+   background, so large files keep processing while you work.
+3. **Review and annotate.** Open an asset to scrub playback, read its
+   transcript, search within it, and mark observations, claims, and disputes.
+   Playback has its own shortcuts (`Space` to play/pause, arrows to skip,
+   `I` / `O` to mark in and out points) — press `?` for the full set.
+4. **Build the timeline.** Open **Timeline** to place events on a shared
+   clock. Loom proposes correlations between assets; use the confidence slider
+   to tighten or loosen which matches it surfaces. **Conflicts**, **Clusters**,
+   and **Map** (in the sidebar while a case is open) offer complementary views
+   of the same evidence.
+5. **Export for court.** Open **Export** to produce a signed court bundle (a
+   `.loom` archive) containing the originals, derivatives, annotations,
+   timeline, and chain of custody. The bundle is hash-verified on import, so it
+   can be handed to another Loom install or a server deploy without losing
+   provenance.
+
+### Staying secure
+
+The eight recovery codes from first run are the only way back in if you
+forget your password (see [Forgot your password?](#forgot-your-password)), so
+keep them somewhere safe. You can add a second factor under your account's
+**Settings → Security**.
+
+### Getting help
+
+Found a bug or have a question? Open an issue at
+<https://github.com/jrwinget/loom/issues>. For anything security-sensitive,
+follow the responsible-disclosure process in [security.md](security.md) rather
+than filing a public issue.
+
 ## Forgot your password?
 
 If you have at least one unused recovery code:

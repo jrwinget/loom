@@ -53,8 +53,8 @@ describe('useMfaChallenge', () => {
 
   it('posts the challenge token and code, returns tokens on success', async () => {
     mockedPost.mockResolvedValueOnce({
-      access_token: 'jwt',
-      refresh_token: 'refresh',
+      accessToken: 'jwt',
+      refreshToken: 'refresh',
       token_type: 'bearer',
     });
 
@@ -73,8 +73,8 @@ describe('useMfaChallenge', () => {
       code: '123456',
     });
     expect(result.current.data).toEqual({
-      access_token: 'jwt',
-      refresh_token: 'refresh',
+      accessToken: 'jwt',
+      refreshToken: 'refresh',
       token_type: 'bearer',
     });
   });
@@ -133,8 +133,8 @@ describe('useMfaSetup', () => {
 
   it('posts to /auth/mfa/setup and returns the provisioning uri', async () => {
     mockedPost.mockResolvedValueOnce({
-      provisioning_uri: 'otpauth://totp/Loom:user?secret=ABC',
-      mfa_enabled: false,
+      provisioningUri: 'otpauth://totp/Loom:user?secret=ABC',
+      mfaEnabled: false,
     });
 
     const { result } = renderHook(() => useMfaSetup(), {
@@ -146,8 +146,8 @@ describe('useMfaSetup', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockedPost).toHaveBeenCalledWith('/auth/mfa/setup');
     expect(result.current.data).toEqual({
-      provisioning_uri: 'otpauth://totp/Loom:user?secret=ABC',
-      mfa_enabled: false,
+      provisioningUri: 'otpauth://totp/Loom:user?secret=ABC',
+      mfaEnabled: false,
     });
   });
 
@@ -179,8 +179,8 @@ describe('useMfaVerify', () => {
 
   it('accepts a valid code and returns recovery codes plus a success toast', async () => {
     mockedPost.mockResolvedValueOnce({
-      mfa_enabled: true,
-      recovery_codes: ['code-1', 'code-2', 'code-3'],
+      mfaEnabled: true,
+      recoveryCodes: ['code-1', 'code-2', 'code-3'],
     });
 
     const { result } = renderHook(() => useMfaVerify(), {
@@ -193,7 +193,7 @@ describe('useMfaVerify', () => {
     expect(mockedPost).toHaveBeenCalledWith('/auth/mfa/verify', {
       code: '123456',
     });
-    expect(result.current.data?.recovery_codes).toHaveLength(3);
+    expect(result.current.data?.recoveryCodes).toHaveLength(3);
     expect(useToastStore.getState().toasts).toMatchObject([
       { type: 'success', message: 'MFA enabled successfully' },
     ]);

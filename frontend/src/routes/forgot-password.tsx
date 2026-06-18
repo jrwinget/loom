@@ -15,7 +15,7 @@ import { apiClient } from '@/lib/api-client';
 const MIN_PASSWORD_LENGTH = 12;
 
 interface RecoverResponse {
-  codes_remaining: number;
+  codesRemaining: number;
 }
 
 export function ForgotPasswordPage(): React.ReactElement {
@@ -51,7 +51,7 @@ export function ForgotPasswordPage(): React.ReactElement {
           new_password: password,
         },
       );
-      setRemaining(resp.codes_remaining);
+      setRemaining(resp.codesRemaining);
       // redirect after a short pause so the operator sees the
       // "codes remaining" hint before the page changes.
       window.setTimeout(() => navigate('/login', { replace: true }), 2500);
@@ -72,7 +72,7 @@ export function ForgotPasswordPage(): React.ReactElement {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <div
-          className="bg-card w-full max-w-sm space-y-4 rounded-lg border border-border p-8 text-center"
+          className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-card p-8 text-center"
           data-testid="forgot-password-success"
         >
           <h1 className="text-xl font-semibold text-foreground">
@@ -94,7 +94,7 @@ export function ForgotPasswordPage(): React.ReactElement {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="bg-card w-full max-w-sm space-y-6 rounded-lg border border-border p-8">
+      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-8">
         <header className="text-center">
           <h1 className="text-2xl font-bold text-foreground">
             Recover your password

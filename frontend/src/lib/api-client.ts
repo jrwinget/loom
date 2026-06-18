@@ -23,7 +23,7 @@ export function getApiOrigin(): string {
   return API_PREFIX;
 }
 
-class ApiClientError extends Error {
+export class ApiClientError extends Error {
   status: number;
   detail: string;
 
@@ -41,6 +41,67 @@ export function getCsrfToken(): string | null {
 }
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+// the backend serializes DTOs in snake_case; every frontend type is
+// camelCase. convert response keys recursively here so a single place
+// owns the wire->type mapping. requests are sent as the caller writes
+// them and are NOT transformed (some bodies are intentionally
+// snake_case: admin_email, recovery_code, challenge_token, user_id).
+// only keys are rewritten, never values.
+//
+// free-form JSON blobs are opaque: their nested keys carry meaning and
+// must survive verbatim -- a C2PA chain-of-custody manifest must never
+// have its keys mangled. for these keys we rewrite the key itself but
+// pass the value through without recursing into it.
+const OPAQUE_VALUE_KEYS = new Set([
+  'manifestData',
+  'detail',
+  'config',
+  'metadata',
+  // correlation reasoning is keyed by dynamic signal names
+  // (e.g. "time_proximity") that are displayed verbatim.
+  'reasoning',
+]);
+
+function snakeToCamel(key: string): string {
+  return key.replace(/_([a-z0-9])/g, (_m, c: string) => c.toUpperCase());
+}
+
+function camelizeKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(camelizeKeys);
+  }
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      const camelKey = snakeToCamel(key);
+      out[camelKey] = OPAQUE_VALUE_KEYS.has(camelKey) ? val : camelizeKeys(val);
+    }
+    return out;
+  }
+  return value;
+}
+
+// the desktop webview reuses an idle keep-alive socket for the submit
+// POST after the initial GET (/first-run/status). once the sidecar
+// closes that socket the reused-socket write fails at the transport
+// layer and fetch rejects with a TypeError -- "Load failed" in WebKit.
+// a transport reject means no HTTP response was received, so the
+// request was never processed by the server: replaying it on a fresh
+// connection is safe even for a POST (and /first-run/complete is
+// additionally idempotent -- 201 then 409). an ApiClientError is only
+// ever thrown AFTER a response arrives, so HTTP 4xx/5xx are never
+// retried here.
+const MAX_TRANSPORT_RETRIES = 2;
+const RETRY_BASE_DELAY_MS = 150;
+
+function isTransportError(err: unknown): boolean {
+  return err instanceof TypeError;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = useAuthStore.getState().token;
@@ -61,10 +122,23 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
   }
 
-  const response = await fetch(`${getApiOrigin()}${path}`, {
-    ...options,
-    headers,
-  });
+  const url = `${getApiOrigin()}${path}`;
+  let response: Response;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      response = await fetch(url, { ...options, headers });
+      break;
+    } catch (err) {
+      // retry only a transport reject (the request was never
+      // processed); exhausted attempts and non-transport errors
+      // propagate unchanged.
+      if (attempt < MAX_TRANSPORT_RETRIES && isTransportError(err)) {
+        await sleep(RETRY_BASE_DELAY_MS * (attempt + 1));
+        continue;
+      }
+      throw err;
+    }
+  }
 
   if (response.status === 401) {
     useAuthStore.getState().clearAuth();
@@ -86,7 +160,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  const data = (await response.json()) as unknown;
+  return camelizeKeys(data) as T;
 }
 
 export const apiClient = {

@@ -53,12 +53,12 @@ describe('LoginPage MFA flow', () => {
     mockedGet.mockReset();
   });
 
-  it('shows MFA challenge when login returns requires_mfa', async () => {
+  it('shows MFA challenge when login returns requiresMfa', async () => {
     const user = userEvent.setup();
 
     mockedPost.mockResolvedValueOnce({
-      requires_mfa: true,
-      challenge_token: 'test-challenge-token',
+      requiresMfa: true,
+      challengeToken: 'test-challenge-token',
     });
 
     renderLogin();
@@ -79,8 +79,8 @@ describe('LoginPage MFA flow', () => {
 
     // first call: login returns mfa challenge
     mockedPost.mockResolvedValueOnce({
-      requires_mfa: true,
-      challenge_token: 'test-challenge-token',
+      requiresMfa: true,
+      challengeToken: 'test-challenge-token',
     });
 
     renderLogin();
@@ -97,8 +97,8 @@ describe('LoginPage MFA flow', () => {
 
     // second call: mfa challenge returns tokens
     mockedPost.mockResolvedValueOnce({
-      access_token: 'jwt-token',
-      refresh_token: 'refresh-token',
+      accessToken: 'jwt-token',
+      refreshToken: 'refresh-token',
     });
     mockedGet.mockResolvedValueOnce({
       id: '1',
@@ -121,8 +121,8 @@ describe('LoginPage MFA flow', () => {
     const user = userEvent.setup();
 
     mockedPost.mockResolvedValueOnce({
-      requires_mfa: true,
-      challenge_token: 'test-challenge-token',
+      requiresMfa: true,
+      challengeToken: 'test-challenge-token',
     });
 
     renderLogin();
@@ -154,8 +154,8 @@ describe('LoginPage MFA flow', () => {
     const user = userEvent.setup();
 
     mockedPost.mockResolvedValueOnce({
-      requires_mfa: true,
-      challenge_token: 'test-challenge-token',
+      requiresMfa: true,
+      challengeToken: 'test-challenge-token',
     });
 
     renderLogin();

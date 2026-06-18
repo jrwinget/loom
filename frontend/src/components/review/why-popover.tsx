@@ -88,8 +88,8 @@ export function WhyPopover(props: WhyPopoverProps): React.ReactElement {
           data-testid="why-popover-content"
           aria-label="AI output provenance"
           className={cn(
-            'bg-popover absolute z-50 mt-1 w-72 rounded border border-border p-3',
-            'text-popover-foreground text-xs shadow-md',
+            'absolute z-50 mt-1 w-72 rounded border border-border bg-popover p-3',
+            'text-xs text-popover-foreground shadow-md',
           )}
         >
           <p className="mb-2 text-[11px] font-semibold text-muted-foreground">

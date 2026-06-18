@@ -65,10 +65,10 @@ function formatOffset(seconds: number): string {
 function memberOffsets(
   members: CorrelationCandidateMember[],
 ): Record<string, number | null> {
-  // capture_time is server-formatted ISO string; if any member lacks one
+  // captureTime is server-formatted ISO string; if any member lacks one
   // we return null for that member so the UI can show "—".
   const captures = members.map((m) =>
-    m.capture_time ? Date.parse(m.capture_time) : null,
+    m.captureTime ? Date.parse(m.captureTime) : null,
   );
   const known = captures.filter((c): c is number => c !== null);
   if (known.length === 0) {
@@ -120,8 +120,8 @@ function ReasoningPopover(props: {
           data-testid={`reasoning-content-${candidateId}`}
           aria-label="Correlation reasoning"
           className={cn(
-            'bg-popover absolute z-50 mt-1 w-72 rounded border border-border p-3',
-            'text-popover-foreground text-xs shadow-md',
+            'absolute z-50 mt-1 w-72 rounded border border-border bg-popover p-3',
+            'text-xs text-popover-foreground shadow-md',
           )}
         >
           <p className="mb-2 text-[11px] font-semibold text-muted-foreground">
@@ -198,7 +198,7 @@ function CandidateRow(props: {
               className="flex items-center gap-2"
             >
               <span className="flex-1 truncate text-foreground">
-                {m.original_filename ?? m.asset_id}
+                {m.originalFilename ?? m.assetId}
               </span>
               <span className="text-xs tabular-nums text-muted-foreground">
                 {offset === null ? '—' : formatOffset(offset)}

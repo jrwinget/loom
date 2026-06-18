@@ -4,8 +4,8 @@ import { apiClient } from '@/lib/api-client';
 import type { User } from '@/types';
 
 interface MfaChallengeTokens {
-  access_token: string;
-  refresh_token: string;
+  accessToken: string;
+  refreshToken: string;
 }
 
 export function MfaChallenge(): React.ReactElement {
@@ -29,9 +29,9 @@ export function MfaChallenge(): React.ReactElement {
       );
 
       // fetch user profile with the new token
-      useAuthStore.setState({ token: tokens.access_token });
+      useAuthStore.setState({ token: tokens.accessToken });
       const user = await apiClient.get<User>('/auth/me');
-      setAuth(tokens.access_token, user);
+      setAuth(tokens.accessToken, user);
     } catch {
       setError('Invalid code. Please try again.');
     } finally {
@@ -41,7 +41,7 @@ export function MfaChallenge(): React.ReactElement {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="bg-card w-full max-w-sm space-y-6 rounded-lg border border-border p-8">
+      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-8">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground">
             Two-Factor Authentication
