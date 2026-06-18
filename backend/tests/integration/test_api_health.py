@@ -221,3 +221,37 @@ async def test_health_lite_profile_skips_minio(
     data = resp.json()
     assert data["services"]["storage"] == "ok"
     assert data["status"] == "ok"
+
+
+async def test_health_lite_profile_skips_temporal_probe(
+    mock_app: FastAPI,
+    _temporal_probe_ok: AsyncMock,
+) -> None:
+    """lite runs workflows in-process, so health never probes temporal."""
+    from loom.config import Settings, get_settings
+
+    lite_settings = Settings(
+        secret_key="test-secret-key-that-is-long-enough-for-validation",
+        database_url="sqlite+aiosqlite:///:memory:",
+        deployment_profile="lite",
+        storage_signing_secret="test-signing-secret",
+    )
+    mock_app.state.minio_client = None
+
+    get_settings.cache_clear()
+    with patch(
+        "loom.api.v1.health.get_settings",
+        return_value=lite_settings,
+    ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=mock_app),
+            base_url="http://testserver",
+        ) as client:
+            resp = await client.get("/api/v1/health")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["services"]["temporal"] == "ok"
+    assert data["status"] == "ok"
+    # the probe must not run on lite — there is no temporal server.
+    _temporal_probe_ok.assert_not_awaited()

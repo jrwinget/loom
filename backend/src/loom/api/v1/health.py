@@ -60,10 +60,15 @@ async def health_check(request: Request) -> dict[str, Any]:
             await log.awarning("storage health check failed")
             services["storage"] = "error"
 
-    # temporal check. every deployment profile runs workflows — if
-    # temporal is unreachable, no evidence can be ingested or
-    # exported, so the service is not healthy regardless of db/minio.
-    services["temporal"] = await _probe_temporal(settings.temporal_host)
+    # temporal check. the server profile runs workflows on a temporal
+    # server; if it is unreachable, no evidence can be ingested or
+    # exported, so the service is unhealthy. the lite profile runs
+    # workflows in-process (no temporal server to probe), so it is
+    # always reported ok here.
+    if settings.is_lite:
+        services["temporal"] = "ok"
+    else:
+        services["temporal"] = await _probe_temporal(settings.temporal_host)
 
     overall = "ok" if all(v == "ok" for v in services.values()) else "error"
 
