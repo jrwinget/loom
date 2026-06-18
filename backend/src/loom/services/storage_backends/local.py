@@ -12,9 +12,11 @@ WORM semantics are approximated by making files read-only (chmod
 remove content (soft-delete purge, redaction overwrite) go through
 ``delete_object`` which first restores write permission.
 
-presigned urls are loopback references of the form
-``loom://storage/<bucket>/<key>?expires=<unix-ts>`` — the Tauri
-shell and backend interpret them internally. no network exposure.
+presigned urls are signed http references of the form
+``http://<base>/api/v1/storage/<bucket>/<key>?expires&method&sig``
+that the sidecar's own byte-serving endpoint validates and streams.
+the base defaults to the loopback bind, so on a desktop install the
+url is only reachable from the same machine.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ import time
 from collections.abc import Iterator
 from hashlib import sha256
 from pathlib import Path
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +45,12 @@ class LocalStorageBackend:
     minio-free environments importable.
     """
 
-    def __init__(self, data_dir: Path, signing_secret: str | None):
+    def __init__(
+        self,
+        data_dir: Path,
+        signing_secret: str | None,
+        public_base_url: str = "http://127.0.0.1:8000",
+    ):
         self._root = (data_dir / _BUCKETS_DIRNAME).resolve()
         # signing secret must be supplied explicitly. a deterministic
         # fallback (e.g. derived from data_dir) would be predictable
@@ -55,6 +63,9 @@ class LocalStorageBackend:
                 "value (see Settings.storage_signing_secret)."
             )
         self._signing_secret = signing_secret.encode("utf-8")
+        # the webview loads media from this origin; trailing slash is
+        # stripped so url construction is unambiguous.
+        self._public_base_url = public_base_url.rstrip("/")
 
     # --- path helpers ---------------------------------------------
 
@@ -186,6 +197,25 @@ class LocalStorageBackend:
         size = src.stat().st_size
         return size, _stream_file(src, chunk_size)
 
+    def get_object_size(self, bucket: str, key: str) -> int:
+        src = self._object_path(bucket, key)
+        if not src.exists():
+            raise FileNotFoundError(f"object not found: {bucket}/{key}")
+        return src.stat().st_size
+
+    def get_object_range(
+        self,
+        bucket: str,
+        key: str,
+        start: int,
+        end: int,
+        chunk_size: int = 65536,
+    ) -> Iterator[bytes]:
+        src = self._object_path(bucket, key)
+        if not src.exists():
+            raise FileNotFoundError(f"object not found: {bucket}/{key}")
+        return _stream_range(src, start, end, chunk_size)
+
     def delete_object(self, bucket: str, key: str) -> None:
         dest = self._object_path(bucket, key)
         if not dest.exists():
@@ -193,7 +223,7 @@ class LocalStorageBackend:
         self._restore_write(dest)
         dest.unlink()
 
-    # --- loopback signing -----------------------------------------
+    # --- signed asset urls ----------------------------------------
 
     def _sign_loopback_url(
         self,
@@ -202,31 +232,44 @@ class LocalStorageBackend:
         method: str,
         expires: int,
     ) -> str:
+        """build a signed http url the desktop webview can load.
+
+        points at the sidecar's own ``/api/v1/storage`` byte-serving
+        endpoint (not a ``loom://`` scheme — the webview cannot load
+        that). the signature covers the raw key; the key is
+        url-encoded in the path so filenames with spaces work.
+        """
         expires_at = int(time.time()) + int(expires)
-        payload = f"{method}\n{bucket}\n{key}\n{expires_at}".encode()
-        mac = hmac.new(self._signing_secret, payload, sha256).hexdigest()
+        sig = self._compute_sig(bucket, key, method, expires_at)
+        quoted_key = quote(key, safe="/")
         return (
-            f"loom://storage/{bucket}/{key}"
-            f"?expires={expires_at}&method={method}&sig={mac}"
+            f"{self._public_base_url}/api/v1/storage/object/"
+            f"{bucket}/{quoted_key}"
+            f"?expires={expires_at}&method={method}&sig={sig}"
         )
 
-    def verify_loopback_url(self, url: str) -> bool:
-        """verify a loopback presigned url; used by the Tauri shell."""
-        if not url.startswith("loom://storage/"):
-            return False
-        try:
-            rest, query = url[len("loom://storage/") :].split("?", 1)
-            bucket, key = rest.split("/", 1)
-            params = dict(p.split("=", 1) for p in query.split("&"))
-            expires_at = int(params["expires"])
-            method = params["method"]
-            sig = params["sig"]
-        except (ValueError, KeyError):
-            return False
+    def _compute_sig(
+        self, bucket: str, key: str, method: str, expires_at: int
+    ) -> str:
+        payload = f"{method}\n{bucket}\n{key}\n{expires_at}".encode()
+        return hmac.new(self._signing_secret, payload, sha256).hexdigest()
+
+    def verify_signature(
+        self,
+        bucket: str,
+        key: str,
+        method: str,
+        expires_at: int,
+        sig: str,
+    ) -> bool:
+        """constant-time check of a signed asset-stream request.
+
+        the byte-serving endpoint calls this with the already-decoded
+        request components, so it is independent of url formatting.
+        """
         if time.time() > expires_at:
             return False
-        payload = f"{method}\n{bucket}\n{key}\n{expires_at}".encode()
-        expected = hmac.new(self._signing_secret, payload, sha256).hexdigest()
+        expected = self._compute_sig(bucket, key, method, expires_at)
         return hmac.compare_digest(expected, sig)
 
 
@@ -237,4 +280,19 @@ def _stream_file(path: Path, chunk_size: int) -> Iterator[bytes]:
             chunk = fh.read(chunk_size)
             if not chunk:
                 break
+            yield chunk
+
+
+def _stream_range(
+    path: Path, start: int, end: int, chunk_size: int
+) -> Iterator[bytes]:
+    """yield bytes [start, end] inclusive; closes on exhaustion."""
+    remaining = end - start + 1
+    with path.open("rb") as fh:
+        fh.seek(start)
+        while remaining > 0:
+            chunk = fh.read(min(chunk_size, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
             yield chunk
