@@ -1,4 +1,6 @@
+import base64
 import logging
+import mimetypes
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -8,10 +10,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.transcript import TranscriptSegment
+from loom.services.ai_providers import GEMINI, transport_for
 from loom.services.model_metadata import (
     UNKNOWN_VERSION,
     build_provenance,
 )
+
+# gemini's inline-data path caps the request body (~20MB); base64 adds
+# ~33%, so guard the raw file a little under that. larger files need the
+# files-api upload path (a follow-up).
+_GEMINI_INLINE_MAX_BYTES = 15 * 1024 * 1024
 
 logger = logging.getLogger(__name__)
 
@@ -78,31 +86,63 @@ def transcribe_audio(
     return results
 
 
+def _cloud_provenance(
+    provider: str, model: str, base_url: str
+) -> dict[str, Any]:
+    return {
+        "model_name": f"cloud:{model}",
+        "model_version": "api",
+        "model_params": {
+            "provider": provider or "cloud",
+            "endpoint": httpx.URL(base_url).host,
+            "model": model,
+        },
+    }
+
+
 async def transcribe_via_cloud(
     file_path: str,
     *,
+    provider: str = "",
     base_url: str,
     api_key: str,
     model: str,
 ) -> list[dict[str, Any]]:
-    """transcribe a file via an OpenAI-compatible cloud api.
+    """transcribe a file via the cloud, dispatching on the provider.
 
     sends the original file (audio or video) directly — the api
     extracts audio server-side — so no local ffmpeg is required.
     returns segments in the same shape as :func:`transcribe_audio`,
     with provenance marking the cloud provider and endpoint.
     """
+    if transport_for(provider) == GEMINI:
+        return await _transcribe_gemini(
+            file_path,
+            provider=provider,
+            base_url=base_url,
+            api_key=api_key,
+            model=model,
+        )
+    return await _transcribe_openai_audio(
+        file_path,
+        provider=provider,
+        base_url=base_url,
+        api_key=api_key,
+        model=model,
+    )
+
+
+async def _transcribe_openai_audio(
+    file_path: str,
+    *,
+    provider: str,
+    base_url: str,
+    api_key: str,
+    model: str,
+) -> list[dict[str, Any]]:
+    """OpenAI-compatible /audio/transcriptions (OpenAI, self-hosted)."""
     endpoint = base_url.rstrip("/") + "/audio/transcriptions"
-    host = httpx.URL(base_url).host
-    provenance = {
-        "model_name": f"cloud:{model}",
-        "model_version": "api",
-        "model_params": {
-            "provider": "cloud",
-            "endpoint": host,
-            "model": model,
-        },
-    }
+    provenance = _cloud_provenance(provider, model, base_url)
 
     with Path(file_path).open("rb") as fh:
         files = {"file": (Path(file_path).name, fh)}
@@ -141,6 +181,77 @@ async def transcribe_via_cloud(
             }
         )
     return results
+
+
+def _gemini_transcript_text(body: dict[str, Any]) -> str:
+    """pull the transcript text out of a generateContent response."""
+    candidates = body.get("candidates") or []
+    if not candidates:
+        return ""
+    parts = (candidates[0].get("content") or {}).get("parts") or []
+    return "".join(str(p.get("text", "")) for p in parts).strip()
+
+
+async def _transcribe_gemini(
+    file_path: str,
+    *,
+    provider: str,
+    base_url: str,
+    api_key: str,
+    model: str,
+) -> list[dict[str, Any]]:
+    """Gemini generateContent with inline audio.
+
+    gemini returns prose, not timed segments, so the transcript lands as
+    a single segment. inline data caps request size; larger files need
+    the files-api upload path (not yet wired).
+    """
+    raw = Path(file_path).read_bytes()
+    if len(raw) > _GEMINI_INLINE_MAX_BYTES:
+        raise ValueError(
+            "file too large for the Gemini inline transcription path "
+            f"({len(raw)} bytes > {_GEMINI_INLINE_MAX_BYTES})"
+        )
+    mime = mimetypes.guess_type(file_path)[0] or "audio/mpeg"
+    endpoint = f"{base_url.rstrip('/')}/models/{model}:generateContent"
+    request = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "inline_data": {
+                            "mime_type": mime,
+                            "data": base64.b64encode(raw).decode("ascii"),
+                        }
+                    },
+                    {
+                        "text": (
+                            "Transcribe this recording verbatim. Return "
+                            "only the transcript text, with no commentary."
+                        )
+                    },
+                ]
+            }
+        ]
+    }
+    headers = {"x-goog-api-key": api_key}
+    async with httpx.AsyncClient(timeout=_CLOUD_TIMEOUT_S) as client:
+        resp = await client.post(endpoint, json=request, headers=headers)
+    resp.raise_for_status()
+
+    text = _gemini_transcript_text(resp.json())
+    if not text:
+        return []
+    return [
+        {
+            "start": 0.0,
+            "end": 0.0,
+            "text": text,
+            "language": None,
+            "confidence": None,
+            **_cloud_provenance(provider, model, base_url),
+        }
+    ]
 
 
 def diarize_audio(audio_path: str) -> list[dict[str, Any]]:

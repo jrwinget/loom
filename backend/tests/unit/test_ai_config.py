@@ -35,21 +35,28 @@ async def session() -> AsyncIterator[AsyncSession]:
 async def test_defaults_when_unset(session: AsyncSession) -> None:
     config = await load_ai_config(session)
     assert config.transcription_engine == "local"
+    assert config.provider == ""
     assert config.cloud_transcription_enabled is False
 
 
-async def test_save_and_reload_round_trip(session: AsyncSession) -> None:
+async def test_hosted_provider_round_trip_derives_base_url(
+    session: AsyncSession,
+) -> None:
+    # a user-sent base url is ignored for a hosted provider; the catalog
+    # url wins so audio can only go where we expect.
     await save_ai_config(
         session,
         {
             "transcription_engine": "cloud",
+            "provider": "openai",
             "api_key": "sk-test",
-            "api_base_url": "https://api.openai.com/v1",
-            "transcription_model": "whisper-1",
+            "api_base_url": "https://evil.example/v1",
+            "transcription_model": "gpt-4o-transcribe",
         },
     )
     config = await load_ai_config(session)
-    assert config.transcription_engine == "cloud"
+    assert config.provider == "openai"
+    assert config.api_base_url == "https://api.openai.com/v1"
     assert config.api_key == "sk-test"
     assert config.cloud_transcription_enabled is True
 
@@ -57,13 +64,18 @@ async def test_save_and_reload_round_trip(session: AsyncSession) -> None:
 async def test_partial_update_preserves_key(session: AsyncSession) -> None:
     await save_ai_config(
         session,
-        {"transcription_engine": "cloud", "api_key": "sk-keep"},
+        {
+            "transcription_engine": "cloud",
+            "provider": "openai",
+            "api_key": "sk-keep",
+            "transcription_model": "whisper-1",
+        },
     )
     # a later update that omits api_key must not wipe it
-    await save_ai_config(session, {"transcription_model": "whisper-large"})
+    await save_ai_config(session, {"transcription_model": "gpt-4o-transcribe"})
     config = await load_ai_config(session)
     assert config.api_key == "sk-keep"
-    assert config.transcription_model == "whisper-large"
+    assert config.transcription_model == "gpt-4o-transcribe"
 
 
 async def test_rejects_unknown_engine(session: AsyncSession) -> None:
@@ -71,18 +83,82 @@ async def test_rejects_unknown_engine(session: AsyncSession) -> None:
         await save_ai_config(session, {"transcription_engine": "magic"})
 
 
-async def test_cloud_rejects_internal_endpoint(
-    session: AsyncSession,
-) -> None:
-    with pytest.raises(ValueError, match=r"(?i)endpoint"):
+async def test_rejects_unknown_provider(session: AsyncSession) -> None:
+    with pytest.raises(ValueError, match=r"(?i)provider"):
         await save_ai_config(
             session,
             {
                 "transcription_engine": "cloud",
-                "api_base_url": "http://localhost:8000/v1",
+                "provider": "no-such-lab",
+                "transcription_model": "x",
                 "api_key": "sk-x",
             },
         )
+
+
+async def test_rejects_unavailable_provider(session: AsyncSession) -> None:
+    # anthropic is listed for visibility but can't transcribe via api.
+    with pytest.raises(ValueError, match=r"(?i)not available"):
+        await save_ai_config(
+            session,
+            {
+                "transcription_engine": "cloud",
+                "provider": "anthropic",
+                "transcription_model": "claude",
+                "api_key": "sk-x",
+            },
+        )
+
+
+async def test_rejects_model_not_in_catalog(session: AsyncSession) -> None:
+    with pytest.raises(ValueError, match=r"(?i)model"):
+        await save_ai_config(
+            session,
+            {
+                "transcription_engine": "cloud",
+                "provider": "openai",
+                "transcription_model": "not-a-real-model",
+                "api_key": "sk-x",
+            },
+        )
+
+
+async def test_self_hosted_allows_localhost(session: AsyncSession) -> None:
+    # the open-source/self-hosted option's whole point is a local server,
+    # so the loopback/private block is lifted for it (and custom).
+    await save_ai_config(
+        session,
+        {
+            "transcription_engine": "cloud",
+            "provider": "oss",
+            "transcription_model": "whisper-large-v3",
+            "api_base_url": "http://localhost:9000/v1",
+        },
+    )
+    config = await load_ai_config(session)
+    assert config.provider == "oss"
+    assert config.api_base_url == "http://localhost:9000/v1"
+    # oss may run keyless, so cloud is enabled without an api key
+    assert config.cloud_transcription_enabled is True
+
+
+async def test_legacy_config_without_provider_is_custom(
+    session: AsyncSession,
+) -> None:
+    # a config saved before providers existed (no provider field) is
+    # treated as a custom OpenAI-compatible endpoint and keeps working.
+    await save_ai_config(
+        session,
+        {
+            "transcription_engine": "cloud",
+            "api_base_url": "https://api.openai.com/v1",
+            "api_key": "sk-legacy",
+            "transcription_model": "whisper-1",
+        },
+    )
+    config = await load_ai_config(session)
+    assert config.provider == "custom"
+    assert config.cloud_transcription_enabled is True
 
 
 @pytest.mark.parametrize(
@@ -106,3 +182,17 @@ def test_validate_endpoint_rejects(bad: str) -> None:
 )
 def test_validate_endpoint_accepts_public(ok: str) -> None:
     validate_endpoint(ok)  # no raise
+
+
+def test_validate_endpoint_allow_local_permits_loopback() -> None:
+    # self-hosted/custom providers opt into local targets...
+    validate_endpoint("http://localhost:9000/v1", allow_local=True)
+    validate_endpoint("http://192.168.1.10:9000/v1", allow_local=True)
+
+
+def test_validate_endpoint_allow_local_still_rejects_bad_scheme() -> None:
+    # ...but the http(s) structural check always applies.
+    with pytest.raises(ValueError):
+        validate_endpoint("ftp://localhost/v1", allow_local=True)
+    with pytest.raises(ValueError):
+        validate_endpoint("not-a-url", allow_local=True)

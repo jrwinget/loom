@@ -13,9 +13,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.dependencies import get_db_session
-from loom.schemas.ai_settings import AiSettingsResponse, AiSettingsUpdate
+from loom.schemas.ai_settings import (
+    AiProvider,
+    AiProviderModel,
+    AiProvidersResponse,
+    AiSettingsResponse,
+    AiSettingsUpdate,
+)
 from loom.security.rbac import require_authenticated
 from loom.services.ai_config import AiConfig, load_ai_config, save_ai_config
+from loom.services.ai_providers import list_providers
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +32,38 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 def _to_response(config: AiConfig) -> AiSettingsResponse:
     return AiSettingsResponse(
         transcription_engine=config.transcription_engine,
+        provider=config.provider,
         api_base_url=config.api_base_url,
         transcription_model=config.transcription_model,
         api_key_set=bool(config.api_key),
+    )
+
+
+@router.get("/ai/providers", response_model=AiProvidersResponse)
+async def get_ai_providers(
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_authenticated
+    ),
+) -> AiProvidersResponse:
+    """the cloud provider/model catalog for the settings dropdowns."""
+    del token_payload
+    return AiProvidersResponse(
+        providers=[
+            AiProvider(
+                id=p.id,
+                label=p.label,
+                group=p.group,
+                models=[
+                    AiProviderModel(id=m.id, label=m.label) for m in p.models
+                ],
+                requires_api_key=p.requires_api_key,
+                base_url=p.base_url,
+                base_url_editable=p.base_url_editable,
+                available=p.available,
+                note=p.note,
+            )
+            for p in list_providers()
+        ]
     )
 
 

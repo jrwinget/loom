@@ -130,7 +130,13 @@ jobs:
             cargo-${{ runner.os }}-${{ hashFiles('desktop/src-tauri/Cargo.toml') }}
           restore-keys: cargo-${{ runner.os }}-
 
-      # linux-only system deps required by tauri v2 / webkit2gtk
+      # linux-only system deps required by tauri v2 / webkit2gtk.
+      # the gstreamer plugin packages provide the codecs WebKitGTK uses
+      # to decode <video>/<audio> (H.264/AAC come from -libav); they are
+      # installed here so the AppImage step below can bundle them into
+      # the AppDir (see APPIMAGE_BUNDLE_GSTREAMER on the build step) and
+      # so the runner's own webview can play media. gstreamer1.0-tools
+      # provides gst-inspect, which the bundler uses to locate plugins.
       - name: Install Linux build dependencies
         if: matrix.platform == 'linux'
         run: |
@@ -140,7 +146,11 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev \
             patchelf \
-            build-essential
+            build-essential \
+            gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad \
+            gstreamer1.0-libav \
+            gstreamer1.0-tools
 
       # frontend bundle becomes the static webview payload for tauri
       - name: Install frontend dependencies
@@ -365,9 +375,18 @@ jobs:
           rm -rf target/release/bundle
           echo "bundle dir cleaned"
 
+      # APPIMAGE_BUNDLE_GSTREAMER tells tauri's appimage bundler to copy
+      # the host gstreamer plugins (installed above) into the AppDir, so
+      # the AppImage plays video on machines with no system gstreamer.
+      # the env var is inert for the dmg/msi/nsis matrix legs. .deb pulls
+      # the codecs via its declared `depends` (see tauri.conf.json), and
+      # macOS/Windows webviews carry H.264/AAC natively; the in-app
+      # download fallback covers any remaining codec gap on all targets.
       - name: Build Tauri bundles
         working-directory: desktop
         shell: bash
+        env:
+          APPIMAGE_BUNDLE_GSTREAMER: "1"
         run: npx tauri build --bundles ${{ matrix.bundles }} --ci
         continue-on-error: false
 

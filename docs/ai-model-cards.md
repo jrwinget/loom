@@ -88,6 +88,72 @@ Radford et al. 2022) and the faster-whisper project. See:
 
 ---
 
+## Cloud transcription (opt-in, BYO key) — Speech-to-Text
+
+An alternative to on-device faster-whisper. Off by default; an admin
+enables it per install under **Settings → AI & models**. When enabled,
+the original audio/video of each transcribed asset is sent to a
+third-party provider you configure, and the egress is recorded in the
+asset's chain of custody. No package install is required — only your API
+key (and, for self-hosted, a server URL).
+
+### Where it is invoked
+
+- Service: `backend/src/loom/services/transcription.py`,
+  `transcribe_via_cloud` (dispatches by provider transport to
+  `_transcribe_openai_audio` or `_transcribe_gemini`).
+- Activity: `backend/src/loom/workflows/transcription_activities.py`,
+  activity `store_transcript`, only when cloud is enabled.
+- Catalog: `backend/src/loom/services/ai_providers.py` is the single
+  source of truth for the provider/model dropdowns.
+
+### Providers and models
+
+| Group | Provider | Transport | Curated models |
+|---|---|---|---|
+| Frontier | OpenAI | `/audio/transcriptions` | gpt-4o-transcribe, gpt-4o-mini-transcribe, gpt-4o-transcribe-diarize, whisper-1 |
+| Frontier | Google Gemini | `:generateContent` | gemini-3.5-flash, gemini-2.5-flash, gemini-2.5-pro |
+| Frontier | Anthropic | — | listed but disabled — the Anthropic API does not accept audio input |
+| Open-source / self-hosted | your server | `/audio/transcriptions` | whisper-large-v3, whisper-large-v3-turbo, distil-whisper-large-v3, claude-audio |
+| Custom | your endpoint | `/audio/transcriptions` | free-form |
+
+Model IDs are curated in the catalog and updated as providers ship new
+ones; they are not discovered live.
+
+### Provenance
+
+Each segment is stored with `model_name = "cloud:<model>"`,
+`model_version = "api"`, and `model_params = {provider, endpoint,
+model}`, so a cloud-produced transcript is distinguishable from an
+on-device one and traceable to the exact provider and endpoint used.
+
+### Known limitations
+
+- **Egress.** Audio leaves the machine. This is the only transcription
+  path that does, it is opt-in, and every send is logged to chain of
+  custody.
+- **Segments vs. text.** OpenAI-compatible endpoints return timed
+  segments (`verbose_json`); the Gemini path returns prose, stored as a
+  single full-file segment with no per-line timestamps.
+- **Gemini file size.** The Gemini path inlines the file in the request
+  (~15 MB cap); larger files need an OpenAI-compatible provider or a
+  future files-API upload.
+- **No cloud diarization.** Speaker labels come from the on-device
+  pyannote step, which does not run for cloud transcripts (aside from a
+  provider's own diarized model, e.g. `gpt-4o-transcribe-diarize`).
+- Accuracy, language coverage, and rate limits are the provider's.
+
+### What it does NOT do
+
+- Does not run unless an admin explicitly enables it and supplies a key.
+- Does not send anything for on-device transcription, OCR, or scene
+  detection — those never use the cloud.
+- No face recognition, suspicion scoring, or automated identity
+  resolution of any kind — the same project principles apply to cloud
+  output.
+
+---
+
 ## pyannote.audio — Speaker Diarization
 
 ### Package

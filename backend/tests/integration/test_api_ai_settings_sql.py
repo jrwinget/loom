@@ -81,21 +81,25 @@ async def test_get_defaults_then_set_cloud(
     got = await lite_client.get("/api/v1/settings/ai", headers=headers)
     assert got.status_code == 200, got.text
     assert got.json()["transcription_engine"] == "local"
+    assert got.json()["provider"] == ""
     assert got.json()["api_key_set"] is False
 
     put = await lite_client.put(
         "/api/v1/settings/ai",
         json={
             "transcription_engine": "cloud",
-            "api_base_url": "https://api.openai.com/v1",
+            "provider": "openai",
             "api_key": "sk-secret",
-            "transcription_model": "whisper-1",
+            "transcription_model": "gpt-4o-transcribe",
         },
         headers=headers,
     )
     assert put.status_code == 200, put.text
     body = put.json()
     assert body["transcription_engine"] == "cloud"
+    assert body["provider"] == "openai"
+    # the base url is derived from the catalog for a hosted provider
+    assert body["api_base_url"] == "https://api.openai.com/v1"
     assert body["api_key_set"] is True
     # the key itself is never returned
     assert "api_key" not in body
@@ -103,24 +107,59 @@ async def test_get_defaults_then_set_cloud(
     # persisted across requests, still masked
     again = await lite_client.get("/api/v1/settings/ai", headers=headers)
     assert again.json()["transcription_engine"] == "cloud"
+    assert again.json()["provider"] == "openai"
     assert again.json()["api_key_set"] is True
 
 
 @pytest.mark.asyncio
-async def test_cloud_endpoint_must_be_public(
+async def test_self_hosted_endpoint_may_be_local(
     lite_client: httpx.AsyncClient,
 ) -> None:
+    # the open-source/self-hosted provider is allowed to target a local
+    # server; only a malformed (non-http) url is rejected.
     headers = await _admin_headers(lite_client)
-    resp = await lite_client.put(
+    ok = await lite_client.put(
         "/api/v1/settings/ai",
         json={
             "transcription_engine": "cloud",
-            "api_base_url": "http://localhost:1234/v1",
-            "api_key": "sk-x",
+            "provider": "oss",
+            "transcription_model": "whisper-large-v3",
+            "api_base_url": "http://localhost:9000/v1",
         },
         headers=headers,
     )
-    assert resp.status_code == 400
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["api_base_url"] == "http://localhost:9000/v1"
+
+    bad = await lite_client.put(
+        "/api/v1/settings/ai",
+        json={
+            "transcription_engine": "cloud",
+            "provider": "custom",
+            "transcription_model": "whisper-1",
+            "api_base_url": "not-a-url",
+        },
+        headers=headers,
+    )
+    assert bad.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_lists_providers(lite_client: httpx.AsyncClient) -> None:
+    headers = await _admin_headers(lite_client)
+    resp = await lite_client.get(
+        "/api/v1/settings/ai/providers", headers=headers
+    )
+    assert resp.status_code == 200, resp.text
+    by_id = {p["id"]: p for p in resp.json()["providers"]}
+    assert {"openai", "google", "anthropic", "oss", "custom"} <= set(by_id)
+    # anthropic is shown but disabled
+    assert by_id["anthropic"]["available"] is False
+    # backend returns snake_case (the frontend api-client camelCases it)
+    assert by_id["openai"]["requires_api_key"] is True
+    assert any(
+        m["id"] == "gpt-4o-transcribe" for m in by_id["openai"]["models"]
+    )
 
 
 @pytest.mark.asyncio

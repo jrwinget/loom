@@ -31,6 +31,9 @@ frontend/build/
 *.tsbuildinfo
 frontend/*.config.d.ts
 
+# generated: pdf.js cmap + standard-font assets (copy-pdfjs-assets.mjs)
+frontend/public/pdfjs/
+
 # vite
 frontend/stats.html
 

@@ -162,11 +162,14 @@ Desktop Lite:
 - Supports ingest, timeline synthesis, annotations, chain of custody,
   and court-bundle export.
 
-OCR, transcription, and scene detection run in-process too, but the
-desktop build does not bundle their AI models (faster-whisper,
-pytesseract, scenedetect). Without those installed, these steps
-complete successfully with empty results rather than failing — the
-underlying evidence and chain of custody are unaffected.
+OCR, transcription, and scene detection run in-process too. The desktop
+build does not bundle the on-device AI models (faster-whisper,
+pytesseract, scenedetect), so by default these steps complete with empty
+results rather than failing — the evidence and chain of custody are
+unaffected. Transcription additionally has an **opt-in cloud option**:
+point it at a provider with your own API key (see
+[Configuring AI & transcription](#configuring-ai--transcription)). OCR and
+scene detection remain on-device only.
 
 Desktop Lite does **not** support:
 
@@ -183,6 +186,40 @@ via the court-bundle format — see below.
 
 For a feature-by-feature breakdown of what Lite supports and how, see
 [`lite-capability-matrix.md`](lite-capability-matrix.md).
+
+## Configuring AI & transcription
+
+Transcription is the one AI step with a cloud option. Open **Settings →
+AI & models** (admin only) to choose how it runs:
+
+- **On-device (default).** Audio is transcribed locally with
+  faster-whisper; nothing leaves the machine. Requires the on-device
+  model to be installed (not bundled yet); without it, transcription
+  produces empty results.
+- **Cloud (your API key).** Audio for each transcribed asset is sent to a
+  provider you choose. Opt-in and off by default. Every cloud
+  transcription is recorded in the asset's chain of custody (provider,
+  model, endpoint).
+
+When you pick **Cloud**, choose a **provider**, then a **model**:
+
+- **Frontier providers** — OpenAI and Google Gemini. Pick the provider,
+  then one of its transcription models from the list; the endpoint is set
+  for you. Paste your API key. (Anthropic is listed but disabled — the
+  Anthropic API does not accept audio input, so it cannot transcribe; for
+  an open-weights Anthropic audio model, use the self-hosted option.)
+- **Open-source / self-hosted** — run a model such as Whisper large-v3
+  (or `claude-audio`) on your own OpenAI-compatible server (vLLM,
+  whisper.cpp, …) and point Loom at its URL. A local or LAN address
+  (including `localhost`) is allowed here; an API key is optional.
+- **Custom (OpenAI-compatible)** — any other endpoint implementing the
+  OpenAI `/audio/transcriptions` API; supply the base URL, model, and key.
+
+Only the chosen provider ever receives audio, and only for assets you
+transcribe while Cloud is selected. Switch back to **On-device** at any
+time to keep everything local. OCR and scene detection have no cloud
+option and always run on-device. Per-model behavior, limitations, and
+provenance are documented in [`ai-model-cards.md`](ai-model-cards.md).
 
 ## Data directory
 
@@ -284,15 +321,21 @@ Desktop Lite is local-only by design:
 - The backend binds to `127.0.0.1` only. There is no listener on
   any external interface; other machines on the same network cannot
   reach it.
-- No outbound network calls are made by Loom itself. Update checks,
-  telemetry, and crash reporting are off.
-- The one exception is URL ingestion: when you explicitly submit a
-  URL via the ingest form, Loom fetches that URL and (best-effort)
-  requests a Wayback Machine snapshot. Depending on the URL, this
-  may contact YouTube / Twitter / other sites (via yt-dlp),
-  archive.org, or the submitted host directly. No outbound traffic
-  is generated unless you submit a URL; the dispatcher also blocks
-  URLs that resolve to private / loopback / link-local addresses.
+- No outbound network calls are made by Loom itself by default. Update
+  checks, telemetry, and crash reporting are off.
+- There are two opt-in exceptions, each requiring an explicit action:
+  - **URL ingestion** — when you submit a URL via the ingest form, Loom
+    fetches it and (best-effort) requests a Wayback Machine snapshot.
+    Depending on the URL this may contact YouTube / Twitter / other sites
+    (via yt-dlp), archive.org, or the submitted host directly. The
+    dispatcher blocks URLs that resolve to private / loopback / link-local
+    addresses.
+  - **Cloud transcription** — if you switch transcription to a cloud
+    provider in **Settings → AI & models**, the audio of each asset you
+    transcribe is sent to that provider. Off by default; every send is
+    recorded in the asset's chain of custody. See
+    [Configuring AI & transcription](#configuring-ai--transcription).
+- No outbound traffic is generated unless you take one of those actions.
 - Originals are stored read-only via the OS read-only flag, giving
   WORM semantics without a dedicated object store.
 - Authentication, session management, and CSRF protection use the

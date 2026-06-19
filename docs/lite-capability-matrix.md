@@ -30,13 +30,17 @@ feature.
 ffmpeg is not installed, the step degrades to an empty result rather than
 failing.
 
-² Cloud transcription (Settings → AI) is opt-in and off by default. It
-sends the asset's audio to a user-configured OpenAI-compatible provider —
-no local ffmpeg needed, since the api accepts audio and video directly —
-and records the egress as a `cloud_transcription` chain-of-custody entry
-(provider, model, endpoint). On-device transcription/OCR/scene-detection
-still require the local models + ffmpeg, which the desktop build does not
-yet bundle (a future "AI pack").
+² Cloud transcription (Settings → AI) is opt-in and off by default. You
+pick a provider — OpenAI, Google Gemini, a self-hosted/open-source model,
+or any custom OpenAI-compatible endpoint — and a curated model; the
+asset's audio is sent there (no local ffmpeg needed, since these APIs
+accept audio and video directly), and the egress is recorded as a
+`cloud_transcription` chain-of-custody entry (provider, model, endpoint).
+Anthropic is shown but disabled — its API can't transcribe audio. See
+[`ai-model-cards.md`](ai-model-cards.md) for per-provider detail.
+On-device transcription/OCR/scene-detection still require the local
+models + ffmpeg, which the desktop build does not yet bundle (a future
+"AI pack").
 
 ## Why Lite assets are served over HTTP
 
