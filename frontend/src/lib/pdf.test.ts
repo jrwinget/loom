@@ -33,7 +33,14 @@ beforeEach(() => {
 });
 
 describe('loadPdf', () => {
-  it('configures the worker source from the bundled url', () => {
+  it('configures the worker source from the bundled url', async () => {
+    const task = fakeTask();
+    getDocument.mockReturnValue(
+      task as unknown as ReturnType<typeof pdfjs.getDocument>,
+    );
+
+    await loadPdf('http://x/doc.pdf');
+
     expect(pdfjs.GlobalWorkerOptions.workerSrc).toBe('worker-url');
   });
 

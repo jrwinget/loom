@@ -2,10 +2,13 @@
 // small interface (and tests mock this, not the third-party lib). we render
 // pages ourselves instead of relying on the webview's native pdf viewer,
 // which WebKitGTK (the linux desktop webview) does not have.
-import * as pdfjs from 'pdfjs-dist';
+//
+// pdf.js is imported lazily inside loadPdf: its module evaluates
+// browser-only globals (DOMMatrix, etc.) at load time, so an eager
+// top-level import crashes under jsdom (e.g. vitest coverage importing
+// every src file). loading on first use also keeps the large bundle out
+// of the initial chunk.
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 export interface LoadedPdf {
   readonly numPages: number;
@@ -18,11 +21,13 @@ export interface LoadedPdf {
 }
 
 // pdf.js CMap + standard-font assets, copied into the bundle by
-// vite-plugin-static-copy (see vite.config.ts). BASE_URL keeps the path
-// correct under both the desktop (root) and any sub-path web deploy.
+// scripts/copy-pdfjs-assets.mjs (see vite.config.ts). BASE_URL keeps the
+// path correct under both the desktop (root) and any sub-path web deploy.
 const PDF_ASSET_BASE = `${import.meta.env.BASE_URL}pdfjs/`;
 
 export async function loadPdf(url: string): Promise<LoadedPdf> {
+  const pdfjs = await import('pdfjs-dist');
+  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
   const task = pdfjs.getDocument({
     url,
     cMapUrl: `${PDF_ASSET_BASE}cmaps/`,
