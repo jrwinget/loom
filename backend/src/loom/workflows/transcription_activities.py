@@ -220,7 +220,7 @@ def _record_cloud_custody(session: Any, asset: Asset, config: AiConfig) -> None:
             action="cloud_transcription",
             actor_id=asset.uploaded_by,
             detail={
-                "provider": "cloud",
+                "provider": config.provider or "cloud",
                 "endpoint": urlparse(config.api_base_url).hostname,
                 "model": config.transcription_model,
                 "note": "audio sent to a third-party transcription api",
@@ -270,6 +270,7 @@ async def store_transcript(asset_id: str) -> None:
                     # so record the egress in chain of custody.
                     segments = await transcribe_via_cloud(
                         src,
+                        provider=config.provider,
                         base_url=config.api_base_url,
                         api_key=config.api_key,
                         model=config.transcription_model,

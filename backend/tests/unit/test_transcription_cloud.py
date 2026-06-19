@@ -98,6 +98,70 @@ async def test_falls_back_to_text_only(
     assert segments[0]["text"] == "whole thing"
 
 
+async def test_gemini_transport_parses_text(
+    audio_file: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = {
+        "candidates": [{"content": {"parts": [{"text": "the transcript"}]}}]
+    }
+    monkeypatch.setattr(
+        transcription.httpx,
+        "AsyncClient",
+        lambda *a, **k: _FakeClient(payload),
+    )
+
+    segments = await transcription.transcribe_via_cloud(
+        audio_file,
+        provider="google",
+        base_url="https://generativelanguage.googleapis.com/v1beta",
+        api_key="g-key",
+        model="gemini-2.5-flash",
+    )
+
+    assert len(segments) == 1
+    assert segments[0]["text"] == "the transcript"
+    assert segments[0]["model_name"] == "cloud:gemini-2.5-flash"
+    assert segments[0]["model_params"]["provider"] == "google"
+    # gemini hits :generateContent with the api-key header and a json body
+    assert _FakeClient.last_kwargs["url"].endswith(
+        "gemini-2.5-flash:generateContent"
+    )
+    assert _FakeClient.last_kwargs["headers"]["x-goog-api-key"] == "g-key"
+    assert "json" in _FakeClient.last_kwargs
+
+
+async def test_gemini_empty_response_yields_no_segments(
+    audio_file: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        transcription.httpx,
+        "AsyncClient",
+        lambda *a, **k: _FakeClient({"candidates": []}),
+    )
+    segments = await transcription.transcribe_via_cloud(
+        audio_file,
+        provider="google",
+        base_url="https://generativelanguage.googleapis.com/v1beta",
+        api_key="g-key",
+        model="gemini-2.5-flash",
+    )
+    assert segments == []
+
+
+async def test_gemini_rejects_oversized_inline_file(
+    audio_file: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(transcription, "_GEMINI_INLINE_MAX_BYTES", 4)
+    with pytest.raises(ValueError, match=r"(?i)too large"):
+        await transcription.transcribe_via_cloud(
+            audio_file,
+            provider="google",
+            base_url="https://generativelanguage.googleapis.com/v1beta",
+            api_key="g-key",
+            model="gemini-2.5-flash",
+        )
+
+
 def test_uses_httpx_which_is_a_core_dep() -> None:
     # guards the assumption that httpx ships without the ai extra
     assert httpx.__version__

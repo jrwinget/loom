@@ -1,30 +1,76 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
+  useAiProviders,
   useAiSettings,
   useUpdateAiSettings,
+  type AiProvider,
   type AiSettings,
   type AiSettingsUpdate,
 } from '@/hooks/use-ai-settings';
 
-function AiSettingsForm(props: { initial: AiSettings }): React.ReactElement {
-  const { initial } = props;
+const GROUP_LABELS: Record<string, string> = {
+  frontier: 'Frontier providers',
+  oss: 'Open-source / self-hosted',
+  custom: 'Custom',
+};
+const GROUP_ORDER = ['frontier', 'oss', 'custom'];
+
+function AiSettingsForm(props: {
+  initial: AiSettings;
+  providers: AiProvider[];
+}): React.ReactElement {
+  const { initial, providers } = props;
   const update = useUpdateAiSettings();
 
   const [engine, setEngine] = useState(initial.transcriptionEngine);
-  const [baseUrl, setBaseUrl] = useState(initial.apiBaseUrl);
+  const [provider, setProvider] = useState(initial.provider);
   const [model, setModel] = useState(initial.transcriptionModel);
+  const [baseUrl, setBaseUrl] = useState(initial.apiBaseUrl);
   const [apiKey, setApiKey] = useState('');
 
   const cloud = engine === 'cloud';
+  const selected = useMemo(
+    () => providers.find((p) => p.id === provider),
+    [providers, provider],
+  );
+  const grouped = useMemo(() => {
+    return GROUP_ORDER.map((group) => ({
+      group,
+      label: GROUP_LABELS[group] ?? group,
+      items: providers.filter((p) => p.group === group),
+    })).filter((g) => g.items.length > 0);
+  }, [providers]);
+
+  // a provider with a fixed catalog picks from a dropdown; one with an
+  // open list (custom) takes a free-form model id.
+  const hasModelCatalog = (selected?.models.length ?? 0) > 0;
+  const baseUrlEditable = selected?.baseUrlEditable ?? false;
+  const unavailable = selected != null && !selected.available;
+
+  const onProviderChange = (id: string): void => {
+    setProvider(id);
+    const next = providers.find((p) => p.id === id);
+    if (!next) return;
+    // seed the model from the new provider's catalog; leave free-form
+    // providers' model untouched so a typed value survives re-selection.
+    if (next.models.length > 0) setModel(next.models[0].id);
+    // lock the base url to the catalog for hosted providers.
+    if (!next.baseUrlEditable) setBaseUrl(next.baseUrl);
+  };
+
+  const canSave = !cloud || (provider !== '' && !unavailable);
 
   const handleSave = (e: React.FormEvent): void => {
     e.preventDefault();
-    const patch: AiSettingsUpdate = {
-      transcription_engine: engine,
-      api_base_url: baseUrl,
-      transcription_model: model,
-    };
+    const patch: AiSettingsUpdate = { transcription_engine: engine };
+    if (cloud) {
+      patch.provider = provider;
+      patch.transcription_model = model;
+      // only meaningful for editable providers; the backend derives the
+      // url from the catalog for hosted ones.
+      if (baseUrlEditable) patch.api_base_url = baseUrl;
+    }
     // only send the key when the user typed one, so an unchanged form
     // doesn't clear a stored key.
     if (apiKey) patch.api_key = apiKey;
@@ -69,7 +115,7 @@ function AiSettingsForm(props: { initial: AiSettings }): React.ReactElement {
               Cloud (your API key)
             </span>
             <span className="block text-muted-foreground">
-              Sends audio to an OpenAI-compatible provider you configure.
+              Sends audio to a provider you choose and configure below.
             </span>
           </span>
         </label>
@@ -85,48 +131,113 @@ function AiSettingsForm(props: { initial: AiSettings }): React.ReactElement {
             cloud transcription is recorded in the asset&apos;s chain of
             custody.
           </p>
+
           <label className="block text-sm">
-            <span className="text-muted-foreground">API base URL</span>
-            <input
-              type="url"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="https://api.openai.com/v1"
+            <span className="text-muted-foreground">Provider</span>
+            <select
+              value={provider}
+              onChange={(e) => onProviderChange(e.target.value)}
+              data-testid="provider-select"
               className="mt-1 w-full rounded border border-border bg-background px-2 py-1"
-            />
+            >
+              <option value="">Select a provider…</option>
+              {grouped.map((g) => (
+                <optgroup key={g.group} label={g.label}>
+                  {g.items.map((p) => (
+                    <option key={p.id} value={p.id} disabled={!p.available}>
+                      {p.label}
+                      {p.available ? '' : ' (unavailable)'}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           </label>
-          <label className="block text-sm">
-            <span className="text-muted-foreground">Model</span>
-            <input
-              type="text"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder="whisper-1"
-              className="mt-1 w-full rounded border border-border bg-background px-2 py-1"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="text-muted-foreground">
-              API key{' '}
-              {initial.apiKeySet && (
-                <span className="text-green-700">(a key is configured)</span>
-              )}
-            </span>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={initial.apiKeySet ? '•••••••• (unchanged)' : 'sk-…'}
-              autoComplete="off"
-              className="mt-1 w-full rounded border border-border bg-background px-2 py-1"
-            />
-          </label>
+
+          {selected?.note && (
+            <p className="text-xs text-muted-foreground">{selected.note}</p>
+          )}
+
+          {selected && !unavailable && (
+            <>
+              <label className="block text-sm">
+                <span className="text-muted-foreground">Model</span>
+                {hasModelCatalog ? (
+                  <select
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    data-testid="model-select"
+                    className="mt-1 w-full rounded border border-border bg-background px-2 py-1"
+                  >
+                    {selected.models.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    placeholder="whisper-1"
+                    data-testid="model-input"
+                    className="mt-1 w-full rounded border border-border bg-background px-2 py-1"
+                  />
+                )}
+              </label>
+
+              <label className="block text-sm">
+                <span className="text-muted-foreground">API base URL</span>
+                <input
+                  type="url"
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  readOnly={!baseUrlEditable}
+                  placeholder="https://your-server.example/v1"
+                  data-testid="base-url-input"
+                  className={
+                    'mt-1 w-full rounded border border-border px-2 py-1 ' +
+                    (baseUrlEditable
+                      ? 'bg-background'
+                      : 'bg-muted text-muted-foreground')
+                  }
+                />
+              </label>
+
+              <label className="block text-sm">
+                <span className="text-muted-foreground">
+                  API key{' '}
+                  {initial.apiKeySet && (
+                    <span className="text-green-700">
+                      (a key is configured)
+                    </span>
+                  )}
+                  {!selected.requiresApiKey && (
+                    <span className="text-muted-foreground">
+                      (optional for this provider)
+                    </span>
+                  )}
+                </span>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={
+                    initial.apiKeySet ? '•••••••• (unchanged)' : 'sk-…'
+                  }
+                  autoComplete="off"
+                  className="mt-1 w-full rounded border border-border bg-background px-2 py-1"
+                />
+              </label>
+            </>
+          )}
         </div>
       )}
 
       <button
         type="submit"
-        disabled={update.isPending}
+        disabled={update.isPending || !canSave}
         className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
       >
         {update.isPending ? 'Saving…' : 'Save'}
@@ -136,7 +247,9 @@ function AiSettingsForm(props: { initial: AiSettings }): React.ReactElement {
 }
 
 export function AiSettingsPage(): React.ReactElement {
-  const { data, isLoading } = useAiSettings();
+  const settings = useAiSettings();
+  const providers = useAiProviders();
+  const ready = settings.data != null && providers.data != null;
 
   return (
     <div className="mx-auto max-w-2xl p-6">
@@ -145,10 +258,10 @@ export function AiSettingsPage(): React.ReactElement {
         Choose how transcription runs. OCR and scene detection run on-device
         only.
       </p>
-      {isLoading || !data ? (
+      {!ready ? (
         <p className="mt-6 text-sm text-muted-foreground">Loading…</p>
       ) : (
-        <AiSettingsForm initial={data} />
+        <AiSettingsForm initial={settings.data} providers={providers.data} />
       )}
     </div>
   );
