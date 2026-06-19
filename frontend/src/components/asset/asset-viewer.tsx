@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
+import { loadPdf, type LoadedPdf } from '@/lib/pdf';
 import { attachmentHref } from '@/lib/utils';
 import type { Asset } from '@/types/asset';
 
@@ -39,6 +40,9 @@ function VideoViewer(props: {
   const [playing, setPlaying] = useState(false);
   const [inPoint, setInPoint] = useState<number | null>(null);
   const [outPoint, setOutPoint] = useState<number | null>(null);
+  // some webviews (notably WebKitGTK on linux) lack the codecs to decode
+  // common formats; surface a download instead of a silent black frame.
+  const [failed, setFailed] = useState(false);
 
   // ~30fps frame estimate
   const frameNumber = Math.floor(currentTime * 30);
@@ -97,6 +101,16 @@ function VideoViewer(props: {
     };
   }, []);
 
+  if (failed) {
+    return (
+      <DownloadFallback
+        src={src}
+        filename={filename}
+        message="This video can’t play in this app — download it to view"
+      />
+    );
+  }
+
   return (
     <div data-testid="video-viewer">
       <video
@@ -105,6 +119,7 @@ function VideoViewer(props: {
         className="w-full rounded"
         data-testid="video-element"
         aria-label={`Video: ${filename}`}
+        onError={() => setFailed(true)}
       >
         <track kind="captions" />
       </video>
@@ -368,6 +383,147 @@ function DownloadFallback(props: {
   );
 }
 
+function PdfViewer(props: {
+  src: string;
+  filename: string;
+}): React.ReactElement {
+  const { src, filename } = props;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const pdfRef = useRef<LoadedPdf | null>(null);
+  const [numPages, setNumPages] = useState(0);
+  const [page, setPage] = useState(1);
+  const [scale, setScale] = useState(1.2);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(
+    'loading',
+  );
+
+  // load (and tear down) the document. the parent keys this component by
+  // src, so a new src remounts with fresh state — no synchronous reset.
+  useEffect(() => {
+    let cancelled = false;
+    loadPdf(src)
+      .then((pdf) => {
+        if (cancelled) {
+          pdf.destroy();
+          return;
+        }
+        pdfRef.current = pdf;
+        setNumPages(pdf.numPages);
+        setStatus('ready');
+      })
+      .catch(() => {
+        if (!cancelled) setStatus('error');
+      });
+    return () => {
+      cancelled = true;
+      pdfRef.current?.destroy();
+      pdfRef.current = null;
+    };
+  }, [src]);
+
+  // (re)render the current page on page/zoom change once loaded.
+  useEffect(() => {
+    const pdf = pdfRef.current;
+    const canvas = canvasRef.current;
+    if (status !== 'ready' || !pdf || !canvas) return;
+    let cancelled = false;
+    pdf.renderPage(page, canvas, scale).catch(() => {
+      if (!cancelled) setStatus('error');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, page, scale]);
+
+  const prev = useCallback(() => setPage((p) => Math.max(1, p - 1)), []);
+  const next = useCallback(
+    () => setPage((p) => Math.min(numPages, p + 1)),
+    [numPages],
+  );
+  const zoomOut = useCallback(
+    () => setScale((s) => Math.max(0.5, s - 0.25)),
+    [],
+  );
+  const zoomIn = useCallback(() => setScale((s) => Math.min(3, s + 0.25)), []);
+
+  if (status === 'error') {
+    return (
+      <DownloadFallback
+        src={src}
+        filename={filename}
+        message="Couldn’t render this PDF — download it to view"
+      />
+    );
+  }
+
+  return (
+    <div data-testid="document-viewer">
+      <div
+        data-testid="pdf-viewer"
+        className="max-h-[600px] overflow-auto rounded border border-border bg-muted"
+      >
+        <canvas
+          ref={canvasRef}
+          data-testid="pdf-canvas"
+          aria-label={`PDF: ${filename}`}
+          className="mx-auto block"
+        />
+      </div>
+      {status === 'loading' && (
+        <p className="mt-2 text-sm text-muted-foreground">Loading PDF…</p>
+      )}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={prev}
+          disabled={page <= 1}
+          className="rounded bg-muted px-2 py-1 text-xs text-foreground disabled:opacity-50"
+        >
+          Prev
+        </button>
+        <span className="text-xs text-muted-foreground">
+          Page {page} / {numPages || '…'}
+        </span>
+        <button
+          type="button"
+          onClick={next}
+          disabled={numPages === 0 || page >= numPages}
+          className="rounded bg-muted px-2 py-1 text-xs text-foreground disabled:opacity-50"
+        >
+          Next
+        </button>
+        <span className="mx-2 text-muted-foreground">|</span>
+        <button
+          type="button"
+          onClick={zoomOut}
+          aria-label="Zoom out"
+          className="rounded bg-muted px-2 py-1 text-xs text-foreground"
+        >
+          -
+        </button>
+        <span className="text-xs text-muted-foreground">
+          {Math.round(scale * 100)}%
+        </span>
+        <button
+          type="button"
+          onClick={zoomIn}
+          aria-label="Zoom in"
+          className="rounded bg-muted px-2 py-1 text-xs text-foreground"
+        >
+          +
+        </button>
+        <a
+          href={attachmentHref(src)}
+          download={filename}
+          className="ml-2 text-xs font-medium text-primary hover:underline"
+        >
+          Download
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function DocumentViewer(props: {
   src: string;
   filename: string;
@@ -375,26 +531,11 @@ function DocumentViewer(props: {
 }): React.ReactElement {
   const { src, filename, mimeType } = props;
 
-  // pdfs render inline in the webview's native viewer; the <object>
-  // fallback (a download link) shows on platforms without one. other
-  // document types are download-only.
+  // render pdfs ourselves with pdf.js — the webview's native viewer is
+  // unavailable on some platforms (e.g. WebKitGTK). other document types
+  // are download-only.
   if (mimeType === 'application/pdf') {
-    return (
-      <div data-testid="document-viewer">
-        <object
-          data={src}
-          type="application/pdf"
-          className="h-[600px] w-full rounded border border-border"
-          aria-label={`PDF: ${filename}`}
-        >
-          <DownloadFallback
-            src={src}
-            filename={filename}
-            message="Inline preview unavailable on this platform"
-          />
-        </object>
-      </div>
-    );
+    return <PdfViewer key={src} src={src} filename={filename} />;
   }
 
   return (

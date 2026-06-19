@@ -21,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:8000 http://127.0.0.1:3000; img-src 'self' data: blob: http://127.0.0.1:8000; media-src 'self' http://127.0.0.1:8000; object-src 'self' http://127.0.0.1:8000; frame-src 'self' http://127.0.0.1:8000; style-src 'self' 'unsafe-inline'; script-src 'self'"
+      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:8000 http://127.0.0.1:3000; img-src 'self' data: blob: http://127.0.0.1:8000; media-src 'self' http://127.0.0.1:8000; object-src 'self' http://127.0.0.1:8000; frame-src 'self' http://127.0.0.1:8000; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:"
     }
   },
   "bundle": {
@@ -48,7 +48,11 @@
     },
     "linux": {
       "deb": {
-        "depends": []
+        "depends": [
+          "gstreamer1.0-plugins-good",
+          "gstreamer1.0-plugins-bad",
+          "gstreamer1.0-libav"
+        ]
       }
     }
   }
