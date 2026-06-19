@@ -20,6 +20,7 @@ import { ClustersPage } from '@/routes/cases/[caseId]/clusters';
 import { MapPage } from '@/routes/cases/[caseId]/map';
 import { ReviewPage } from '@/routes/cases/[caseId]/review';
 import { OrganizationsPage } from '@/routes/organizations/index';
+import { AiSettingsPage } from '@/routes/settings/ai';
 import { PluginsSettingsPage } from '@/routes/settings/plugins';
 import { SecuritySettingsPage } from '@/routes/settings/security';
 import { StorageSettingsPage } from '@/routes/settings/storage';
@@ -81,6 +82,7 @@ export function App(): React.ReactElement {
                     path="settings/storage"
                     element={<StorageSettingsPage />}
                   />
+                  <Route path="settings/ai" element={<AiSettingsPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
               </Route>

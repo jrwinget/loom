@@ -1,7 +1,9 @@
 import logging
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +14,9 @@ from loom.services.model_metadata import (
 )
 
 logger = logging.getLogger(__name__)
+
+# generous ceiling: a long recording transcribed by a cloud api.
+_CLOUD_TIMEOUT_S = 300.0
 
 _WHISPER_PACKAGE = "faster-whisper"
 _WHISPER_MODEL_NAME = "faster-whisper"
@@ -67,6 +72,71 @@ def transcribe_audio(
                 "text": segment.text.strip(),
                 "language": info.language,
                 "confidence": segment.avg_log_prob,
+                **provenance,
+            }
+        )
+    return results
+
+
+async def transcribe_via_cloud(
+    file_path: str,
+    *,
+    base_url: str,
+    api_key: str,
+    model: str,
+) -> list[dict[str, Any]]:
+    """transcribe a file via an OpenAI-compatible cloud api.
+
+    sends the original file (audio or video) directly — the api
+    extracts audio server-side — so no local ffmpeg is required.
+    returns segments in the same shape as :func:`transcribe_audio`,
+    with provenance marking the cloud provider and endpoint.
+    """
+    endpoint = base_url.rstrip("/") + "/audio/transcriptions"
+    host = httpx.URL(base_url).host
+    provenance = {
+        "model_name": f"cloud:{model}",
+        "model_version": "api",
+        "model_params": {
+            "provider": "cloud",
+            "endpoint": host,
+            "model": model,
+        },
+    }
+
+    with Path(file_path).open("rb") as fh:
+        files = {"file": (Path(file_path).name, fh)}
+        data = {"model": model, "response_format": "verbose_json"}
+        headers = {"Authorization": f"Bearer {api_key}"}
+        async with httpx.AsyncClient(timeout=_CLOUD_TIMEOUT_S) as client:
+            resp = await client.post(
+                endpoint, files=files, data=data, headers=headers
+            )
+    resp.raise_for_status()
+    body = resp.json()
+
+    language = body.get("language")
+    segments = body.get("segments") or []
+    results: list[dict[str, Any]] = [
+        {
+            "start": float(seg.get("start", 0.0)),
+            "end": float(seg.get("end", 0.0)),
+            "text": (seg.get("text") or "").strip(),
+            "language": language,
+            "confidence": seg.get("avg_logprob"),
+            **provenance,
+        }
+        for seg in segments
+    ]
+    # some endpoints return text-only (no segments) — keep the result.
+    if not results and body.get("text"):
+        results.append(
+            {
+                "start": 0.0,
+                "end": 0.0,
+                "text": str(body["text"]).strip(),
+                "language": language,
+                "confidence": None,
                 **provenance,
             }
         )

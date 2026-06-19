@@ -20,16 +20,23 @@ feature.
 | Video/audio playback + seeking | ✓ | ✓ | same endpoint, HTTP Range → 206 |
 | Court-bundle export + download | ✓ | ✓ | weasyprint bundled; signed http download |
 | Workflow status / health | ✓ | ✓ | Lite reports in-process state |
-| OCR / transcription / scene detection | ✓ | ✓¹ | local on-device models, or opt-in cloud (see below) |
+| Transcription | ✓ | ✓² | on-device (needs local model) **or** opt-in cloud BYO-key (Settings → AI) |
+| OCR / scene detection | ✓ | ✓¹ | local on-device only (no cloud option yet) |
 | Video proxies / thumbnails / waveforms | ✓ | ✓¹ | needs the bundled ffmpeg binary |
 | Organizations / members / plugins | ✓ | — | server-only; hidden on Lite |
 | Presigned multipart upload completion | ✓ | — | Minio-only; Lite uploads via `POST /upload` |
 
 ¹ AI/media features run on-device by default. If the on-device engine or
 ffmpeg is not installed, the step degrades to an empty result rather than
-failing. Users may opt in to a cloud provider (bring-your-own-key); when
-they do, the affected asset's chain of custody records the provider and
-model, because evidence then leaves the machine.
+failing.
+
+² Cloud transcription (Settings → AI) is opt-in and off by default. It
+sends the asset's audio to a user-configured OpenAI-compatible provider —
+no local ffmpeg needed, since the api accepts audio and video directly —
+and records the egress as a `cloud_transcription` chain-of-custody entry
+(provider, model, endpoint). On-device transcription/OCR/scene-detection
+still require the local models + ffmpeg, which the desktop build does not
+yet bundle (a future "AI pack").
 
 ## Why Lite assets are served over HTTP
 
