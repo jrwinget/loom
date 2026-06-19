@@ -99,6 +99,13 @@ export function Sidebar(): React.ReactElement {
             sidebarOpen={sidebarOpen}
           />
         )}
+        <NavLink
+          to="/settings/ai"
+          label="AI"
+          collapsedGlyph="AI"
+          pathname={pathname}
+          sidebarOpen={sidebarOpen}
+        />
       </nav>
 
       {/* collapse / expand */}

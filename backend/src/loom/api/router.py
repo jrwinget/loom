@@ -24,6 +24,7 @@ from loom.api.v1.provenance import router as provenance_router
 from loom.api.v1.redactions import router as redactions_router
 from loom.api.v1.scenes import router as scenes_router
 from loom.api.v1.search import router as search_router
+from loom.api.v1.settings import router as settings_router
 from loom.api.v1.shared_evidence import router as shared_evidence_router
 from loom.api.v1.storage import router as storage_router
 from loom.api.v1.timeline import router as timeline_router
@@ -55,6 +56,7 @@ api_router.include_router(redactions_router)
 api_router.include_router(organizations_router)
 api_router.include_router(shared_evidence_router)
 api_router.include_router(storage_router)
+api_router.include_router(settings_router)
 api_router.include_router(custody_router)
 api_router.include_router(integrity_router)
 api_router.include_router(plugins_router)

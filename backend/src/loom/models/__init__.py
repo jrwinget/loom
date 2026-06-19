@@ -1,4 +1,5 @@
 from loom.models.annotation import Annotation
+from loom.models.app_setting import AppSetting
 from loom.models.asset import Asset
 from loom.models.audit import AuditLogEntry
 from loom.models.base import Base
@@ -30,6 +31,7 @@ from loom.models.user import User
 
 __all__ = [
     "Annotation",
+    "AppSetting",
     "Asset",
     "AuditLogEntry",
     "Base",

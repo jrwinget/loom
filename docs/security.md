@@ -170,10 +170,15 @@ substituting a known default.
   interfaces.
 - **Desktop Lite**: backend binds to `127.0.0.1` only. There
   is no listener on any external interface. No telemetry, no
-  update checks, no crash reporting. The single source of
-  outbound traffic is URL ingestion (when the user explicitly
-  submits a URL), and even there a SSRF dispatcher rejects
-  loopback / private / link-local destinations.
+  update checks, no crash reporting. Outbound traffic happens
+  only on explicit user action: URL ingestion (when the user
+  submits a URL), and — off by default — cloud transcription if
+  the user opts in under Settings → AI and supplies an API key.
+  Both go through checks that reject loopback / private /
+  link-local destinations. When cloud transcription runs, the
+  asset's audio is sent to the configured provider and the
+  egress is recorded as a `cloud_transcription` chain-of-custody
+  entry (provider, model, endpoint) on that asset.
 
 ## Bundle signing
 
