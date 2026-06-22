@@ -15,7 +15,7 @@ jobs:
     name: Verify Versions
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Check version lockstep across all five files
         run: bash scripts/check-version-sync.sh "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
@@ -24,7 +24,7 @@ jobs:
     name: Lint Backend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v7
         with:
@@ -61,7 +61,7 @@ jobs:
     name: Lint Frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v6
         with:
@@ -96,7 +96,7 @@ jobs:
     env:
       LOOM_SECRET_KEY: test-secret-key-that-is-long-enough-for-ci
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v7
         with:
@@ -152,7 +152,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint-frontend
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v6
         with:
@@ -202,7 +202,7 @@ jobs:
       LOOM_DATABASE_URL: postgresql+asyncpg://loom:loom_ci@localhost:5432/loom_test
       LOOM_SECRET_KEY: test-secret-key-that-is-long-enough-for-ci
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v7
         with:
@@ -240,7 +240,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint-backend, lint-frontend]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v7
         with:
@@ -359,7 +359,7 @@ jobs:
       - security-scan
     if: always() && !cancelled() && needs.test-backend.result == 'success' && needs.test-frontend.result == 'success' && needs.test-migrations.result == 'success' && needs.security-scan.result == 'success'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
