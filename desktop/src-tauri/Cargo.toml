@@ -39,7 +39,7 @@ sysinfo = { version = "0.39", default-features = false, features = ["disk"] }
 # the latest patch release. this pin holds the whole graph at the
 # last good version. remove once tauri-utils ships a release that
 # builds against time >= 0.3.48, or once a lockfile is committed.
-time = "=0.3.49"
+time = "=0.3.51"
 
 # windows-only: a job object holds the sidecar bootloader so that
 # closing the handle on shell exit cascades termination to every
