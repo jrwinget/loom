@@ -16,6 +16,13 @@ export function ThemeProvider(props: {
   const theme = useThemeStore((s) => s.theme);
 
   useEffect(() => {
+    // matchMedia is absent in some embedded webviews (and jsdom);
+    // "system" then falls back to light rather than crashing
+    if (typeof window.matchMedia !== 'function') {
+      apply(theme === 'dark');
+      return;
+    }
+
     const media = window.matchMedia(QUERY);
     apply(resolveTheme(theme, media.matches) === 'dark');
 
