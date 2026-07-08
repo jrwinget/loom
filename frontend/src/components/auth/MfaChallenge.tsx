@@ -1,11 +1,24 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
-import { apiClient } from '@/lib/api-client';
+import { ApiClientError, apiClient } from '@/lib/api-client';
 import type { User } from '@/types';
 
 interface MfaChallengeTokens {
   accessToken: string;
   refreshToken: string;
+}
+
+// same rationale as the login page: collapsing every failure into
+// "invalid code" hides rate limits, expired challenges, and transport
+// errors, which is the masking pattern that made login undiagnosable.
+function challengeErrorMessage(err: unknown): string {
+  if (err instanceof ApiClientError) {
+    if (err.status === 429) {
+      return 'Too many attempts. Wait a minute and try again.';
+    }
+    return err.detail || 'Invalid code. Please try again.';
+  }
+  return "Couldn't reach Loom. Make sure the app is running and try again.";
 }
 
 export function MfaChallenge(): React.ReactElement {
@@ -28,12 +41,19 @@ export function MfaChallenge(): React.ReactElement {
         },
       );
 
-      // fetch user profile with the new token
+      // set the token so /auth/me is authenticated. a failure there is
+      // not a code problem, so surface it distinctly and don't leave a
+      // half-auth token behind.
       useAuthStore.setState({ token: tokens.accessToken });
-      const user = await apiClient.get<User>('/auth/me');
-      setAuth(tokens.accessToken, user);
-    } catch {
-      setError('Invalid code. Please try again.');
+      try {
+        const user = await apiClient.get<User>('/auth/me');
+        setAuth(tokens.accessToken, user);
+      } catch {
+        useAuthStore.getState().clearAuth();
+        setError('Verified, but could not load your profile. Try again.');
+      }
+    } catch (err) {
+      setError(challengeErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
