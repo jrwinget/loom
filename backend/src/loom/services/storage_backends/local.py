@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import hmac
 import logging
+import os
 import shutil
 import stat
 import time
@@ -153,6 +154,27 @@ class LocalStorageBackend:
             self._restore_write(dest)
             dest.unlink()
         dest.write_bytes(data)
+        self._apply_worm_bit(dest)
+
+    def upload_file_move(
+        self,
+        bucket: str,
+        key: str,
+        src_path: str,
+        content_type: str,
+    ) -> None:
+        del content_type
+        dest = self._object_path(bucket, key)
+        self._ensure_parent(dest)
+        if dest.exists():
+            self._restore_write(dest)
+            dest.unlink()
+        try:
+            # atomic when the temp dir shares the data-dir filesystem
+            os.replace(src_path, dest)
+        except OSError:
+            # cross-device fallback (e.g. relocated data dir)
+            shutil.move(src_path, dest)
         self._apply_worm_bit(dest)
 
     def download_file(

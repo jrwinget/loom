@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     # sqlite db). resolved at startup; unused for server profile.
     data_dir: Path | None = None
 
+    # upload ceiling in bytes; 0 disables the cap. the desktop shell
+    # passes 0 (the disk is the cap on lite); server operators raise
+    # it deliberately.
+    max_upload_size_bytes: int = 100 * 1024 * 1024
+
     database_url: str = "postgresql+asyncpg://loom:loom_dev@localhost:5432/loom"
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "loom_minio"
