@@ -47,11 +47,14 @@ class TestConflictResolutionFKs:
 
 
 class TestProvenanceRecordFKs:
-    def test_asset_id_cascade(self) -> None:
-        assert _get_fk_ondelete(ProvenanceRecord, "asset_id") == "CASCADE"
+    # SET NULL, not CASCADE: the c2pa trail must survive deletion of
+    # the asset or bundle it described (matches migration 002's
+    # deliberate choice; the model used to disagree)
+    def test_asset_id_set_null(self) -> None:
+        assert _get_fk_ondelete(ProvenanceRecord, "asset_id") == "SET NULL"
 
-    def test_export_id_cascade(self) -> None:
-        assert _get_fk_ondelete(ProvenanceRecord, "export_id") == "CASCADE"
+    def test_export_id_set_null(self) -> None:
+        assert _get_fk_ondelete(ProvenanceRecord, "export_id") == "SET NULL"
 
 
 class TestRedactionFKs:

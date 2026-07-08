@@ -235,6 +235,12 @@ jobs:
         working-directory: backend
         run: uv run alembic upgrade head
 
+      # models == alembic head implies the lite create_all schema and
+      # the server migration schema agree
+      - name: Schema parity (models vs migrations)
+        working-directory: backend
+        run: uv run pytest tests/integration/test_schema_parity.py -v
+
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
