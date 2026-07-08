@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from loom import __version__
 from loom.api.router import api_router
 from loom.config import get_settings
 from loom.observability import setup_db_telemetry, setup_telemetry
@@ -143,7 +144,7 @@ def create_app() -> FastAPI:
     application = FastAPI(
         title="Loom",
         description="Evidence operating system",
-        version="0.1.0",
+        version=__version__,
         lifespan=_lifespan,
         debug=settings.debug,
     )
