@@ -6,6 +6,8 @@
 
 @layer base {
   :root {
+    /* native scrollbars, form controls, etc. follow the app theme */
+    color-scheme: light;
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
 
@@ -45,6 +47,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
 
