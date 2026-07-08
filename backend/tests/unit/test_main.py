@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from fastapi import FastAPI
 
+import loom
 from loom.config import Settings, get_settings
 from loom.main import create_app
 
@@ -50,7 +51,9 @@ class TestCreateApp:
             return_value=_make_settings(),
         ):
             app = create_app()
-        assert app.version == "0.1.0"
+        # derived from package metadata, never a hardcoded literal
+        assert app.version == loom.__version__
+        assert app.version != "0.1.0"
 
 
 class TestCors:
