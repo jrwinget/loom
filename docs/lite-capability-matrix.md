@@ -27,8 +27,12 @@ feature.
 | Presigned multipart upload completion | ✓ | — | Minio-only; Lite uploads via `POST /upload` |
 
 ¹ AI/media features run on-device by default. If the on-device engine or
-ffmpeg is not installed, the step degrades to an empty result rather than
-failing.
+ffmpeg is not installed, the job **fails visibly**: the workflow status
+carries `error_code: engine_unavailable` plus a user-actionable remedy,
+and the asset records the reason in `processing_error`. Silent
+degradation (stub transcripts, empty OCR/scene results, skipped
+derivatives) was removed — a fabricated or missing result on an
+evidence product is worse than a visible failure.
 
 ² Cloud transcription (Settings → AI) is opt-in and off by default. You
 pick a provider — OpenAI, Google Gemini, a self-hosted/open-source model,

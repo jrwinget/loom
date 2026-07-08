@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from loom.services.engines import EngineUnavailableError
 from loom.workflows import lite_runner
 from loom.workflows.sequences import Step, WorkflowSpec
 
@@ -122,3 +123,25 @@ async def test_marks_failed_and_reraises_on_error() -> None:
         await lite_runner.run_sequence(spec, ["asset-1"])
     statuses = [c.args[1] for c in set_status.await_args_list]
     assert statuses == ["processing", "failed"]
+    # the failure reason is persisted for the ui
+    assert set_status.await_args_list[1].kwargs["error"] == "down"
+
+
+async def test_missing_engine_records_remedy_on_asset() -> None:
+    async def missing(asset_id: str) -> None:
+        raise EngineUnavailableError("ocr", "install the ai extra")
+
+    spec = _spec(
+        Step(missing, lambda args, r: [args[0]], timeout_s=1),
+        asset_status_arg=0,
+    )
+    with (
+        patch.object(
+            lite_runner, "_set_asset_status", new_callable=AsyncMock
+        ) as set_status,
+        pytest.raises(EngineUnavailableError),
+    ):
+        await lite_runner.run_sequence(spec, ["asset-1"])
+    assert set_status.await_args_list[1].kwargs["error"] == (
+        "install the ai extra"
+    )

@@ -18,12 +18,31 @@ from dataclasses import dataclass
 from typing import Any
 
 from loom.config import get_settings
+from loom.services.engines import EngineUnavailableError
 from loom.workflows.lite_runner import run_sequence
 from loom.workflows.sequences import SPECS
 
 logger = logging.getLogger(__name__)
 
 TASK_QUEUE = "loom-ingest"
+
+
+@dataclass
+class LiteJobStatus:
+    """structured in-process job state the status endpoint reports.
+
+    stage/steps fields are populated by the runner as sequences
+    advance; error fields carry the user-facing failure so the ui
+    never has to show a bare "failed".
+    """
+
+    status: str
+    stage: str | None = None
+    steps_done: int | None = None
+    steps_total: int | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+
 
 # lite-profile in-process state. background tasks are retained so
 # they aren't garbage-collected mid-flight; the status map lets the
@@ -32,7 +51,7 @@ TASK_QUEUE = "loom-ingest"
 # correct: an in-flight in-process workflow does not survive a
 # restart either.
 _BG_TASKS: set[asyncio.Task[None]] = set()
-_LITE_STATUS: dict[str, str] = {}
+_LITE_STATUS: dict[str, LiteJobStatus] = {}
 
 
 @dataclass(frozen=True)
@@ -112,7 +131,7 @@ def _server_ref(name: str) -> Any:
 
 def _schedule_lite(name: str, args: list[Any], workflow_id: str) -> None:
     """fire-and-forget the in-process runner for ``name``."""
-    _LITE_STATUS[workflow_id] = "running"
+    _LITE_STATUS[workflow_id] = LiteJobStatus(status="running")
     task = asyncio.create_task(
         _run_lite_safely(name, args, workflow_id),
         name=workflow_id,
@@ -129,22 +148,38 @@ async def _run_lite_safely(
     exceptions are logged, never raised: the http request that
     scheduled this has already returned, so there is no 502 to
     surface. the failure is visible via the status map and the
-    asset's processing_status.
+    asset's processing_status/processing_error.
     """
     try:
         await run_sequence(SPECS[name], list(args))
-        _LITE_STATUS[workflow_id] = "completed"
-    except Exception:
+        _LITE_STATUS[workflow_id] = LiteJobStatus(status="completed")
+    except EngineUnavailableError as exc:
+        logger.error(
+            "in-process %s workflow %s failed: %s",
+            name,
+            workflow_id,
+            exc,
+        )
+        _LITE_STATUS[workflow_id] = LiteJobStatus(
+            status="failed",
+            error_code="engine_unavailable",
+            error_message=exc.remedy,
+        )
+    except Exception as exc:
         logger.error(
             "in-process %s workflow %s failed",
             name,
             workflow_id,
             exc_info=True,
         )
-        _LITE_STATUS[workflow_id] = "failed"
+        _LITE_STATUS[workflow_id] = LiteJobStatus(
+            status="failed",
+            error_code="processing_error",
+            error_message=str(exc)[:500],
+        )
 
 
-def lite_workflow_status(workflow_id: str) -> str | None:
+def lite_workflow_status(workflow_id: str) -> LiteJobStatus | None:
     """return the in-process status for a workflow, or None."""
     return _LITE_STATUS.get(workflow_id)
 

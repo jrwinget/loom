@@ -4,6 +4,7 @@ from uuid import UUID
 
 import pytest
 
+from loom.services.engines import EngineUnavailableError
 from loom.services.scene_detection import (
     detect_scenes,
     generate_scene_thumbnails,
@@ -11,20 +12,34 @@ from loom.services.scene_detection import (
 )
 
 
+def _mock_scenedetect_with_scenes(
+    scene_list: list,
+) -> MagicMock:
+    mock_scene_manager = MagicMock()
+    mock_scene_manager.get_scene_list.return_value = scene_list
+    mock_sd = MagicMock()
+    mock_sd.SceneManager.return_value = mock_scene_manager
+    mock_sd.ContentDetector.return_value = MagicMock()
+    mock_sd.open_video.return_value = MagicMock()
+    return mock_sd
+
+
 class TestDetectScenes:
     """tests for detect_scenes."""
 
-    def test_missing_scenedetect_returns_fallback(self) -> None:
-        """gracefully returns single scene when lib missing."""
-        with patch.dict("sys.modules", {"scenedetect": None}):
-            result = detect_scenes("/fake/video.mp4")
-        assert len(result) == 1
-        assert result[0]["scene_number"] == 1
-        assert result[0]["start_time"] == 0.0
+    def test_missing_scenedetect_raises(self) -> None:
+        """a missing engine fails loud instead of fabricating a row."""
+        with (
+            patch.dict("sys.modules", {"scenedetect": None}),
+            pytest.raises(EngineUnavailableError) as excinfo,
+        ):
+            detect_scenes("/fake/video.mp4")
+        assert excinfo.value.engine == "scene_detection"
 
-    def test_fallback_has_required_keys(self) -> None:
-        """fallback scene dict has all expected keys."""
-        with patch.dict("sys.modules", {"scenedetect": None}):
+    def test_no_cuts_fallback_has_required_keys(self) -> None:
+        """detector ran, found no cuts: single full-video scene."""
+        mock_sd = _mock_scenedetect_with_scenes([])
+        with patch.dict("sys.modules", {"scenedetect": mock_sd}):
             result = detect_scenes("/fake/video.mp4")
         scene = result[0]
         expected_keys = {
@@ -40,14 +55,14 @@ class TestDetectScenes:
         }
         assert set(scene.keys()) == expected_keys
 
-    def test_fallback_records_unknown_provenance(self) -> None:
-        """fallback path flags provenance as unknown."""
-        with patch.dict("sys.modules", {"scenedetect": None}):
-            result = detect_scenes("/fake/video.mp4")
+    def test_no_cuts_fallback_keeps_real_provenance(self) -> None:
+        """the ran-but-empty fallback carries the detector's identity."""
+        mock_sd = _mock_scenedetect_with_scenes([])
+        with patch.dict("sys.modules", {"scenedetect": mock_sd}):
+            result = detect_scenes("/fake/video.mp4", threshold=42.0)
         scene = result[0]
         assert scene["model_name"] == "scenedetect.ContentDetector"
-        assert scene["model_version"] == "unknown"
-        assert scene["model_params"] is None
+        assert scene["model_params"] == {"threshold": 42.0}
 
     def test_successful_detection_attaches_provenance(self) -> None:
         """real detection results carry model name and params."""
@@ -109,16 +124,16 @@ class TestDetectScenes:
         assert result[1]["scene_number"] == 2
         assert result[1]["start_time"] == 5.0
 
-    def test_open_video_failure_returns_fallback(self) -> None:
-        """returns fallback when video cannot be opened."""
+    def test_open_video_failure_raises(self) -> None:
+        """an unreadable file is a processing error, not a scene."""
         mock_sd = MagicMock()
         mock_sd.open_video.side_effect = RuntimeError("bad file")
 
-        with patch.dict("sys.modules", {"scenedetect": mock_sd}):
-            result = detect_scenes("/fake/video.mp4")
-
-        assert len(result) == 1
-        assert result[0]["scene_number"] == 1
+        with (
+            patch.dict("sys.modules", {"scenedetect": mock_sd}),
+            pytest.raises(RuntimeError, match="could not open"),
+        ):
+            detect_scenes("/fake/video.mp4")
 
 
 class TestGenerateSceneThumbnails:
@@ -130,8 +145,8 @@ class TestGenerateSceneThumbnails:
             result = generate_scene_thumbnails("/fake/video.mp4", [], tmpdir)
         assert result == []
 
-    def test_no_ffmpeg_returns_empty(self) -> None:
-        """gracefully returns empty when ffmpeg missing."""
+    def test_no_ffmpeg_raises(self) -> None:
+        """missing ffmpeg fails loud instead of skipping thumbnails."""
         scenes = [
             {
                 "scene_number": 1,
@@ -145,11 +160,10 @@ class TestGenerateSceneThumbnails:
                 "loom.services.scene_detection._FFMPEG",
                 None,
             ),
+            pytest.raises(EngineUnavailableError) as excinfo,
         ):
-            result = generate_scene_thumbnails(
-                "/fake/video.mp4", scenes, tmpdir
-            )
-        assert result == []
+            generate_scene_thumbnails("/fake/video.mp4", scenes, tmpdir)
+        assert excinfo.value.engine == "media_pipeline"
 
     def test_generates_thumbnails(self) -> None:
         """creates thumbnail files via ffmpeg subprocess."""
