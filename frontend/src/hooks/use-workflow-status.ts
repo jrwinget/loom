@@ -7,6 +7,13 @@ const POLL_SLOW_MS = 5000;
 // back off after ~30s of fast polling
 const SLOW_AFTER_UPDATES = 20;
 
+// what every workflow-starting endpoint returns (202)
+export interface StartWorkflowResponse {
+  workflowId: string;
+  assetId?: string;
+  status: string;
+}
+
 export interface WorkflowStatus {
   workflowId: string;
   status: 'running' | 'completed' | 'failed' | 'cancelled';

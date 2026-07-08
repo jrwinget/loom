@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { createElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useDownloadExport } from '@/hooks/use-exports';
+import { useCreateExport, useDownloadExport } from '@/hooks/use-exports';
+import { useJobStore } from '@/stores/job-store';
 
 const { addToast, triggerDownload } = vi.hoisted(() => ({
   addToast: vi.fn(),
@@ -42,6 +43,33 @@ function createWrapper(): ({
   return ({ children }) =>
     createElement(QueryClientProvider, { client: queryClient }, children);
 }
+
+describe('useCreateExport', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useJobStore.setState({ jobs: [] });
+  });
+
+  it('tracks the deterministic export workflow as a job', async () => {
+    const { apiClient } = await import('@/lib/api-client');
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
+      id: 'exp-1',
+      name: 'Court bundle',
+      status: 'pending',
+    });
+
+    const { result } = renderHook(() => useCreateExport('case-1'), {
+      wrapper: createWrapper(),
+    });
+    result.current.mutate({ name: 'Court bundle', format: 'court_bundle' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const job = useJobStore.getState().jobs[0];
+    expect(job.workflowId).toBe('export-exp-1');
+    expect(job.kind).toBe('export');
+    expect(job.label).toBe('Court bundle');
+  });
+});
 
 describe('useDownloadExport', () => {
   beforeEach(() => {

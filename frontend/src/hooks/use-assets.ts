@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
 import { queryKeys } from '@/lib/query-keys';
 import { apiClient, camelizeKeys, getApiOrigin } from '@/lib/api-client';
+import { useJobStore } from '@/stores/job-store';
 import { useToastStore } from '@/stores/toast-store';
 import type { Asset, AssetListResponse } from '@/types/asset';
 
@@ -101,6 +102,18 @@ export function uploadAssetXhr(
   });
 }
 
+// track the post-upload ingest pipeline in the jobs menu; its
+// workflow id is deterministic (ingest-{asset id})
+export function registerIngestJob(caseId: string, asset: Asset): void {
+  useJobStore.getState().registerJob({
+    workflowId: `ingest-${asset.id}`,
+    caseId,
+    kind: 'ingest',
+    label: asset.originalFilename,
+    assetId: asset.id,
+  });
+}
+
 export function useUploadAsset(
   caseId: string,
 ): ReturnType<typeof useMutation<Asset, Error, UploadAssetVars>> {
@@ -109,7 +122,8 @@ export function useUploadAsset(
   return useMutation({
     mutationFn: ({ file, onProgress }: UploadAssetVars) =>
       uploadAssetXhr(caseId, file, onProgress),
-    onSuccess: () => {
+    onSuccess: (asset) => {
+      registerIngestJob(caseId, asset);
       void queryClient.invalidateQueries({
         queryKey: queryKeys.assets.byCase(caseId),
       });

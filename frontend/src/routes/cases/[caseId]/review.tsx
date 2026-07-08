@@ -33,8 +33,16 @@ export function ReviewPage(): React.ReactElement {
     isError: scenesError,
   } = useScenes(safeCase, safeAsset);
 
-  const startTranscription = useStartTranscription(safeCase, safeAsset);
-  const startSceneDetection = useStartSceneDetection(safeCase, safeAsset);
+  const startTranscription = useStartTranscription(
+    safeCase,
+    safeAsset,
+    asset?.originalFilename,
+  );
+  const startSceneDetection = useStartSceneDetection(
+    safeCase,
+    safeAsset,
+    asset?.originalFilename,
+  );
   const { data: capabilities } = useCapabilities();
 
   // gate only on a confirmed "missing" — while capabilities load,
