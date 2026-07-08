@@ -52,22 +52,28 @@ function uploadErrorDetail(xhr: XMLHttpRequest): string {
 // shared raw-xhr upload used by both the single-file mutation and the
 // dropzone batch flow. fetch can't report upload progress, hence xhr;
 // keep the route a literal template so the contract test extracts it.
+// the raw File body streams through the streaming route, so the
+// backend never buffers the file in memory and the cap is the
+// configured limit rather than a multipart-parser ceiling.
 export function uploadAssetXhr(
   caseId: string,
   file: File,
   onProgress?: (pct: number) => void,
 ): Promise<Asset> {
   const token = useAuthStore.getState().token;
-  const formData = new FormData();
-  formData.append('file', file);
 
   return new Promise<Asset>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${getApiOrigin()}/cases/${caseId}/assets/upload`);
+    xhr.open(
+      'POST',
+      `${getApiOrigin()}/cases/${caseId}/assets/upload-stream` +
+        `?filename=${encodeURIComponent(file.name)}`,
+    );
 
     if (token) {
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
 
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable && onProgress) {
@@ -91,7 +97,7 @@ export function uploadAssetXhr(
       reject(new Error('Upload network error'));
     });
 
-    xhr.send(formData);
+    xhr.send(file);
   });
 }
 

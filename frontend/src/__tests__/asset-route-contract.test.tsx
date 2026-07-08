@@ -86,7 +86,7 @@ describe('useAsset', () => {
 });
 
 describe('useUpload', () => {
-  it('uploads to the /assets/upload route', async () => {
+  it('streams to the /assets/upload-stream route', async () => {
     const { result } = renderHook(() => useUpload(), {
       wrapper: createWrapper(),
     });
@@ -105,7 +105,8 @@ describe('useUpload', () => {
 
     expect(openCalls).toContainEqual([
       'POST',
-      'http://api.test/cases/case-1/assets/upload',
+      'http://api.test/cases/case-1/assets/upload-stream' +
+        '?filename=evidence.pdf',
     ]);
   });
 });
