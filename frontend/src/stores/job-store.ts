@@ -58,11 +58,24 @@ export const useJobStore = create<JobState>((set) => ({
       ],
     })),
   updateProgress: (workflowId, progress) =>
-    set((s) => ({
-      jobs: s.jobs.map((j) =>
-        j.workflowId === workflowId ? { ...j, ...progress } : j,
-      ),
-    })),
+    set((s) => {
+      const target = s.jobs.find((j) => j.workflowId === workflowId);
+      // no-op when nothing changed: the watcher effect depends on the
+      // job object, so an unconditional rewrite would loop forever
+      if (
+        !target ||
+        (target.stage === progress.stage &&
+          target.stepsDone === progress.stepsDone &&
+          target.stepsTotal === progress.stepsTotal)
+      ) {
+        return s;
+      }
+      return {
+        jobs: s.jobs.map((j) =>
+          j.workflowId === workflowId ? { ...j, ...progress } : j,
+        ),
+      };
+    }),
   resolveJob: (workflowId, status, error = null, errorCode = null) =>
     set((s) => ({
       jobs: s.jobs.map((j) =>
