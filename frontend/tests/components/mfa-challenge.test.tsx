@@ -5,14 +5,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MfaChallenge } from '@/components/auth/MfaChallenge';
 import { useAuthStore } from '@/stores/auth-store';
 
-vi.mock('@/lib/api-client', () => ({
+// keep the real ApiClientError so instanceof checks in the component
+// see the same class the mocked client rejects with
+vi.mock('@/lib/api-client', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   apiClient: {
     post: vi.fn(),
     get: vi.fn(),
   },
 }));
 
-import { apiClient } from '@/lib/api-client';
+import { ApiClientError, apiClient } from '@/lib/api-client';
 
 const mockedPost = vi.mocked(apiClient.post);
 const mockedGet = vi.mocked(apiClient.get);
@@ -48,8 +51,8 @@ describe('MfaChallenge', () => {
 
   it('submits the entered code and stores the returned token on success', async () => {
     mockedPost.mockResolvedValueOnce({
-      access_token: 'new-jwt',
-      refresh_token: 'new-refresh',
+      accessToken: 'new-jwt',
+      refreshToken: 'new-refresh',
     });
     mockedGet.mockResolvedValueOnce({
       id: 'u-1',
@@ -90,7 +93,7 @@ describe('MfaChallenge', () => {
 
     expect(screen.getByRole('button', { name: 'Verifying...' })).toBeDisabled();
 
-    resolvePost({ access_token: 't', refresh_token: 'r' });
+    resolvePost({ accessToken: 't', refreshToken: 'r' });
     mockedGet.mockResolvedValueOnce({
       id: 'u-1',
       email: 'ada@example.org',
@@ -100,8 +103,10 @@ describe('MfaChallenge', () => {
     await waitFor(() => expect(useAuthStore.getState().token).toBe('t'));
   });
 
-  it('shows an error alert when the server rejects the code', async () => {
-    mockedPost.mockRejectedValueOnce(new Error('401'));
+  it('surfaces the backend detail when the server rejects the code', async () => {
+    mockedPost.mockRejectedValueOnce(
+      new ApiClientError(401, 'challenge expired, sign in again'),
+    );
     const user = userEvent.setup();
 
     render(<MfaChallenge />);
@@ -109,16 +114,62 @@ describe('MfaChallenge', () => {
     await user.click(screen.getByRole('button', { name: 'Verify' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Invalid code. Please try again.',
+      'challenge expired, sign in again',
     );
     // verify is re-enabled so the user can retry without reloading
     expect(screen.getByRole('button', { name: 'Verify' })).not.toBeDisabled();
   });
 
+  it('shows a rate-limit message on 429', async () => {
+    mockedPost.mockRejectedValueOnce(
+      new ApiClientError(429, 'rate limit exceeded'),
+    );
+    const user = userEvent.setup();
+
+    render(<MfaChallenge />);
+    await user.type(screen.getByLabelText('Code'), '000000');
+    await user.click(screen.getByRole('button', { name: 'Verify' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Too many attempts. Wait a minute and try again.',
+    );
+  });
+
+  it('distinguishes a transport failure from a rejected code', async () => {
+    mockedPost.mockRejectedValueOnce(new TypeError('Load failed'));
+    const user = userEvent.setup();
+
+    render(<MfaChallenge />);
+    await user.type(screen.getByLabelText('Code'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Verify' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't reach Loom. Make sure the app is running and try again.",
+    );
+  });
+
+  it('clears the half-auth token when the profile fetch fails', async () => {
+    mockedPost.mockResolvedValueOnce({
+      accessToken: 'new-jwt',
+      refreshToken: 'new-refresh',
+    });
+    mockedGet.mockRejectedValueOnce(new ApiClientError(500, 'boom'));
+    const user = userEvent.setup();
+
+    render(<MfaChallenge />);
+    await user.type(screen.getByLabelText('Code'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Verify' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Verified, but could not load your profile. Try again.',
+    );
+    expect(useAuthStore.getState().token).toBeNull();
+  });
+
   it('submits the form when the user presses Enter inside the code input', async () => {
     mockedPost.mockResolvedValueOnce({
-      access_token: 'jwt',
-      refresh_token: 'refresh',
+      accessToken: 'jwt',
+      refreshToken: 'refresh',
     });
     mockedGet.mockResolvedValueOnce({
       id: 'u-1',

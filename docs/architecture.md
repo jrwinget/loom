@@ -143,7 +143,17 @@ review — originals are never lost.
 On Desktop Lite, the same activity functions run in-process
 behind a thin Temporal-shaped facade so the rest of the code
 doesn't branch on profile. There is no Temporal server
-running on Lite installs.
+running on Lite installs. Every endpoint dispatches through a
+single gateway (`loom.workflows.dispatch.dispatch_workflow`):
+on the server profile it starts a Temporal workflow; on Lite it
+runs the workflow's activity sequence as a background task. The
+activity order and retry policy for both paths live in one place
+(`loom.workflows.sequences`), so they cannot drift. Workflow
+status on Lite is reported from in-process state, falling back to
+the persisted rows the workflow produced. Activities whose
+optional AI dependencies (OCR, transcription, scene detection)
+are not bundled with the desktop build degrade gracefully to
+empty results rather than failing.
 
 ## Cognitive engineering (UI)
 

@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     # stable across launches but differs between installs. unused in
     # server profile, which uses minio's own signing path.
     storage_signing_secret: str | None = None
+    # absolute origin the lite sidecar serves signed asset-stream urls
+    # from. the desktop webview loads <video>/<img>/<object> src from
+    # here, so it must be the sidecar's loopback bind (not a relative
+    # path, which would resolve against tauri://localhost). unused on
+    # server, where minio returns its own https presigned urls.
+    lite_public_base_url: str = "http://127.0.0.1:8000"
     debug: bool = False
     log_level: str = "info"
 

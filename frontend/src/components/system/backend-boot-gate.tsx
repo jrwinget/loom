@@ -29,7 +29,7 @@ export function BackendBootGate({
   if (status === 'error') {
     return (
       <div className="flex min-h-screen items-center justify-center px-4 py-12">
-        <div className="bg-card w-full max-w-lg space-y-4 rounded-lg border border-border p-8">
+        <div className="w-full max-w-lg space-y-4 rounded-lg border border-border bg-card p-8">
           <h1 className="text-xl font-semibold text-foreground">
             Loom backend did not start
           </h1>
@@ -58,7 +58,7 @@ export function BackendBootGate({
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="bg-card w-full max-w-md space-y-3 rounded-lg border border-border p-8 text-center">
+      <div className="w-full max-w-md space-y-3 rounded-lg border border-border bg-card p-8 text-center">
         <h1 className="text-lg font-semibold text-foreground">
           Loom is starting…
         </h1>

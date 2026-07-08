@@ -46,7 +46,7 @@ export function SharedEvidencePanel({
               <li
                 key={item.id}
                 data-testid="shared-item"
-                className="bg-card flex items-center justify-between rounded-md border border-border p-3"
+                className="flex items-center justify-between rounded-md border border-border bg-card p-3"
               >
                 <div>
                   <span className="text-sm font-medium text-foreground">
@@ -79,7 +79,7 @@ export function SharedEvidencePanel({
               <li
                 key={item.id}
                 data-testid="shared-item"
-                className="bg-card flex items-center justify-between rounded-md border border-border p-3"
+                className="flex items-center justify-between rounded-md border border-border bg-card p-3"
               >
                 <div>
                   <span className="text-sm font-medium text-foreground">

@@ -1,6 +1,7 @@
 // storage domain types. ui layer uses camelCase; wire types
-// (snake_case) are suffixed with *Wire and converted at the
-// hook boundary.
+// mirror the api response shape (already camelCase after the
+// api-client key conversion) and are suffixed with *Wire and
+// mapped to domain shapes at the hook boundary.
 
 export type StorageAdvisory = 'proceed' | 'warning' | 'blocked';
 
@@ -19,15 +20,15 @@ export interface StorageUsage {
 }
 
 export interface StorageUsageWire {
-  data_dir: string;
-  free_bytes: number;
-  total_bytes: number;
-  originals_bytes: number;
-  derivatives_bytes: number;
-  db_bytes: number;
-  logs_bytes: number;
-  asset_count: number;
-  on_system_drive: boolean;
+  dataDir: string;
+  freeBytes: number;
+  totalBytes: number;
+  originalsBytes: number;
+  derivativesBytes: number;
+  dbBytes: number;
+  logsBytes: number;
+  assetCount: number;
+  onSystemDrive: boolean;
 }
 
 export interface StorageCheckRequest {
@@ -47,12 +48,12 @@ export interface StorageCheckResult {
 
 export interface StorageCheckResultWire {
   writable: boolean;
-  writable_reason: string | null;
-  free_bytes: number;
-  total_bytes: number;
-  on_system_drive: boolean;
+  writableReason: string | null;
+  freeBytes: number;
+  totalBytes: number;
+  onSystemDrive: boolean;
   advisory: StorageAdvisory;
-  advisory_reason: string | null;
+  advisoryReason: string | null;
 }
 
 export interface RelocateRequest {
@@ -60,7 +61,7 @@ export interface RelocateRequest {
 }
 
 export interface RelocateAcceptedResponseWire {
-  job_id: string;
+  jobId: string;
 }
 
 export interface RelocationJob {
@@ -76,13 +77,13 @@ export interface RelocationJob {
 }
 
 export interface RelocationJobWire {
-  job_id: string;
+  jobId: string;
   status: RelocationStatus;
-  assets_copied: number;
-  assets_total: number;
-  bytes_copied: number;
-  bytes_total: number;
+  assetsCopied: number;
+  assetsTotal: number;
+  bytesCopied: number;
+  bytesTotal: number;
   error: string | null;
-  started_at: string | null;
-  completed_at: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
 }

@@ -2,6 +2,11 @@ import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
 
+// note: pdf.js CMap + standard-font assets are copied into public/pdfjs/
+// by scripts/copy-pdfjs-assets.mjs (run from the build/dev npm scripts),
+// so vite serves them in dev and emits them to dist/ on build. the loader
+// points at <base>/pdfjs/{cmaps,standard_fonts}/ — see lib/pdf.ts.
+
 export default defineConfig({
   plugins: [react()],
   resolve: {

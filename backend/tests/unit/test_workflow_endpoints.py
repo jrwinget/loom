@@ -192,6 +192,9 @@ class TestExportEndpoint:
         mock_export.status = "pending"
         mock_export.storage_key = ""
         mock_export.sha256_hash = ""
+        # unspecced mock: pin the optional field or model_validate
+        # sees a child MagicMock and rejects it
+        mock_export.download_url = None
         mock_export.created_by = _USER_ID
         mock_export.created_at = datetime.now(tz=UTC)
         mock_export.updated_at = datetime.now(tz=UTC)

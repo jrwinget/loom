@@ -29,6 +29,7 @@ from loom.services.export import (
     list_exports,
 )
 from loom.services.storage_backends import DERIVATIVES_BUCKET, StorageBackend
+from loom.workflows.dispatch import dispatch_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -80,17 +81,10 @@ async def create_export_endpoint(
     )
 
     try:
-        from temporalio.client import Client
-
-        from loom.config import get_settings
-
-        settings = get_settings()
-        temporal = await Client.connect(settings.temporal_host)
-        await temporal.start_workflow(
-            "ExportWorkflow",
-            str(export.id),
-            id=f"export-{export.id}",
-            task_queue="loom-ingest",
+        await dispatch_workflow(
+            "export",
+            args=[str(export.id)],
+            workflow_id=f"export-{export.id}",
         )
     except Exception:
         logger.error(
@@ -162,13 +156,12 @@ async def get_export_endpoint(
     # generate download url if export is complete
     if export.status == "complete" and export.storage_key:
         loop = asyncio.get_running_loop()
-        url = await loop.run_in_executor(
+        resp.download_url = await loop.run_in_executor(
             None,
             storage.get_presigned_download_url,
             DERIVATIVES_BUCKET,
             export.storage_key,
             900,
         )
-        resp.storage_key = url
 
     return resp

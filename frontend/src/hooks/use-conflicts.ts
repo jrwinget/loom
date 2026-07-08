@@ -51,7 +51,7 @@ export function useCreateResolution(
   return useMutation({
     mutationFn: (payload: CreateResolutionPayload) =>
       apiClient.post<ConflictResolution>(
-        `/cases/${caseId}/events/${eventId}/resolutions`,
+        `/cases/${caseId}/events/${eventId}/conflicts/resolve`,
         payload,
       ),
     onSuccess: () => {
@@ -89,8 +89,10 @@ export function useUpdateResolution(caseId: string): ReturnType<
   const queryClient = useQueryClient();
 
   return useMutation({
+    // the resolution id is globally unique, so the patch route is
+    // case-scoped (not nested under the event); eventId is still part
+    // of the mutation variables so onSuccess can target its cache key.
     mutationFn: ({
-      eventId,
       resolutionId,
       payload,
     }: {
@@ -99,7 +101,7 @@ export function useUpdateResolution(caseId: string): ReturnType<
       payload: CreateResolutionPayload;
     }) =>
       apiClient.patch<ConflictResolution>(
-        `/cases/${caseId}/events/${eventId}/resolutions/${resolutionId}`,
+        `/cases/${caseId}/conflicts/resolutions/${resolutionId}`,
         payload,
       ),
     onSuccess: (_data, variables) => {

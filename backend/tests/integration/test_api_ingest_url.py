@@ -11,6 +11,7 @@ import pytest_asyncio
 from loom.config import Settings, get_settings
 from loom.dependencies import get_db_session, get_minio_client
 from loom.security.auth import create_access_token
+from loom.workflows.dispatch import DispatchResult
 
 _USER_ID = UUID("01912345-6789-7abc-8def-01234567aa01")
 _CASE_ID = UUID("01912345-6789-7abc-8def-01234567aa02")
@@ -221,6 +222,63 @@ async def test_ingest_url_temporal_unreachable(
 
     assert resp.status_code == 502
     assert stub.rolled_back
+
+
+def _lite_settings() -> Settings:
+    return Settings(
+        secret_key="test-secret-key-that-is-long-enough-for-validation",
+        access_token_expire_minutes=15,
+        refresh_token_expire_days=7,
+        database_url="sqlite+aiosqlite:///",
+        deployment_profile="lite",
+        storage_signing_secret="test-signing-secret",
+    )
+
+
+async def test_ingest_url_lite_returns_queued_without_temporal() -> None:
+    """on lite the endpoint commits and runs in-process — never 502.
+
+    the server path 502s when temporal is down; lite has no temporal
+    server, so dispatch can't fail and the request returns queued.
+    """
+    lite = _lite_settings()
+    stub = _StubSession()
+    app = _create_app(lite, stub)
+
+    dispatch_mock = AsyncMock(
+        return_value=DispatchResult("url-ingest-x", "queued")
+    )
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=lite,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(f"{_SVC}.get_settings", return_value=lite),
+        patch(f"{_SVC}.dispatch_workflow", dispatch_mock),
+    ):
+        token = create_access_token(str(_USER_ID), "analyst")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/assets/ingest-url",
+                json={"url": "https://example.com/video.mp4"},
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 201
+    assert resp.json()["status"] == "queued"
+    # row committed before the in-process pipeline can read it
+    assert stub.committed
+    assert not stub.rolled_back
+    dispatch_mock.assert_awaited_once()
+    assert dispatch_mock.await_args.kwargs["args"][0] is not None
 
 
 async def test_ingest_url_501_when_extractor_unavailable(

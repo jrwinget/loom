@@ -52,15 +52,15 @@ describe('useStorageUsage', () => {
   it('maps wire response to camelCase ui shape', async () => {
     const { apiClient } = await import('@/lib/api-client');
     vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data_dir: '/var/loom',
-      free_bytes: 10,
-      total_bytes: 100,
-      originals_bytes: 5,
-      derivatives_bytes: 3,
-      db_bytes: 1,
-      logs_bytes: 1,
-      asset_count: 42,
-      on_system_drive: true,
+      dataDir: '/var/loom',
+      freeBytes: 10,
+      totalBytes: 100,
+      originalsBytes: 5,
+      derivativesBytes: 3,
+      dbBytes: 1,
+      logsBytes: 1,
+      assetCount: 42,
+      onSystemDrive: true,
     });
 
     const { result } = renderHook(() => useStorageUsage(), {
@@ -100,12 +100,12 @@ describe('useStorageCheck', () => {
     const postMock = vi.mocked(apiClient.post);
     postMock.mockResolvedValueOnce({
       writable: true,
-      writable_reason: null,
-      free_bytes: 100,
-      total_bytes: 200,
-      on_system_drive: false,
+      writableReason: null,
+      freeBytes: 100,
+      totalBytes: 200,
+      onSystemDrive: false,
       advisory: 'warning',
-      advisory_reason: 'low free space',
+      advisoryReason: 'low free space',
     });
 
     const { result } = renderHook(() => useStorageCheck(), {
@@ -135,7 +135,7 @@ describe('useRelocateStorage', () => {
   it('returns the job id from an accepted response', async () => {
     const { apiClient } = await import('@/lib/api-client');
     vi.mocked(apiClient.post).mockResolvedValueOnce({
-      job_id: 'job-abc',
+      jobId: 'job-abc',
     });
 
     const { result } = renderHook(() => useRelocateStorage(), {
@@ -164,15 +164,15 @@ describe('useRelocationJob', () => {
   it('maps wire job response', async () => {
     const { apiClient } = await import('@/lib/api-client');
     vi.mocked(apiClient.get).mockResolvedValueOnce({
-      job_id: 'job-xyz',
+      jobId: 'job-xyz',
       status: 'completed',
-      assets_copied: 10,
-      assets_total: 10,
-      bytes_copied: 500,
-      bytes_total: 500,
+      assetsCopied: 10,
+      assetsTotal: 10,
+      bytesCopied: 500,
+      bytesTotal: 500,
       error: null,
-      started_at: '2026-04-24T00:00:00Z',
-      completed_at: '2026-04-24T00:05:00Z',
+      startedAt: '2026-04-24T00:00:00Z',
+      completedAt: '2026-04-24T00:05:00Z',
     });
 
     const { result } = renderHook(() => useRelocationJob('job-xyz'), {

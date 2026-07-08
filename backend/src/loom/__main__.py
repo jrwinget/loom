@@ -264,6 +264,14 @@ def main() -> None:
         host="127.0.0.1",
         port=8000,
         log_config=None,
+        # the desktop webview opens a keep-alive socket on the first
+        # GET (/first-run/status) and reuses it for the submit POST.
+        # uvicorn's 5s default closes that socket while the operator
+        # fills the admin form, so the reused-socket POST hits a RST
+        # and the webview surfaces a bare "Load failed". widen the
+        # idle window to cover think-time; the client-side
+        # transport-retry in the api-client is the actual guarantee.
+        timeout_keep_alive=300,
     )
 
 

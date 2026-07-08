@@ -1,12 +1,21 @@
 import { useState } from 'react';
-import { apiClient } from '@/lib/api-client';
+import { ApiClientError, apiClient } from '@/lib/api-client';
 
 interface SetupResponse {
-  provisioning_uri: string;
+  provisioningUri: string;
 }
 
 interface VerifyResponse {
-  recovery_codes: string[];
+  recoveryCodes: string[];
+}
+
+// surface the backend's detail rather than a fixed string; a bare
+// catch here masked real failures the same way the old login page did.
+function requestErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiClientError) {
+    return err.detail || fallback;
+  }
+  return "Couldn't reach Loom. Make sure the app is running and try again.";
 }
 
 export function SecuritySettingsPage(): React.ReactElement {
@@ -22,10 +31,10 @@ export function SecuritySettingsPage(): React.ReactElement {
     setError('');
     try {
       const resp = await apiClient.post<SetupResponse>('/auth/mfa/setup');
-      setUri(resp.provisioning_uri);
+      setUri(resp.provisioningUri);
       setStep('setup');
-    } catch {
-      setError('Failed to start MFA setup.');
+    } catch (err) {
+      setError(requestErrorMessage(err, 'Failed to start MFA setup.'));
     }
   };
 
@@ -36,10 +45,10 @@ export function SecuritySettingsPage(): React.ReactElement {
       const resp = await apiClient.post<VerifyResponse>('/auth/mfa/verify', {
         code,
       });
-      setRecoveryCodes(resp.recovery_codes);
+      setRecoveryCodes(resp.recoveryCodes);
       setStep('done');
-    } catch {
-      setError('Invalid code. Please try again.');
+    } catch (err) {
+      setError(requestErrorMessage(err, 'Invalid code. Please try again.'));
     }
   };
 
@@ -81,7 +90,11 @@ export function SecuritySettingsPage(): React.ReactElement {
             className="block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
             required
           />
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <button
             type="submit"
             className="rounded-md bg-primary px-4 py-2 text-primary-foreground"
@@ -99,7 +112,11 @@ export function SecuritySettingsPage(): React.ReactElement {
       <p className="text-sm text-muted-foreground">
         Protect your account with two-factor authentication.
       </p>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
       <button
         onClick={handleSetup}
         className="rounded-md bg-primary px-4 py-2 text-primary-foreground"

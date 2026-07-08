@@ -103,12 +103,7 @@ async def test_download_populates_provenance(tmp_path: Path) -> None:
         ),
         patch.object(
             url_ingest_activities,
-            "get_minio_client",
-            return_value=MagicMock(),
-        ),
-        patch.object(
-            url_ingest_activities,
-            "StorageService",
+            "get_storage_backend",
             return_value=storage,
         ),
         _patch_session(session),
@@ -175,12 +170,7 @@ async def test_download_is_idempotent_on_custody(
         ),
         patch.object(
             url_ingest_activities,
-            "get_minio_client",
-            return_value=MagicMock(),
-        ),
-        patch.object(
-            url_ingest_activities,
-            "StorageService",
+            "get_storage_backend",
             return_value=MagicMock(),
         ),
         _patch_session(session),

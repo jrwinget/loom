@@ -88,8 +88,8 @@ export function WhyPopover(props: WhyPopoverProps): React.ReactElement {
           data-testid="why-popover-content"
           aria-label="AI output provenance"
           className={cn(
-            'bg-popover absolute z-50 mt-1 w-72 rounded border border-border p-3',
-            'text-popover-foreground text-xs shadow-md',
+            'absolute z-50 mt-1 w-72 rounded border border-border bg-popover p-3',
+            'text-xs text-popover-foreground shadow-md',
           )}
         >
           <p className="mb-2 text-[11px] font-semibold text-muted-foreground">
@@ -119,7 +119,9 @@ export function WhyPopover(props: WhyPopoverProps): React.ReactElement {
           <p className="mt-2 border-t border-border pt-2 text-[10px] text-muted-foreground">
             AI output — verify before relying on it.{' '}
             <a
-              href="/docs/ai-model-cards"
+              href="https://github.com/jrwinget/loom/blob/main/docs/ai-model-cards.md"
+              target="_blank"
+              rel="noreferrer"
               className="underline hover:text-foreground"
             >
               Model card

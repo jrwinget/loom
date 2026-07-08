@@ -94,6 +94,9 @@ async def complete(
     db: AsyncSession = session  # type: ignore[assignment]
 
     new_id = _generate_uuid7()
+    # store email in canonical lowercase so login (which matches
+    # case-insensitively) and the unique index stay consistent.
+    admin_email = body.admin_email.strip().lower()
     hashed = hash_password(body.admin_password)
 
     # mint single-use password-recovery codes. plaintext is returned
@@ -115,7 +118,7 @@ async def complete(
     user_exists = select(literal(1)).select_from(User).exists()
     src = select(
         literal(new_id).label("id"),
-        literal(body.admin_email).label("email"),
+        literal(admin_email).label("email"),
         literal(body.admin_full_name).label("display_name"),
         literal(hashed).label("password_hash"),
         literal("admin").label("role"),
@@ -159,7 +162,7 @@ async def complete(
             action="user.bootstrap.create",
             resource_type="users",
             resource_id=new_id,
-            detail={"email": body.admin_email},
+            detail={"email": admin_email},
             ip_address=ip_address,
             user_agent=user_agent,
         )

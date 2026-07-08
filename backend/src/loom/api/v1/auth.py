@@ -73,8 +73,11 @@ async def register(
             detail="admin token required to register users",
         )
 
-    # check for existing email
-    existing = await db.execute(select(User).where(User.email == body.email))
+    # check for existing email (case-insensitive)
+    email = body.email.strip().lower()
+    existing = await db.execute(
+        select(User).where(func.lower(User.email) == email)
+    )
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -82,7 +85,7 @@ async def register(
         )
 
     user = User(
-        email=body.email,
+        email=email,
         display_name=body.display_name,
         password_hash=hash_password(body.password),
         role="admin" if is_first_user else "analyst",
@@ -96,6 +99,9 @@ async def register(
         display_name=user.display_name,
         role=user.role,
         is_active=user.is_active,
+        # coerce at the boundary: a legacy / partially-migrated row may
+        # hold NULL, which means "not enrolled" -> False.
+        mfa_enabled=bool(user.mfa_enabled),
         created_at=user.created_at,
     )
 
@@ -119,8 +125,11 @@ async def register_user(
     """register a new user (admin only)."""
     db: AsyncSession = session  # type: ignore[assignment]
 
-    # check for existing email
-    existing = await db.execute(select(User).where(User.email == body.email))
+    # check for existing email (case-insensitive)
+    email = body.email.strip().lower()
+    existing = await db.execute(
+        select(User).where(func.lower(User.email) == email)
+    )
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -128,7 +137,7 @@ async def register_user(
         )
 
     user = User(
-        email=body.email,
+        email=email,
         display_name=body.display_name,
         password_hash=hash_password(body.password),
         role="analyst",
@@ -142,6 +151,9 @@ async def register_user(
         display_name=user.display_name,
         role=user.role,
         is_active=user.is_active,
+        # coerce at the boundary: a legacy / partially-migrated row may
+        # hold NULL, which means "not enrolled" -> False.
+        mfa_enabled=bool(user.mfa_enabled),
         created_at=user.created_at,
     )
 
@@ -161,7 +173,12 @@ async def login(
     """authenticate and return tokens, or mfa challenge."""
     db: AsyncSession = session  # type: ignore[assignment]
 
-    result = await db.execute(select(User).where(User.email == body.email))
+    # email is matched case-insensitively: addresses are effectively
+    # case-insensitive, and the bootstrap admin may have been stored
+    # with whatever casing the operator typed at onboarding.
+    result = await db.execute(
+        select(User).where(func.lower(User.email) == body.email.strip().lower())
+    )
     user = result.scalar_one_or_none()
 
     # constant-time: always call verify_password even if user
@@ -335,6 +352,9 @@ async def get_me(
         display_name=user.display_name,
         role=user.role,
         is_active=user.is_active,
+        # coerce at the boundary: a legacy / partially-migrated row may
+        # hold NULL, which means "not enrolled" -> False.
+        mfa_enabled=bool(user.mfa_enabled),
         created_at=user.created_at,
     )
 
@@ -362,7 +382,9 @@ async def recover_password(
     """
     db: AsyncSession = session  # type: ignore[assignment]
 
-    result = await db.execute(select(User).where(User.email == body.email))
+    result = await db.execute(
+        select(User).where(func.lower(User.email) == body.email.strip().lower())
+    )
     user = result.scalar_one_or_none()
 
     # walk the same code path whether or not the user exists so the

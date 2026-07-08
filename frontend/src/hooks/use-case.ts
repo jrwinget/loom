@@ -12,7 +12,14 @@ import type {
 export function useCases(): ReturnType<typeof useQuery<Case[]>> {
   return useQuery({
     queryKey: queryKeys.cases.all,
-    queryFn: () => apiClient.get<Case[]>('/cases'),
+    queryFn: async () => {
+      // the list endpoint returns a paginated envelope {items,total};
+      // unwrap to the array the rest of the UI expects.
+      const res = await apiClient.get<{ items: Case[]; total: number }>(
+        '/cases',
+      );
+      return res.items;
+    },
   });
 }
 

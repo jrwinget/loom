@@ -115,7 +115,7 @@ export function TranscriptPanel(
             aria-label="Filter by speaker"
             value={speakerFilter ?? ''}
             onChange={(e) => setSpeakerFilter(e.target.value || null)}
-            className="bg-card ml-auto rounded border border-border px-2 py-0.5 text-xs text-foreground"
+            className="ml-auto rounded border border-border bg-card px-2 py-0.5 text-xs text-foreground"
           >
             <option value="">All speakers</option>
             {speakers.map((s) => (

@@ -8,6 +8,11 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.ocr import OcrRegion
+from loom.services.engines import (
+    REMEDY_FFMPEG,
+    REMEDY_TESSERACT,
+    EngineUnavailableError,
+)
 from loom.services.model_metadata import build_provenance
 
 logger = logging.getLogger(__name__)
@@ -51,16 +56,12 @@ def extract_key_frames(
             capture_output=True,
             check=True,
         )
-    except FileNotFoundError:
-        logger.warning("ffmpeg not found, cannot extract frames")
-        return []
+    except FileNotFoundError as exc:
+        raise EngineUnavailableError("media_pipeline", REMEDY_FFMPEG) from exc
     except subprocess.CalledProcessError as exc:
-        logger.warning(
-            "ffmpeg failed for %s: %s",
-            video_path,
-            exc.stderr,
-        )
-        return []
+        raise RuntimeError(
+            f"ffmpeg failed to extract frames from {video_path}: {exc.stderr}"
+        ) from exc
 
     # collect generated frames
     frames: list[tuple[int, float, str]] = []
@@ -80,25 +81,19 @@ def run_ocr_on_image(
 ) -> list[dict[str, Any]]:
     """use pytesseract to ocr an image.
 
-    returns list of {text, confidence, bounding_box}.
-    if pytesseract not installed, returns empty with warning.
+    returns list of {text, confidence, bounding_box} — empty only
+    when the engine ran and genuinely found no text. a missing
+    engine raises EngineUnavailableError instead of degrading.
     """
     path = Path(image_path)
     if not path.exists():
-        logger.warning("image not found: %s", image_path)
-        return []
+        raise FileNotFoundError(f"image not found: {image_path}")
 
     try:
         import pytesseract
-    except ImportError:
-        logger.warning("pytesseract not installed, skipping ocr")
-        return []
-
-    try:
         from PIL import Image
-    except ImportError:
-        logger.warning("Pillow not installed, skipping ocr")
-        return []
+    except ImportError as exc:
+        raise EngineUnavailableError("ocr", REMEDY_TESSERACT) from exc
 
     try:
         img = Image.open(image_path)
@@ -108,8 +103,7 @@ def run_ocr_on_image(
             output_type=pytesseract.Output.DICT,
         )
     except Exception as exc:
-        logger.warning("ocr failed for %s: %s", image_path, exc)
-        return []
+        raise RuntimeError(f"ocr failed for {image_path}: {exc}") from exc
 
     img_width, img_height = img.size
     regions: list[dict[str, Any]] = []

@@ -1,10 +1,8 @@
-from datetime import timedelta
-
 from temporalio import workflow
-from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
-    from loom.workflows.export_activities import build_export
+    from loom.workflows.sequences import EXPORT
+    from loom.workflows.temporal_driver import execute_spec
 
 
 @workflow.defn
@@ -13,10 +11,5 @@ class ExportWorkflow:  # pragma: no cover
 
     @workflow.run
     async def run(self, export_id: str) -> str:  # pragma: no cover
-        await workflow.execute_activity(
-            build_export,
-            export_id,
-            start_to_close_timeout=timedelta(minutes=60),
-            retry_policy=RetryPolicy(maximum_attempts=2),
-        )
+        await execute_spec(EXPORT, [export_id])
         return export_id

@@ -127,7 +127,7 @@ export function ConflictsPage(): React.ReactElement {
               type="button"
               data-testid={`conflict-item-${item.eventId}`}
               onClick={() => handleSelectItem(item)}
-              className="bg-card flex w-full items-center justify-between rounded-lg border border-border p-4 text-left transition-colors hover:bg-accent/30"
+              className="flex w-full items-center justify-between rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-accent/30"
             >
               <div>
                 <h3 className="text-sm font-semibold text-foreground">

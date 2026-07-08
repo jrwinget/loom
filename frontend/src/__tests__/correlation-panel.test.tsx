@@ -11,9 +11,9 @@ function makeCandidate(
 ): CorrelationCandidate {
   return {
     id: 'cand-1',
-    case_id: 'case-1',
-    start_utc: '2026-05-12T12:00:00Z',
-    end_utc: '2026-05-12T12:00:30Z',
+    caseId: 'case-1',
+    startUtc: '2026-05-12T12:00:00Z',
+    endUtc: '2026-05-12T12:00:30Z',
     confidence: 0.85,
     reasoning: {
       temporal: { score: 0.9 },
@@ -21,23 +21,23 @@ function makeCandidate(
       audio: { score: null },
     },
     status: 'pending',
-    decided_by: null,
-    decided_at: null,
+    decidedBy: null,
+    decidedAt: null,
     members: [
       {
         id: 'm-1',
-        asset_id: 'a-1',
-        original_filename: 'camera-a.mp4',
-        capture_time: '2026-05-12T12:00:00Z',
+        assetId: 'a-1',
+        originalFilename: 'camera-a.mp4',
+        captureTime: '2026-05-12T12:00:00Z',
       },
       {
         id: 'm-2',
-        asset_id: 'a-2',
-        original_filename: 'camera-b.mp4',
-        capture_time: '2026-05-12T12:00:08Z',
+        assetId: 'a-2',
+        originalFilename: 'camera-b.mp4',
+        captureTime: '2026-05-12T12:00:08Z',
       },
     ],
-    created_at: '2026-05-12T11:59:00Z',
+    createdAt: '2026-05-12T11:59:00Z',
     ...overrides,
   };
 }
@@ -129,9 +129,9 @@ describe('CorrelationPanel', () => {
             members: [
               {
                 id: 'm-x',
-                asset_id: 'a-x',
-                original_filename: null,
-                capture_time: null,
+                assetId: 'a-x',
+                originalFilename: null,
+                captureTime: null,
               },
             ],
           }),

@@ -1,94 +1,52 @@
-"""ingest workflow execution order and configuration tests."""
+"""ingest workflow execution order and configuration tests.
 
-import ast
+the orchestration now lives in loom.workflows.sequences (consumed
+by both the temporal driver and the lite in-process runner), so
+these assertions read the spec rather than the workflow source.
+end-to-end execution order is additionally proven against a real
+temporal env in tests/integration/workflows/test_ingest_workflow_e2e.py.
+"""
+
 import inspect
-from pathlib import Path
 
 from loom.workflows.ingest_workflow import IngestWorkflow
+from loom.workflows.sequences import INGEST
 
 
-def _parse_workflow_source() -> ast.Module:
-    """parse the ingest workflow source into an AST."""
-    src_path = Path(inspect.getfile(IngestWorkflow))
-    return ast.parse(src_path.read_text())
+def _activity_names() -> list[str]:
+    return [step.activity.__name__ for step in INGEST.steps]
 
 
-def _extract_activity_calls(
-    tree: ast.Module,
-) -> list[str]:
-    """extract activity function names from
-    execute_activity calls in source order."""
-    names: list[str] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Await):
-            continue
-        call = node.value
-        if not isinstance(call, ast.Call):
-            continue
-        func = call.func
-        if not isinstance(func, ast.Attribute):
-            continue
-        if func.attr != "execute_activity":
-            continue
-        # first positional arg is the activity reference
-        if call.args:
-            arg = call.args[0]
-            if isinstance(arg, ast.Name):
-                names.append(arg.id)
-    return names
+def _by_name() -> dict:
+    return {step.activity.__name__: step for step in INGEST.steps}
 
 
 # ── activity execution order ──────────────────────────────
 
 
 class TestActivityExecutionOrder:
-    """verify activities execute in the correct pipeline
-    order."""
+    """verify activities execute in the correct pipeline order."""
 
     def test_five_activities_in_pipeline(self) -> None:
-        """ingest pipeline must have exactly 5 activity
-        steps."""
-        tree = _parse_workflow_source()
-        activities = _extract_activity_calls(tree)
-        assert len(activities) == 5
+        assert len(INGEST.steps) == 5
 
     def test_hash_verification_runs_first(self) -> None:
-        """hash verification must be the first step."""
-        tree = _parse_workflow_source()
-        activities = _extract_activity_calls(tree)
-        assert activities[0] == "verify_asset_hash"
+        assert _activity_names()[0] == "verify_asset_hash"
 
     def test_metadata_extraction_runs_second(self) -> None:
-        """metadata extraction must follow hash
-        verification."""
-        tree = _parse_workflow_source()
-        activities = _extract_activity_calls(tree)
-        assert activities[1] == "extract_asset_metadata"
+        assert _activity_names()[1] == "extract_asset_metadata"
 
     def test_proxy_generation_runs_third(self) -> None:
-        """proxy generation must follow metadata
-        extraction."""
-        tree = _parse_workflow_source()
-        activities = _extract_activity_calls(tree)
-        assert activities[2] == "generate_asset_proxies"
+        assert _activity_names()[2] == "generate_asset_proxies"
 
     def test_custody_recording_runs_fourth(self) -> None:
-        """custody recording must follow proxy generation."""
-        tree = _parse_workflow_source()
-        activities = _extract_activity_calls(tree)
-        assert activities[3] == "record_derivatives_custody"
+        assert _activity_names()[3] == "record_derivatives_custody"
 
     def test_mark_complete_runs_last(self) -> None:
-        """mark complete must be the final step."""
-        tree = _parse_workflow_source()
-        activities = _extract_activity_calls(tree)
-        assert activities[4] == "mark_asset_complete"
+        assert _activity_names()[4] == "mark_asset_complete"
 
     def test_full_pipeline_order(self) -> None:
-        """verify the entire pipeline order in one shot."""
-        tree = _parse_workflow_source()
-        activities = _extract_activity_calls(tree)
-        assert activities == [
+        assert _activity_names() == [
             "verify_asset_hash",
             "extract_asset_metadata",
             "generate_asset_proxies",
@@ -100,85 +58,33 @@ class TestActivityExecutionOrder:
 # ── workflow configuration ────────────────────────────────
 
 
-def _extract_execute_activity_kwargs(
-    tree: ast.Module,
-) -> list[dict[str, object]]:
-    """extract keyword arguments from each
-    execute_activity call."""
-    results: list[dict[str, object]] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Await):
-            continue
-        call = node.value
-        if not isinstance(call, ast.Call):
-            continue
-        func = call.func
-        if not isinstance(func, ast.Attribute):
-            continue
-        if func.attr != "execute_activity":
-            continue
-        kwargs: dict[str, object] = {}
-        # capture activity name
-        if call.args and isinstance(call.args[0], ast.Name):
-            kwargs["_activity"] = call.args[0].id
-        for kw in call.keywords:
-            kwargs[kw.arg] = kw.arg  # just record presence
-        results.append(kwargs)
-    return results
-
-
 class TestWorkflowConfiguration:
     """verify workflow activity configuration."""
 
     def test_all_activities_have_timeout(self) -> None:
-        """every activity must have a
-        start_to_close_timeout."""
-        tree = _parse_workflow_source()
-        calls = _extract_execute_activity_kwargs(tree)
-        for call in calls:
-            name = call.get("_activity", "unknown")
-            assert "start_to_close_timeout" in call, (
-                f"{name} missing start_to_close_timeout"
+        for step in INGEST.steps:
+            assert step.timeout_s > 0, (
+                f"{step.activity.__name__} missing timeout"
             )
 
     def test_hash_verify_has_retry_policy(self) -> None:
-        """hash verification should have a retry policy."""
-        tree = _parse_workflow_source()
-        calls = _extract_execute_activity_kwargs(tree)
-        hash_call = calls[0]
-        assert hash_call["_activity"] == "verify_asset_hash"
-        assert "retry_policy" in hash_call
+        assert _by_name()["verify_asset_hash"].max_attempts == 3
 
     def test_metadata_has_retry_policy(self) -> None:
-        """metadata extraction should have a retry policy."""
-        tree = _parse_workflow_source()
-        calls = _extract_execute_activity_kwargs(tree)
-        meta_call = calls[1]
-        assert meta_call["_activity"] == "extract_asset_metadata"
-        assert "retry_policy" in meta_call
+        assert _by_name()["extract_asset_metadata"].max_attempts == 3
 
     def test_proxy_gen_has_retry_policy(self) -> None:
-        """proxy generation should have a retry policy."""
-        tree = _parse_workflow_source()
-        calls = _extract_execute_activity_kwargs(tree)
-        proxy_call = calls[2]
-        assert proxy_call["_activity"] == "generate_asset_proxies"
-        assert "retry_policy" in proxy_call
+        assert _by_name()["generate_asset_proxies"].max_attempts == 2
 
     def test_proxy_gen_has_longest_timeout(self) -> None:
-        """proxy generation should have the longest timeout
-        (30 min) since it processes media."""
-        src = inspect.getsource(IngestWorkflow.run)
-        # proxy generation timeout is 30 minutes
-        assert "minutes=30" in src
+        longest = max(INGEST.steps, key=lambda s: s.timeout_s)
+        assert longest.activity.__name__ == "generate_asset_proxies"
+        assert longest.timeout_s == 1800
 
     def test_custody_and_complete_are_fast(self) -> None:
-        """custody recording and mark complete should have
-        short (2 min) timeouts."""
-        src = inspect.getsource(IngestWorkflow.run)
-        # both use minutes=2; count occurrences
-        count = src.count("minutes=2")
-        assert count >= 2
+        by_name = _by_name()
+        assert by_name["record_derivatives_custody"].timeout_s == 120
+        assert by_name["mark_asset_complete"].timeout_s == 120
 
 
 # ── workflow definition ───────────────────────────────────
@@ -188,26 +94,20 @@ class TestWorkflowDefinition:
     """verify workflow class structure."""
 
     def test_workflow_returns_asset_id(self) -> None:
-        """run method should return the asset_id string."""
         sig = inspect.signature(IngestWorkflow.run)
         assert sig.return_annotation is str
 
     def test_workflow_accepts_single_arg(self) -> None:
-        """run method takes only self and asset_id."""
         sig = inspect.signature(IngestWorkflow.run)
         params = list(sig.parameters.keys())
         assert params == ["self", "asset_id"]
 
-    def test_all_imported_activities_are_used(self) -> None:
-        """every imported activity should appear in the
-        workflow source."""
-        src = inspect.getsource(IngestWorkflow.run)
-        expected = [
+    def test_all_pipeline_activities_present(self) -> None:
+        expected = {
             "verify_asset_hash",
             "extract_asset_metadata",
             "generate_asset_proxies",
             "record_derivatives_custody",
             "mark_asset_complete",
-        ]
-        for name in expected:
-            assert name in src, f"{name} not found in workflow source"
+        }
+        assert set(_activity_names()) == expected

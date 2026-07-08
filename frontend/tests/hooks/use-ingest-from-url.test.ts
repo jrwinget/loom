@@ -62,8 +62,8 @@ describe('useIngestFromUrl', () => {
       }),
     );
     expect(result.current.data).toEqual({
-      asset_id: 'asset-1',
-      workflow_id: 'url-ingest-asset-1',
+      assetId: 'asset-1',
+      workflowId: 'url-ingest-asset-1',
       status: 'queued',
     });
   });

@@ -33,6 +33,7 @@ class UserResponse(BaseModel):
     display_name: str
     role: str
     is_active: bool
+    mfa_enabled: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -5,7 +5,7 @@ import { QueryError } from '@/components/layout/query-error';
 import { ExportWizard } from '@/components/export/export-wizard';
 import { ReportBuilder } from '@/components/export/report-builder';
 import { ReportPreview } from '@/components/export/report-preview';
-import { useExports } from '@/hooks/use-exports';
+import { useDownloadExport, useExports } from '@/hooks/use-exports';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -19,6 +19,7 @@ export function ExportPage(): React.ReactElement {
   const safeId = caseId ?? '';
   const [wizardOpen, setWizardOpen] = useState(false);
   const { data, isLoading, isError, refetch } = useExports(safeId);
+  const downloadExport = useDownloadExport(safeId);
 
   const exports = data?.items ?? [];
 
@@ -98,14 +99,18 @@ export function ExportPage(): React.ReactElement {
                       {exp.status}
                     </span>
                     {exp.status === 'complete' && exp.storageKey && (
-                      <a
-                        href={exp.storageKey}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary hover:underline"
+                      <button
+                        type="button"
+                        onClick={() => downloadExport.mutate(exp.id)}
+                        disabled={downloadExport.isPending}
+                        className="text-sm text-primary hover:underline disabled:opacity-50"
+                        data-testid={`export-download-${exp.id}`}
                       >
-                        Download
-                      </a>
+                        {downloadExport.isPending &&
+                        downloadExport.variables === exp.id
+                          ? 'Preparing…'
+                          : 'Download'}
+                      </button>
                     )}
                   </div>
                 </div>

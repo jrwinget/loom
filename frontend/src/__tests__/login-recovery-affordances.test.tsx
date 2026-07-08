@@ -57,9 +57,9 @@ describe('LoginPage recovery affordances', () => {
   it('shows the forgot-password link and Reset Loom button on lite + tauri', async () => {
     mockedIsTauri = true;
     mockedGet.mockResolvedValueOnce({
-      first_run_required: false,
-      deployment_profile: 'lite',
-      data_dir: '/home/user/.loom/data',
+      firstRunRequired: false,
+      deploymentProfile: 'lite',
+      dataDir: '/home/user/.loom/data',
     });
 
     renderLogin();
@@ -73,9 +73,9 @@ describe('LoginPage recovery affordances', () => {
   it('shows the forgot-password link on lite + web (no factory reset)', async () => {
     mockedIsTauri = false;
     mockedGet.mockResolvedValueOnce({
-      first_run_required: false,
-      deployment_profile: 'lite',
-      data_dir: null,
+      firstRunRequired: false,
+      deploymentProfile: 'lite',
+      dataDir: null,
     });
 
     renderLogin();
@@ -89,9 +89,9 @@ describe('LoginPage recovery affordances', () => {
   it('hides both affordances on the server profile, even inside tauri', async () => {
     mockedIsTauri = true;
     mockedGet.mockResolvedValueOnce({
-      first_run_required: false,
-      deployment_profile: 'server',
-      data_dir: null,
+      firstRunRequired: false,
+      deploymentProfile: 'server',
+      dataDir: null,
     });
 
     renderLogin();

@@ -3,16 +3,33 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FactoryResetDialog } from '@/components/auth/FactoryResetDialog';
 import { MfaChallenge } from '@/components/auth/MfaChallenge';
 import { useFirstRunStatus } from '@/hooks/use-first-run';
-import { apiClient } from '@/lib/api-client';
+import { ApiClientError, apiClient } from '@/lib/api-client';
 import { isTauri } from '@/lib/tauri-bridge';
 import { useAuthStore } from '@/stores/auth-store';
 import type { User } from '@/types';
 
 interface LoginResponse {
-  access_token?: string;
-  refresh_token?: string;
-  requires_mfa?: boolean;
-  challenge_token?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  requiresMfa?: boolean;
+  challengeToken?: string;
+}
+
+// the api-client throws ApiClientError only after a response arrives, so
+// the status is meaningful; a thrown TypeError means the request never
+// reached the sidecar. collapsing every failure into "invalid email or
+// password" (the old behavior) is what made this flow undiagnosable.
+function loginErrorMessage(err: unknown): string {
+  if (err instanceof ApiClientError) {
+    if (err.status === 401) {
+      return 'Invalid email or password.';
+    }
+    if (err.status === 429) {
+      return 'Too many attempts. Wait a minute and try again.';
+    }
+    return err.detail || 'Sign-in failed. Please try again.';
+  }
+  return "Couldn't reach Loom. Make sure the app is running and try again.";
 }
 
 export function LoginPage(): React.ReactElement {
@@ -33,7 +50,7 @@ export function LoginPage(): React.ReactElement {
   // admin reset paths instead. the factory-reset button additionally
   // requires the tauri bridge — the deletion runs in the desktop
   // shell, not the backend.
-  const isLite = firstRun?.deployment_profile === 'lite';
+  const isLite = firstRun?.deploymentProfile === 'lite';
   const showRecoveryLink = isLite;
   // even when the status query is errored we still want Reset Loom
   // available inside the desktop shell: the operator's only escape
@@ -43,7 +60,7 @@ export function LoginPage(): React.ReactElement {
 
   // fresh deploy with no users: send the operator through onboarding.
   useEffect(() => {
-    if (firstRun?.first_run_required) {
+    if (firstRun?.firstRunRequired) {
       navigate('/first-run', { replace: true });
     }
   }, [firstRun, navigate]);
@@ -63,21 +80,28 @@ export function LoginPage(): React.ReactElement {
         password,
       });
 
-      if (resp.requires_mfa && resp.challenge_token) {
-        setMfaChallenge(resp.challenge_token);
+      if (resp.requiresMfa && resp.challengeToken) {
+        setMfaChallenge(resp.challengeToken);
         return;
       }
 
-      if (resp.access_token) {
-        useAuthStore.setState({
-          token: resp.access_token,
-        });
-        const user = await apiClient.get<User>('/auth/me');
-        setAuth(resp.access_token, user);
-        navigate('/');
+      if (resp.accessToken) {
+        const accessToken = resp.accessToken;
+        // set the token so the /auth/me request is authenticated, then
+        // load the profile. a failure here is NOT a credentials problem,
+        // so surface it distinctly and don't leave a half-auth token.
+        useAuthStore.setState({ token: accessToken });
+        try {
+          const user = await apiClient.get<User>('/auth/me');
+          setAuth(accessToken, user);
+          navigate('/');
+        } catch {
+          useAuthStore.getState().clearAuth();
+          setError('Signed in, but could not load your profile. Try again.');
+        }
       }
-    } catch {
-      setError('Invalid email or password.');
+    } catch (err) {
+      setError(loginErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -85,7 +109,7 @@ export function LoginPage(): React.ReactElement {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="bg-card w-full max-w-sm space-y-6 rounded-lg border border-border p-8">
+      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-8">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground">
             Sign in to Loom

@@ -75,6 +75,61 @@ On first launch Loom walks through three screens:
 
 After these four screens, Loom opens the main case workspace.
 
+## Quick start
+
+A short orientation for your first session. If you have not installed Loom
+yet, download the installer for your platform from the
+[releases page](https://github.com/jrwinget/loom/releases) and work through
+[Installing](#installing) and [First run](#first-run) first.
+
+Once you sign in, Loom opens on your case workspace. The left sidebar switches
+between top-level areas — **Dashboard**, **Cases**, **Settings**, and (on
+Desktop Lite) **Storage**. When you open a case, a toolbar runs across the top
+of it — **Overview**, **Assets**, **Timeline**, **Conflicts**, **Clusters**,
+**Map**, **Export** — plus a **‹ Cases** link to step back out. The button in
+the top-right corner shows your account initial; click it for **Settings** and
+**Logout**. Press `?` at any time to see the full list of keyboard shortcuts.
+
+A typical first session:
+
+1. **Create a case.** Go to **Cases** and click **Create Case**. A case is
+   the container for one investigation — give it a name and an optional
+   description, then open it to reach the case toolbar.
+2. **Add evidence.** Open the case's **Assets** tab and add material two ways:
+   drag video, image, or document files onto the upload area, or paste a link
+   to capture online media (Loom downloads it and, best-effort, requests a
+   web-archive snapshot). Every original is hashed and stored read-only for
+   chain of custody — see [Data directory](#data-directory). Ingest runs in the
+   background, so large files keep processing while you work.
+3. **Review and annotate.** From **Assets**, open an asset to scrub playback,
+   read its transcript, search within it, and mark observations, claims, and
+   disputes. Playback has its own shortcuts (`Space` to play/pause, arrows to
+   skip, `I` / `O` to mark in and out points) — press `?` for the full set.
+4. **Build the timeline.** Open the **Timeline** tab to place events on a
+   shared clock. Loom proposes correlations between assets; use the confidence
+   slider to tighten or loosen which matches it surfaces. **Conflicts**,
+   **Clusters**, and **Map** are also tabs in the case toolbar and offer
+   complementary views of the same evidence.
+5. **Export for court.** Open the **Export** tab to produce a signed court
+   bundle (a `.loom` archive) containing the originals, derivatives,
+   annotations, timeline, and chain of custody. The bundle is hash-verified on
+   import, so it can be handed to another Loom install or a server deploy
+   without losing provenance.
+
+### Staying secure
+
+The eight recovery codes from first run are the only way back in if you
+forget your password (see [Forgot your password?](#forgot-your-password)), so
+keep them somewhere safe. You can add a second factor under your account's
+**Settings → Security**.
+
+### Getting help
+
+Found a bug or have a question? Open an issue at
+<https://github.com/jrwinget/loom/issues>. For anything security-sensitive,
+follow the responsible-disclosure process in [security.md](security.md) rather
+than filing a public issue.
+
 ## Forgot your password?
 
 If you have at least one unused recovery code:
@@ -102,8 +157,19 @@ Desktop Lite:
   directory).
 - Stores files on the local filesystem under the data directory.
 - Runs workers in-process — no Temporal server, no Redis, no Docker.
+  Uploads, URL ingest, and court-bundle export all run as background
+  tasks inside the app; nothing needs an external workflow service.
 - Supports ingest, timeline synthesis, annotations, chain of custody,
   and court-bundle export.
+
+OCR, transcription, and scene detection run in-process too. The desktop
+build does not bundle the on-device AI models (faster-whisper,
+pytesseract, scenedetect), so by default these steps complete with empty
+results rather than failing — the evidence and chain of custody are
+unaffected. Transcription additionally has an **opt-in cloud option**:
+point it at a provider with your own API key (see
+[Configuring AI & transcription](#configuring-ai--transcription)). OCR and
+scene detection remain on-device only.
 
 Desktop Lite does **not** support:
 
@@ -117,6 +183,43 @@ Desktop Lite does **not** support:
 If you need any of those, run the server deploy (see `deployment.md`)
 instead. Desktop Lite can import from and export to a server deploy
 via the court-bundle format — see below.
+
+For a feature-by-feature breakdown of what Lite supports and how, see
+[`lite-capability-matrix.md`](lite-capability-matrix.md).
+
+## Configuring AI & transcription
+
+Transcription is the one AI step with a cloud option. Open **Settings →
+AI & models** (admin only) to choose how it runs:
+
+- **On-device (default).** Audio is transcribed locally with
+  faster-whisper; nothing leaves the machine. Requires the on-device
+  model to be installed (not bundled yet); without it, transcription
+  produces empty results.
+- **Cloud (your API key).** Audio for each transcribed asset is sent to a
+  provider you choose. Opt-in and off by default. Every cloud
+  transcription is recorded in the asset's chain of custody (provider,
+  model, endpoint).
+
+When you pick **Cloud**, choose a **provider**, then a **model**:
+
+- **Frontier providers** — OpenAI and Google Gemini. Pick the provider,
+  then one of its transcription models from the list; the endpoint is set
+  for you. Paste your API key. (Anthropic is listed but disabled — the
+  Anthropic API does not accept audio input, so it cannot transcribe; for
+  an open-weights Anthropic audio model, use the self-hosted option.)
+- **Open-source / self-hosted** — run a model such as Whisper large-v3
+  (or `claude-audio`) on your own OpenAI-compatible server (vLLM,
+  whisper.cpp, …) and point Loom at its URL. A local or LAN address
+  (including `localhost`) is allowed here; an API key is optional.
+- **Custom (OpenAI-compatible)** — any other endpoint implementing the
+  OpenAI `/audio/transcriptions` API; supply the base URL, model, and key.
+
+Only the chosen provider ever receives audio, and only for assets you
+transcribe while Cloud is selected. Switch back to **On-device** at any
+time to keep everything local. OCR and scene detection have no cloud
+option and always run on-device. Per-model behavior, limitations, and
+provenance are documented in [`ai-model-cards.md`](ai-model-cards.md).
 
 ## Data directory
 
@@ -218,15 +321,21 @@ Desktop Lite is local-only by design:
 - The backend binds to `127.0.0.1` only. There is no listener on
   any external interface; other machines on the same network cannot
   reach it.
-- No outbound network calls are made by Loom itself. Update checks,
-  telemetry, and crash reporting are off.
-- The one exception is URL ingestion: when you explicitly submit a
-  URL via the ingest form, Loom fetches that URL and (best-effort)
-  requests a Wayback Machine snapshot. Depending on the URL, this
-  may contact YouTube / Twitter / other sites (via yt-dlp),
-  archive.org, or the submitted host directly. No outbound traffic
-  is generated unless you submit a URL; the dispatcher also blocks
-  URLs that resolve to private / loopback / link-local addresses.
+- No outbound network calls are made by Loom itself by default. Update
+  checks, telemetry, and crash reporting are off.
+- There are two opt-in exceptions, each requiring an explicit action:
+  - **URL ingestion** — when you submit a URL via the ingest form, Loom
+    fetches it and (best-effort) requests a Wayback Machine snapshot.
+    Depending on the URL this may contact YouTube / Twitter / other sites
+    (via yt-dlp), archive.org, or the submitted host directly. The
+    dispatcher blocks URLs that resolve to private / loopback / link-local
+    addresses.
+  - **Cloud transcription** — if you switch transcription to a cloud
+    provider in **Settings → AI & models**, the audio of each asset you
+    transcribe is sent to that provider. Off by default; every send is
+    recorded in the asset's chain of custody. See
+    [Configuring AI & transcription](#configuring-ai--transcription).
+- No outbound traffic is generated unless you take one of those actions.
 - Originals are stored read-only via the OS read-only flag, giving
   WORM semantics without a dedicated object store.
 - Authentication, session management, and CSRF protection use the

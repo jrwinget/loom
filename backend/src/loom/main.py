@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from loom import __version__
 from loom.api.router import api_router
 from loom.config import get_settings
 from loom.observability import setup_db_telemetry, setup_telemetry
@@ -125,7 +126,12 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
-    # shutdown
+    # shutdown. let in-flight lite in-process workflows finish (best
+    # effort) before tearing the engine down; activities are
+    # idempotent, so any that don't finish can be re-dispatched.
+    from loom.workflows.dispatch import drain_background_tasks
+
+    await drain_background_tasks()
     await engine.dispose()
     await log.ainfo("shutdown complete")
 
@@ -138,7 +144,7 @@ def create_app() -> FastAPI:
     application = FastAPI(
         title="Loom",
         description="Evidence operating system",
-        version="0.1.0",
+        version=__version__,
         lifespan=_lifespan,
         debug=settings.debug,
     )

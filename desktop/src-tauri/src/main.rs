@@ -1027,4 +1027,22 @@ mod tests {
         purge_lite_data(root).expect("first purge");
         purge_lite_data(root).expect("second purge should be idempotent");
     }
+
+    #[test]
+    fn resolve_data_dir_uses_the_persisted_directory() {
+        // a respawn after the first-run data-dir switch must target the
+        // chosen directory, so the bootstrap admin lands in the final db.
+        let chosen = PathBuf::from("/mnt/evidence/loom");
+        let config = LoomConfig {
+            data_dir: Some(chosen.clone()),
+        };
+        assert_eq!(config.resolve_data_dir(), chosen);
+    }
+
+    #[test]
+    fn resolve_data_dir_falls_back_to_dot_loom() {
+        // first launch before any directory is chosen.
+        let config = LoomConfig { data_dir: None };
+        assert!(config.resolve_data_dir().ends_with(".loom/data"));
+    }
 }

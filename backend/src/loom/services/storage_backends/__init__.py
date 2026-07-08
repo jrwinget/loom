@@ -43,6 +43,7 @@ def build_storage_backend(settings: Settings) -> StorageBackend:
         return LocalStorageBackend(
             settings.resolved_data_dir(),
             signing_secret=settings.storage_signing_secret,
+            public_base_url=settings.lite_public_base_url,
         )
 
     # deferred import so lite deployments do not require minio.

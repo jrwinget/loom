@@ -111,12 +111,7 @@ async def test_full_http_provenance_captured(
         ),
         patch.object(
             url_ingest_activities,
-            "get_minio_client",
-            return_value=MagicMock(),
-        ),
-        patch.object(
-            url_ingest_activities,
-            "StorageService",
+            "get_storage_backend",
             return_value=MagicMock(),
         ),
         patch.object(

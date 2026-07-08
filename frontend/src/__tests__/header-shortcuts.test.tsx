@@ -1,4 +1,5 @@
 /// <reference types="@testing-library/jest-dom" />
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -24,10 +25,16 @@ vi.mock('@/stores/auth-store', () => ({
 }));
 
 function renderHeader(): void {
+  // the header's breadcrumbs read the query cache for case names
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   render(
-    <MemoryRouter>
-      <Header />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -43,5 +50,19 @@ describe('Header keyboard shortcuts dialog', () => {
     await user.click(screen.getByTestId('open-shortcuts'));
     expect(screen.getByTestId('shortcuts-dialog')).toBeInTheDocument();
     expect(screen.getByText('Play / pause')).toBeInTheDocument();
+  });
+
+  it('applies its panel classes as discrete tokens', async () => {
+    const user = userEvent.setup();
+    renderHeader();
+    await user.click(screen.getByTestId('open-shortcuts'));
+
+    // guards against className strings being concatenated without a
+    // separating space (e.g. `rounded-lgborder`), which silently voids
+    // the glued utilities.
+    const dialog = screen.getByTestId('shortcuts-dialog');
+    expect(dialog.classList.contains('rounded-lg')).toBe(true);
+    expect(dialog.classList.contains('border')).toBe(true);
+    expect(dialog.classList.contains('bg-card')).toBe(true);
   });
 });

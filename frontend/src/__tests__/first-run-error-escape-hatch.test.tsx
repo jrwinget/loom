@@ -82,9 +82,9 @@ describe('FirstRunPage error escape hatch', () => {
 
   it('renders the onboarding form when status resolves', async () => {
     mockedGet.mockResolvedValueOnce({
-      first_run_required: true,
-      deployment_profile: 'lite',
-      data_dir: '/home/user/.loom/data',
+      firstRunRequired: true,
+      deploymentProfile: 'lite',
+      dataDir: '/home/user/.loom/data',
     });
 
     renderFirstRun();

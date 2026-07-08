@@ -10,6 +10,7 @@ are lite-only (server profile uses minio + external disk management)
 and admin-only. see issue #47.
 """
 
+import mimetypes
 import shutil
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -17,11 +18,12 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.config import get_settings
-from loom.dependencies import get_db_session
+from loom.dependencies import get_db_session, get_storage_backend
 from loom.models.asset import Asset
 from loom.schemas.storage import (
     RelocationJobStatus,
@@ -36,6 +38,12 @@ from loom.security.rbac import (
     get_current_user_id,
     require_authenticated,
 )
+from loom.services.storage_backends import (
+    DERIVATIVES_BUCKET,
+    ORIGINALS_BUCKET,
+    StorageBackend,
+)
+from loom.services.storage_backends.local import LocalStorageBackend
 from loom.services.storage_relocation import (
     RELOCATION_REGISTRY,
     compute_advisory,
@@ -45,6 +53,8 @@ from loom.services.storage_relocation import (
 )
 
 router = APIRouter(prefix="/storage", tags=["storage"])
+
+_SERVABLE_BUCKETS = frozenset({ORIGINALS_BUCKET, DERIVATIVES_BUCKET})
 
 
 def _require_lite() -> None:
@@ -223,4 +233,103 @@ async def relocate_status(
         error=job.error,
         started_at=job.started_at,
         completed_at=job.completed_at,
+    )
+
+
+def _parse_range(header: str, size: int) -> tuple[int, int] | None:
+    """parse a single byte range header.
+
+    returns inclusive (start, end), or None to serve the whole object
+    (header absent, malformed, or unsatisfiable — players tolerate a
+    200 in that case).
+    """
+    if not header or not header.startswith("bytes=") or size == 0:
+        return None
+    spec = header[len("bytes=") :].split(",", 1)[0].strip()
+    start_s, sep, end_s = spec.partition("-")
+    if not sep:
+        return None
+    try:
+        if start_s == "":
+            suffix = int(end_s)
+            if suffix <= 0:
+                return None
+            start, end = max(0, size - suffix), size - 1
+        else:
+            start = int(start_s)
+            end = int(end_s) if end_s else size - 1
+    except ValueError:
+        return None
+    end = min(end, size - 1)
+    if start > end or start >= size:
+        return None
+    return start, end
+
+
+@router.get("/object/{bucket}/{key:path}")
+async def stream_object(
+    bucket: str,
+    key: str,
+    request: Request,
+    expires: int,
+    method: str = "GET",
+    sig: str = "",
+    disposition: str = "inline",
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
+    ),
+) -> StreamingResponse:
+    """stream an asset's bytes for a signed url (lite profile).
+
+    auth is the HMAC signature in the query string, not a bearer
+    token — media elements (`<video>`, `<img>`, `<object>`) cannot
+    send headers. supports HTTP Range so video seeking works. the
+    server profile returns minio https urls directly and never hits
+    this route (404 there).
+    """
+    _require_lite()
+    if not isinstance(storage, LocalStorageBackend):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if bucket not in _SERVABLE_BUCKETS:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if method != "GET" or not storage.verify_signature(
+        bucket, key, method, expires, sig
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="invalid or expired signature",
+        )
+
+    try:
+        size = storage.get_object_size(bucket, key)
+    except (FileNotFoundError, ValueError) as err:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="object not found",
+        ) from err
+
+    content_type = mimetypes.guess_type(key)[0] or "application/octet-stream"
+    headers = {"Accept-Ranges": "bytes"}
+    if disposition == "attachment":
+        filename = key.rsplit("/", 1)[-1]
+        headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    byte_range = _parse_range(request.headers.get("range", ""), size)
+    if byte_range is not None:
+        start, end = byte_range
+        headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+        headers["Content-Length"] = str(end - start + 1)
+        return StreamingResponse(
+            storage.get_object_range(bucket, key, start, end),
+            status_code=status.HTTP_206_PARTIAL_CONTENT,
+            media_type=content_type,
+            headers=headers,
+        )
+
+    headers["Content-Length"] = str(size)
+    _, stream = storage.get_object_stream(bucket, key)
+    return StreamingResponse(
+        stream,
+        media_type=content_type,
+        headers=headers,
     )

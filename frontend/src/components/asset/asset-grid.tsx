@@ -59,7 +59,7 @@ function SkeletonCard(): React.ReactElement {
   return (
     <div
       data-testid="skeleton-card"
-      className="bg-card flex animate-pulse flex-col rounded-lg border border-border p-4"
+      className="flex animate-pulse flex-col rounded-lg border border-border bg-card p-4"
     >
       <div className="mb-3 flex h-24 items-center justify-center rounded bg-muted" />
       <div className="h-4 w-3/4 rounded bg-muted" />
@@ -133,7 +133,7 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
           data-testid="sort-select"
           value={sortField}
           onChange={(e) => setSortField(e.target.value as SortField)}
-          className="bg-card rounded border border-border px-2 py-1 text-xs text-foreground"
+          className="rounded border border-border bg-card px-2 py-1 text-xs text-foreground"
         >
           <option value="createdAt">Upload date</option>
           <option value="originalFilename">Filename</option>
@@ -149,7 +149,7 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
           data-testid="filter-select"
           value={filterType}
           onChange={(e) => setFilterType(e.target.value as MediaType | 'all')}
-          className="bg-card rounded border border-border px-2 py-1 text-xs text-foreground"
+          className="rounded border border-border bg-card px-2 py-1 text-xs text-foreground"
         >
           <option value="all">All types</option>
           {allMediaTypes.map((t) => (
@@ -168,7 +168,7 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
             type="button"
             data-testid={`asset-card-${asset.id}`}
             onClick={() => onSelect(asset)}
-            className="bg-card flex flex-col rounded-lg border border-border p-4 text-left shadow-sm transition-colors hover:bg-accent/50"
+            className="flex flex-col rounded-lg border border-border bg-card p-4 text-left shadow-sm transition-colors hover:bg-accent/50"
           >
             {/* thumbnail placeholder */}
             <div className="mb-3 flex h-24 items-center justify-center rounded bg-muted text-2xl font-bold text-muted-foreground">

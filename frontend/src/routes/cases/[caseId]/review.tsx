@@ -19,7 +19,7 @@ export function ReviewPage(): React.ReactElement {
     isLoading: assetLoading,
     isError: assetError,
     refetch: refetchAsset,
-  } = useAsset(safeAsset);
+  } = useAsset(safeCase, safeAsset);
   const { data: assetSrc } = useAssetDownloadUrl(safeCase, safeAsset);
   const {
     data: transcript,

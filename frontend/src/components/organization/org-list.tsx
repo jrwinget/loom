@@ -64,7 +64,7 @@ export function OrgList({
             <div
               key={org.id}
               data-testid="org-card"
-              className="bg-card rounded-lg border border-border p-4"
+              className="rounded-lg border border-border bg-card p-4"
             >
               <div className="flex items-center justify-between">
                 <h3 className="font-medium text-foreground">{org.name}</h3>
@@ -92,7 +92,7 @@ export function OrgList({
         >
           <form
             onSubmit={handleSubmit}
-            className="bg-card w-full max-w-md rounded-lg p-6"
+            className="w-full max-w-md rounded-lg bg-card p-6"
           >
             <h3 className="mb-4 text-lg font-semibold">Create Organization</h3>
             <div className="mb-4">

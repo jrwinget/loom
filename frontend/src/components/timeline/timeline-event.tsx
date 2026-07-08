@@ -53,7 +53,7 @@ export const TimelineEventCard = React.memo(function TimelineEventCard(
       className={`flex w-full flex-col rounded-lg border p-3 text-left shadow-sm transition-colors ${
         selected
           ? 'border-primary bg-accent/50'
-          : 'bg-card border-border hover:bg-accent/30'
+          : 'border-border bg-card hover:bg-accent/30'
       }`}
       onClick={() => onClick(event)}
     >

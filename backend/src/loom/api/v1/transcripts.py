@@ -24,6 +24,7 @@ from loom.services.case import check_case_access
 from loom.services.transcription import (
     get_transcript_segments,
 )
+from loom.workflows.dispatch import dispatch_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -132,23 +133,10 @@ async def start_transcription_endpoint(
             detail="insufficient case access",
         )
 
-    # start temporal workflow
     workflow_id = f"transcribe-{asset_id}"
     try:
-        from temporalio.client import Client
-
-        from loom.config import get_settings
-        from loom.workflows.transcription_workflow import (
-            TranscriptionWorkflow,
-        )
-
-        settings = get_settings()
-        client = await Client.connect(settings.temporal_host)
-        await client.start_workflow(
-            TranscriptionWorkflow.run,
-            asset_id,
-            id=workflow_id,
-            task_queue="loom-ingest",
+        await dispatch_workflow(
+            "transcription", args=[asset_id], workflow_id=workflow_id
         )
     except Exception:
         logger.error(

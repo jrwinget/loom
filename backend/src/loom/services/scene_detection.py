@@ -8,10 +8,12 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.scene import Scene
-from loom.services.model_metadata import (
-    UNKNOWN_VERSION,
-    build_provenance,
+from loom.services.engines import (
+    REMEDY_FFMPEG,
+    REMEDY_SCENEDETECT,
+    EngineUnavailableError,
 )
+from loom.services.model_metadata import build_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +29,10 @@ def detect_scenes(
     """use pyscenedetect to find scene boundaries.
 
     returns list of dicts with scene_number, start_time,
-    end_time, start_frame, end_frame, duration.
-
-    if scenedetect is not installed, returns a single-scene
-    fallback covering the entire video.
+    end_time, start_frame, end_frame, duration. the single-scene
+    fallback is used only when the detector RAN and found no cuts;
+    a missing engine raises EngineUnavailableError instead of
+    fabricating a boundary row.
     """
     try:
         from scenedetect import (
@@ -38,22 +40,17 @@ def detect_scenes(
             SceneManager,
             open_video,
         )
-    except ImportError:
-        logger.warning(
-            "scenedetect not installed; returning single-scene fallback for %s",
-            video_path,
-        )
-        return _single_scene_fallback(video_path)
+    except ImportError as exc:
+        raise EngineUnavailableError(
+            "scene_detection", REMEDY_SCENEDETECT
+        ) from exc
 
     try:
         video = open_video(video_path)
     except Exception as exc:
-        logger.warning(
-            "failed to open video %s: %s",
-            video_path,
-            exc,
-        )
-        return _single_scene_fallback(video_path)
+        raise RuntimeError(
+            f"scene detection could not open {video_path}: {exc}"
+        ) from exc
 
     scene_manager = SceneManager()
     scene_manager.add_detector(ContentDetector(threshold=threshold))
@@ -86,20 +83,14 @@ def detect_scenes(
 
 def _single_scene_fallback(
     video_path: str,
-    provenance: dict[str, Any] | None = None,
+    provenance: dict[str, Any],
 ) -> list[dict[str, Any]]:
     """return a single scene covering the full video.
 
-    used when scenedetect is unavailable or finds no boundaries;
-    records 'unknown' provenance so the ui can flag the row as
-    not model-backed.
+    used only when the detector ran and found no boundaries, so the
+    row carries the detector's real provenance.
     """
     duration = _get_duration(video_path)
-    meta = provenance or {
-        "model_name": _SCENEDETECT_MODEL_NAME,
-        "model_version": UNKNOWN_VERSION,
-        "model_params": None,
-    }
     return [
         {
             "scene_number": 1,
@@ -108,7 +99,7 @@ def _single_scene_fallback(
             "start_frame": 0,
             "end_frame": 0,
             "duration": duration,
-            **meta,
+            **provenance,
         }
     ]
 
@@ -153,8 +144,7 @@ def generate_scene_thumbnails(
         return []
 
     if _FFMPEG is None:
-        logger.warning("ffmpeg not found; cannot generate thumbnails")
-        return []
+        raise EngineUnavailableError("media_pipeline", REMEDY_FFMPEG)
 
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

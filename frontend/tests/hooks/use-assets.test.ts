@@ -90,17 +90,20 @@ describe('useAsset', () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce(mockAsset);
 
     const { result } = renderHook(
-      () => useAsset('asset-1'),
+      () => useAsset('case-1', 'asset-1'),
       { wrapper: createWrapper() },
     );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(mockAsset);
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
+      '/cases/case-1/assets/asset-1',
+    );
   });
 
   it('is disabled when assetId is empty', () => {
     const { result } = renderHook(
-      () => useAsset(''),
+      () => useAsset('case-1', ''),
       { wrapper: createWrapper() },
     );
 

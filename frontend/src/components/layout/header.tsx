@@ -1,6 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Breadcrumbs } from '@/components/layout/breadcrumbs';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -67,11 +68,7 @@ export function Header(): React.ReactElement {
       }
       role="banner"
     >
-      <nav aria-label="Breadcrumb">
-        <div className="text-sm text-muted-foreground">
-          <span>Home</span>
-        </div>
-      </nav>
+      <Breadcrumbs />
 
       <div className="flex items-center gap-4">
         <button
@@ -93,8 +90,8 @@ export function Header(): React.ReactElement {
             <Dialog.Content
               data-testid="shortcuts-dialog"
               className={
-                'bg-card fixed left-1/2 top-1/2 w-full max-w-md ' +
-                '-translate-x-1/2 -translate-y-1/2 rounded-lg' +
+                'fixed left-1/2 top-1/2 w-full max-w-md bg-card ' +
+                '-translate-x-1/2 -translate-y-1/2 rounded-lg ' +
                 'border border-border p-6 shadow-lg'
               }
             >
@@ -142,7 +139,7 @@ export function Header(): React.ReactElement {
             type="button"
             className={
               'flex h-8 w-8 items-center justify-center ' +
-              'rounded-full bg-muted text-xs font-medium' +
+              'rounded-full bg-muted text-xs font-medium ' +
               'text-foreground'
             }
             aria-label="User menu"
@@ -159,7 +156,7 @@ export function Header(): React.ReactElement {
               data-testid="user-menu-dropdown"
               className={
                 'absolute right-0 top-full z-50 mt-1 w-56 ' +
-                'rounded-md border border-border bg-background' +
+                'rounded-md border border-border bg-background ' +
                 'py-1 shadow-lg'
               }
             >

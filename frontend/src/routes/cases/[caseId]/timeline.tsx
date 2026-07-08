@@ -74,7 +74,7 @@ export function TimelinePage(): React.ReactElement {
       if (c.status === 'pending' && c.confidence < confidenceThreshold) {
         continue;
       }
-      for (const m of c.members) correlatedAssetIds.add(m.asset_id);
+      for (const m of c.members) correlatedAssetIds.add(m.assetId);
     }
     if (correlatedAssetIds.size === 0) return new Set();
     const ids = new Set<string>();
@@ -174,7 +174,7 @@ export function TimelinePage(): React.ReactElement {
             data-testid="event-detail-panel"
             className={
               'fixed inset-y-0 right-0 z-40 flex w-full ' +
-              'max-w-md flex-col overflow-y-auto border-l' +
+              'max-w-md flex-col overflow-y-auto border-l ' +
               'border-border bg-background p-6 shadow-lg'
             }
           >
@@ -246,7 +246,7 @@ function AddEventForm(props: AddEventFormProps): React.ReactElement {
     <form
       data-testid="add-event-form"
       onSubmit={handleSubmit}
-      className={'bg-card rounded-lg border border-border p-4 ' + 'space-y-3'}
+      className={'rounded-lg border border-border bg-card p-4 ' + 'space-y-3'}
     >
       <h3 className="text-sm font-semibold text-foreground">New Event</h3>
       <div>
@@ -308,7 +308,7 @@ function AddEventForm(props: AddEventFormProps): React.ReactElement {
           disabled={submitting}
           className={
             'rounded-md bg-primary px-3 py-1.5 text-sm ' +
-            'font-medium text-primary-foreground' +
+            'font-medium text-primary-foreground ' +
             'hover:bg-primary/90 disabled:opacity-50'
           }
         >

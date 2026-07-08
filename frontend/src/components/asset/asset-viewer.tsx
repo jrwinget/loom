@@ -1,10 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
+import { loadPdf, type LoadedPdf } from '@/lib/pdf';
+import { attachmentHref } from '@/lib/utils';
 import type { Asset } from '@/types/asset';
 
 interface AssetViewerProps {
   asset: Asset;
   src: string;
+  // exposes the underlying <video> element so hosts (the review
+  // workspace) can seek without querying the dom
+  videoRef?: React.MutableRefObject<HTMLVideoElement | null>;
+  onTimeUpdate?: (time: number) => void;
+}
+
+// frame numbers are only shown when the extracted metadata carries a
+// real frame rate; estimating one would mislabel evidence frames
+function assetFrameRate(asset: Asset): number | null {
+  const meta = asset.metadataExtracted;
+  if (!meta || typeof meta !== 'object') return null;
+  const fps = (meta as Record<string, unknown>).frameRate;
+  return typeof fps === 'number' && fps > 0 ? fps : null;
 }
 
 function formatTime(seconds: number): string {
@@ -30,17 +45,22 @@ function formatTime(seconds: number): string {
 function VideoViewer(props: {
   src: string;
   filename: string;
+  fps?: number | null;
+  externalRef?: React.MutableRefObject<HTMLVideoElement | null>;
+  onTimeUpdate?: (time: number) => void;
 }): React.ReactElement {
-  const { src, filename } = props;
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const { src, filename, fps = null, externalRef, onTimeUpdate } = props;
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [inPoint, setInPoint] = useState<number | null>(null);
   const [outPoint, setOutPoint] = useState<number | null>(null);
+  // some webviews (notably WebKitGTK on linux) lack the codecs to decode
+  // common formats; surface a download instead of a silent black frame.
+  const [failed, setFailed] = useState(false);
 
-  // ~30fps frame estimate
-  const frameNumber = Math.floor(currentTime * 30);
+  const frameNumber = fps ? Math.floor(currentTime * fps) : null;
 
   const togglePlay = useCallback(() => {
     const v = videoRef.current;
@@ -81,7 +101,10 @@ function VideoViewer(props: {
     const v = videoRef.current;
     if (!v) return;
 
-    const onTime = (): void => setCurrentTime(v.currentTime);
+    const onTime = (): void => {
+      setCurrentTime(v.currentTime);
+      onTimeUpdate?.(v.currentTime);
+    };
     const onMeta = (): void => setDuration(v.duration);
     const onEnded = (): void => setPlaying(false);
 
@@ -94,16 +117,32 @@ function VideoViewer(props: {
       v.removeEventListener('loadedmetadata', onMeta);
       v.removeEventListener('ended', onEnded);
     };
-  }, []);
+  }, [onTimeUpdate]);
+
+  if (failed) {
+    return (
+      <DownloadFallback
+        src={src}
+        filename={filename}
+        message="This video can’t play in this app — download it to view"
+      />
+    );
+  }
 
   return (
     <div data-testid="video-viewer">
       <video
-        ref={videoRef}
+        ref={(el) => {
+          videoRef.current = el;
+          if (externalRef) {
+            externalRef.current = el;
+          }
+        }}
         src={src}
         className="w-full rounded"
         data-testid="video-element"
         aria-label={`Video: ${filename}`}
+        onError={() => setFailed(true)}
       >
         <track kind="captions" />
       </video>
@@ -116,9 +155,11 @@ function VideoViewer(props: {
         <span>{formatTime(currentTime)}</span>
         <span className="text-muted-foreground">/</span>
         <span>{formatTime(duration)}</span>
-        <span className="text-xs text-muted-foreground">
-          Frame {frameNumber}
-        </span>
+        {frameNumber !== null && (
+          <span className="text-xs text-muted-foreground">
+            Frame {frameNumber}
+          </span>
+        )}
       </div>
 
       {/* controls */}
@@ -348,18 +389,16 @@ function ImageViewer(props: { src: string; alt: string }): React.ReactElement {
   );
 }
 
-function DocumentViewer(props: {
+function DownloadFallback(props: {
   src: string;
   filename: string;
+  message: string;
 }): React.ReactElement {
   return (
-    <div
-      data-testid="document-viewer"
-      className="flex h-48 flex-col items-center justify-center rounded border border-border bg-muted"
-    >
-      <p className="text-sm text-muted-foreground">Preview not available</p>
+    <div className="flex h-48 flex-col items-center justify-center rounded border border-border bg-muted">
+      <p className="text-sm text-muted-foreground">{props.message}</p>
       <a
-        href={props.src}
+        href={attachmentHref(props.src)}
         download={props.filename}
         className="mt-2 text-sm font-medium text-primary hover:underline"
       >
@@ -369,18 +408,198 @@ function DocumentViewer(props: {
   );
 }
 
+function PdfViewer(props: {
+  src: string;
+  filename: string;
+}): React.ReactElement {
+  const { src, filename } = props;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const pdfRef = useRef<LoadedPdf | null>(null);
+  const [numPages, setNumPages] = useState(0);
+  const [page, setPage] = useState(1);
+  const [scale, setScale] = useState(1.2);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(
+    'loading',
+  );
+
+  // load (and tear down) the document. the parent keys this component by
+  // src, so a new src remounts with fresh state — no synchronous reset.
+  useEffect(() => {
+    let cancelled = false;
+    loadPdf(src)
+      .then((pdf) => {
+        if (cancelled) {
+          pdf.destroy();
+          return;
+        }
+        pdfRef.current = pdf;
+        setNumPages(pdf.numPages);
+        setStatus('ready');
+      })
+      .catch(() => {
+        if (!cancelled) setStatus('error');
+      });
+    return () => {
+      cancelled = true;
+      pdfRef.current?.destroy();
+      pdfRef.current = null;
+    };
+  }, [src]);
+
+  // (re)render the current page on page/zoom change once loaded.
+  useEffect(() => {
+    const pdf = pdfRef.current;
+    const canvas = canvasRef.current;
+    if (status !== 'ready' || !pdf || !canvas) return;
+    let cancelled = false;
+    pdf.renderPage(page, canvas, scale).catch(() => {
+      if (!cancelled) setStatus('error');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, page, scale]);
+
+  const prev = useCallback(() => setPage((p) => Math.max(1, p - 1)), []);
+  const next = useCallback(
+    () => setPage((p) => Math.min(numPages, p + 1)),
+    [numPages],
+  );
+  const zoomOut = useCallback(
+    () => setScale((s) => Math.max(0.5, s - 0.25)),
+    [],
+  );
+  const zoomIn = useCallback(() => setScale((s) => Math.min(3, s + 0.25)), []);
+
+  if (status === 'error') {
+    return (
+      <DownloadFallback
+        src={src}
+        filename={filename}
+        message="Couldn’t render this PDF — download it to view"
+      />
+    );
+  }
+
+  return (
+    <div data-testid="document-viewer">
+      <div
+        data-testid="pdf-viewer"
+        className="max-h-[600px] overflow-auto rounded border border-border bg-muted"
+      >
+        <canvas
+          ref={canvasRef}
+          data-testid="pdf-canvas"
+          aria-label={`PDF: ${filename}`}
+          className="mx-auto block"
+        />
+      </div>
+      {status === 'loading' && (
+        <p className="mt-2 text-sm text-muted-foreground">Loading PDF…</p>
+      )}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={prev}
+          disabled={page <= 1}
+          className="rounded bg-muted px-2 py-1 text-xs text-foreground disabled:opacity-50"
+        >
+          Prev
+        </button>
+        <span className="text-xs text-muted-foreground">
+          Page {page} / {numPages || '…'}
+        </span>
+        <button
+          type="button"
+          onClick={next}
+          disabled={numPages === 0 || page >= numPages}
+          className="rounded bg-muted px-2 py-1 text-xs text-foreground disabled:opacity-50"
+        >
+          Next
+        </button>
+        <span className="mx-2 text-muted-foreground">|</span>
+        <button
+          type="button"
+          onClick={zoomOut}
+          aria-label="Zoom out"
+          className="rounded bg-muted px-2 py-1 text-xs text-foreground"
+        >
+          -
+        </button>
+        <span className="text-xs text-muted-foreground">
+          {Math.round(scale * 100)}%
+        </span>
+        <button
+          type="button"
+          onClick={zoomIn}
+          aria-label="Zoom in"
+          className="rounded bg-muted px-2 py-1 text-xs text-foreground"
+        >
+          +
+        </button>
+        <a
+          href={attachmentHref(src)}
+          download={filename}
+          className="ml-2 text-xs font-medium text-primary hover:underline"
+        >
+          Download
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function DocumentViewer(props: {
+  src: string;
+  filename: string;
+  mimeType: string;
+}): React.ReactElement {
+  const { src, filename, mimeType } = props;
+
+  // render pdfs ourselves with pdf.js — the webview's native viewer is
+  // unavailable on some platforms (e.g. WebKitGTK). other document types
+  // are download-only.
+  if (mimeType === 'application/pdf') {
+    return <PdfViewer key={src} src={src} filename={filename} />;
+  }
+
+  return (
+    <div data-testid="document-viewer">
+      <DownloadFallback
+        src={src}
+        filename={filename}
+        message="Preview not available"
+      />
+    </div>
+  );
+}
+
 export function AssetViewer(props: AssetViewerProps): React.ReactElement {
-  const { asset, src } = props;
+  const { asset, src, videoRef, onTimeUpdate } = props;
 
   switch (asset.mediaType) {
     case 'video':
-      return <VideoViewer src={src} filename={asset.originalFilename} />;
+      return (
+        <VideoViewer
+          src={src}
+          filename={asset.originalFilename}
+          fps={assetFrameRate(asset)}
+          externalRef={videoRef}
+          onTimeUpdate={onTimeUpdate}
+        />
+      );
     case 'audio':
       return <AudioViewer src={src} filename={asset.originalFilename} />;
     case 'image':
       return <ImageViewer src={src} alt={asset.originalFilename} />;
     case 'document':
     case 'other':
-      return <DocumentViewer src={src} filename={asset.originalFilename} />;
+      return (
+        <DocumentViewer
+          src={src}
+          filename={asset.originalFilename}
+          mimeType={asset.mimeType}
+        />
+      );
   }
 }

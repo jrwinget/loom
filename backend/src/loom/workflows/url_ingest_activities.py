@@ -26,13 +26,13 @@ from loom.services.ingest import (
     detect_media_type,
     generate_storage_key,
 )
-from loom.services.storage import ORIGINALS_BUCKET, StorageService
+from loom.services.storage_backends import ORIGINALS_BUCKET
 from loom.services.url_ingest import (
     ExtractorUnavailableError,
     select_extractor,
     snapshot_url,
 )
-from loom.workflows.shared import get_db_session, get_minio_client
+from loom.workflows.shared import get_db_session, get_storage_backend
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ async def download_url_and_record_provenance(
                     resource.filename,
                 )
 
-                storage = StorageService(get_minio_client())
+                storage = get_storage_backend()
                 storage.upload_file(
                     ORIGINALS_BUCKET,
                     storage_key,

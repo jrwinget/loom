@@ -75,3 +75,18 @@ until the CI pipeline applies real signatures.
 - **Icons are placeholders.** Drop real assets into
   `src-tauri/icons/` before cutting a release. See the README in
   that directory for the expected filenames.
+- **PDF previews render via bundled pdf.js, not the webview.** WebKitGTK
+  (the Linux webview) has no native PDF viewer, so we render pages to a
+  canvas with `pdfjs-dist`. The CMap + standard-font data is copied into
+  the frontend bundle by `frontend/scripts/copy-pdfjs-assets.mjs` (wired
+  into `pnpm build`/`pnpm dev`); the CSP allows the pdf.js worker via
+  `worker-src 'self' blob:` and `script-src … 'wasm-unsafe-eval'`.
+- **Video needs codecs the webview doesn't always ship.** WebKitGTK plays
+  `<video>` only when GStreamer codec plugins are present. The `.deb`
+  declares them via `depends` (`tauri.conf.json`); the AppImage bundles
+  them when the build runs with `APPIMAGE_BUNDLE_GSTREAMER=1` and the
+  `gstreamer1.0-{plugins-good,plugins-bad,libav}` packages installed (the
+  desktop CI does both). macOS (WKWebView) and Windows (WebView2) carry
+  H.264/AAC natively. When a codec is still missing, the viewer shows a
+  download fallback instead of a blank frame. A web-friendly transcoded
+  proxy (ffmpeg) is the longer-term fix and is not yet bundled.

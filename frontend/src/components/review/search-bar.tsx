@@ -119,7 +119,7 @@ export function SearchBar(props: SearchBarProps): React.ReactElement {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search (Ctrl+K)"
-          className="bg-card w-full rounded border border-border py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="w-full rounded border border-border bg-card py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
         />
       </div>
 
@@ -130,7 +130,7 @@ export function SearchBar(props: SearchBarProps): React.ReactElement {
           data-testid="search-results"
           role="region"
           aria-label="Search results"
-          className="bg-card absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded border border-border shadow-lg"
+          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded border border-border bg-card shadow-lg"
         >
           {/* type tabs */}
           {availableTypes.length > 0 && (

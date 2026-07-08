@@ -2,9 +2,9 @@ export type CorrelationStatus = 'pending' | 'accepted' | 'rejected';
 
 export interface CorrelationCandidateMember {
   id: string;
-  asset_id: string;
-  original_filename: string | null;
-  capture_time: string | null;
+  assetId: string;
+  originalFilename: string | null;
+  captureTime: string | null;
 }
 
 export interface CorrelationReasoning {
@@ -18,16 +18,16 @@ export interface CorrelationReasoning {
 
 export interface CorrelationCandidate {
   id: string;
-  case_id: string;
-  start_utc: string;
-  end_utc: string;
+  caseId: string;
+  startUtc: string;
+  endUtc: string;
   confidence: number;
   reasoning: CorrelationReasoning;
   status: CorrelationStatus;
-  decided_by: string | null;
-  decided_at: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
   members: CorrelationCandidateMember[];
-  created_at: string;
+  createdAt: string;
 }
 
 export interface CorrelationCandidateListResponse {

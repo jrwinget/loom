@@ -214,12 +214,30 @@ class TestPathTraversalJail:
         assert stored.read_bytes() == b"ok"
 
 
-class TestPresignedLoopbackUrls:
+def _components(url: str) -> tuple[str, str, str, int, str]:
+    """parse a signed asset url into (bucket, key, method, expires, sig)."""
+    from urllib.parse import parse_qs, unquote, urlparse
+
+    parsed = urlparse(url)
+    after = parsed.path.split("/api/v1/storage/object/", 1)[1]
+    bucket, key = after.split("/", 1)
+    q = parse_qs(parsed.query)
+    return (
+        bucket,
+        unquote(key),
+        q["method"][0],
+        int(q["expires"][0]),
+        q["sig"][0],
+    )
+
+
+class TestSignedAssetUrls:
     def test_upload_url_format(self, backend: LocalStorageBackend) -> None:
         url = backend.get_presigned_upload_url(
             ORIGINALS_BUCKET, "k.bin", expires=60
         )
-        assert url.startswith("loom://storage/loom-originals/k.bin")
+        assert "/api/v1/storage/object/loom-originals/k.bin" in url
+        assert url.startswith("http://")
         assert "sig=" in url and "expires=" in url and "method=PUT" in url
 
     def test_download_url_format(self, backend: LocalStorageBackend) -> None:
@@ -232,7 +250,7 @@ class TestPresignedLoopbackUrls:
         url = backend.get_presigned_download_url(
             ORIGINALS_BUCKET, "k.bin", expires=60
         )
-        assert backend.verify_loopback_url(url)
+        assert backend.verify_signature(*_components(url))
 
     def test_verify_rejects_expired(self, backend: LocalStorageBackend) -> None:
         url = backend.get_presigned_download_url(
@@ -240,7 +258,7 @@ class TestPresignedLoopbackUrls:
         )
         # past expiry - immediate rejection
         time.sleep(0.01)
-        assert not backend.verify_loopback_url(url)
+        assert not backend.verify_signature(*_components(url))
 
     def test_verify_rejects_tampered_sig(
         self, backend: LocalStorageBackend
@@ -248,13 +266,23 @@ class TestPresignedLoopbackUrls:
         url = backend.get_presigned_download_url(
             ORIGINALS_BUCKET, "k.bin", expires=60
         )
-        tampered = url[:-1] + ("0" if url[-1] != "0" else "1")
-        assert not backend.verify_loopback_url(tampered)
+        bucket, key, method, expires_at, sig = _components(url)
+        tampered = sig[:-1] + ("0" if sig[-1] != "0" else "1")
+        assert not backend.verify_signature(
+            bucket, key, method, expires_at, tampered
+        )
 
-    def test_verify_rejects_non_loopback(
+    def test_verify_rejects_key_mismatch(
         self, backend: LocalStorageBackend
     ) -> None:
-        assert not backend.verify_loopback_url("https://example.com/x")
+        url = backend.get_presigned_download_url(
+            ORIGINALS_BUCKET, "k.bin", expires=60
+        )
+        _, _, method, expires_at, sig = _components(url)
+        # a signature for k.bin must not validate a request for other.bin
+        assert not backend.verify_signature(
+            ORIGINALS_BUCKET, "other.bin", method, expires_at, sig
+        )
 
 
 class TestConfig:
@@ -361,8 +389,8 @@ class TestFactory:
             ORIGINALS_BUCKET, "k.bin", expires=60
         )
         # a url signed by A must not verify under B (and vice versa).
-        assert not backend_b.verify_loopback_url(url_a)
-        assert not backend_a.verify_loopback_url(url_b)
+        assert not backend_b.verify_signature(*_components(url_a))
+        assert not backend_a.verify_signature(*_components(url_b))
 
     def test_lite_factory_raises_without_signing_secret(
         self, tmp_path: Path

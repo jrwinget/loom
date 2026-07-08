@@ -9,7 +9,7 @@ export interface User {
 export interface Case {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   status: string;
   assetCount: number;
   eventCount: number;

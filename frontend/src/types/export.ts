@@ -5,6 +5,7 @@ export interface ExportBundle {
   format: string;
   storageKey: string | null;
   sha256Hash: string | null;
+  downloadUrl: string | null;
   status: 'pending' | 'processing' | 'complete' | 'failed';
   manifest: Record<string, unknown> | null;
   createdBy: string;

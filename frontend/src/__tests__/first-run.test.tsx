@@ -44,9 +44,9 @@ describe('FirstRunPage', () => {
 
   it('redirects to / when onboarding is already complete', async () => {
     mockedGet.mockResolvedValueOnce({
-      first_run_required: false,
-      deployment_profile: 'server',
-      data_dir: null,
+      firstRunRequired: false,
+      deploymentProfile: 'server',
+      dataDir: null,
     });
 
     renderWithProviders();
@@ -58,9 +58,9 @@ describe('FirstRunPage', () => {
 
   it('shows the onboarding form when required', async () => {
     mockedGet.mockResolvedValueOnce({
-      first_run_required: true,
-      deployment_profile: 'lite',
-      data_dir: '/home/user/.loom/data',
+      firstRunRequired: true,
+      deploymentProfile: 'lite',
+      dataDir: '/home/user/.loom/data',
     });
 
     renderWithProviders();
@@ -71,9 +71,9 @@ describe('FirstRunPage', () => {
 
   it('rejects a password shorter than 12 characters', async () => {
     mockedGet.mockResolvedValueOnce({
-      first_run_required: true,
-      deployment_profile: 'server',
-      data_dir: null,
+      firstRunRequired: true,
+      deploymentProfile: 'server',
+      dataDir: null,
     });
     const user = userEvent.setup();
 
@@ -99,9 +99,9 @@ describe('FirstRunPage', () => {
 
   it('rejects when passwords do not match', async () => {
     mockedGet.mockResolvedValueOnce({
-      first_run_required: true,
-      deployment_profile: 'server',
-      data_dir: null,
+      firstRunRequired: true,
+      deploymentProfile: 'server',
+      dataDir: null,
     });
     const user = userEvent.setup();
 
@@ -128,9 +128,9 @@ describe('FirstRunPage', () => {
 
   it('shows the recovery codes step after successful onboarding', async () => {
     mockedGet.mockResolvedValueOnce({
-      first_run_required: true,
-      deployment_profile: 'server',
-      data_dir: null,
+      firstRunRequired: true,
+      deploymentProfile: 'server',
+      dataDir: null,
     });
     const sampleCodes = [
       'aaaaa-bbbbb-ccccc-ddddd',
@@ -143,10 +143,10 @@ describe('FirstRunPage', () => {
       '12345-67890-abcde-fghi0',
     ];
     mockedPost.mockResolvedValueOnce({
-      user_id: 'user-123',
-      access_token: 'access',
-      refresh_token: 'refresh',
-      password_recovery_codes: sampleCodes,
+      userId: 'user-123',
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      passwordRecoveryCodes: sampleCodes,
     });
     mockedGet.mockResolvedValueOnce({
       id: 'user-123',
@@ -183,15 +183,15 @@ describe('FirstRunPage', () => {
 
   it('navigates to / once the operator acknowledges the codes', async () => {
     mockedGet.mockResolvedValueOnce({
-      first_run_required: true,
-      deployment_profile: 'server',
-      data_dir: null,
+      firstRunRequired: true,
+      deploymentProfile: 'server',
+      dataDir: null,
     });
     mockedPost.mockResolvedValueOnce({
-      user_id: 'user-123',
-      access_token: 'access',
-      refresh_token: 'refresh',
-      password_recovery_codes: ['aaaaa-bbbbb-ccccc-ddddd'],
+      userId: 'user-123',
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      passwordRecoveryCodes: ['aaaaa-bbbbb-ccccc-ddddd'],
     });
     mockedGet.mockResolvedValueOnce({
       id: 'user-123',
@@ -228,9 +228,9 @@ describe('FirstRunPage', () => {
 
   it('surfaces a 409 conflict as a readable error', async () => {
     mockedGet.mockResolvedValueOnce({
-      first_run_required: true,
-      deployment_profile: 'server',
-      data_dir: null,
+      firstRunRequired: true,
+      deploymentProfile: 'server',
+      dataDir: null,
     });
     mockedPost.mockRejectedValueOnce(new Error('first-run already completed'));
     const user = userEvent.setup();
