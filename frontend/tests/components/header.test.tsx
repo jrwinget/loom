@@ -114,4 +114,20 @@ describe('Header user menu', () => {
     await user.click(document.body);
     expect(screen.queryByTestId('user-menu-dropdown')).not.toBeInTheDocument();
   });
+
+  it('switches the theme preference from the user menu', async () => {
+    const { useThemeStore } = await import('@/stores/theme-store');
+    useThemeStore.setState({ theme: 'system' });
+    const user = userEvent.setup();
+    renderHeader();
+
+    await user.click(screen.getByTestId('user-menu-button'));
+    await user.click(screen.getByTestId('theme-dark'));
+
+    expect(useThemeStore.getState().theme).toBe('dark');
+    expect(screen.getByTestId('theme-dark')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
 });

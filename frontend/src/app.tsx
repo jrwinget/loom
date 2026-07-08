@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { FirstRunGuard } from '@/components/auth/first-run-guard';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { ErrorBoundary } from '@/components/layout/error-boundary';
+import { ThemeProvider } from '@/components/layout/theme-provider';
 import { CaseLayout } from '@/components/layout/case-layout';
 import { Shell } from '@/components/layout/shell';
 import { ToastContainer } from '@/components/layout/toast-container';
@@ -48,49 +49,57 @@ function NotFound(): React.ReactElement {
 export function App(): React.ReactElement {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <ErrorBoundary>
-          <FirstRunGuard>
-            <Routes>
-              <Route path="first-run" element={<FirstRunPage />} />
-              <Route path="login" element={<LoginPage />} />
-              <Route path="forgot-password" element={<ForgotPasswordPage />} />
-              <Route element={<ProtectedRoute />}>
-                <Route element={<Shell />}>
-                  <Route index element={<Dashboard />} />
-                  <Route path="organizations" element={<OrganizationsPage />} />
-                  <Route path="cases" element={<CaseListPage />} />
-                  <Route path="cases/:caseId" element={<CaseLayout />}>
-                    <Route index element={<CaseDetailPage />} />
-                    <Route path="assets" element={<AssetsPage />} />
-                    <Route path="timeline" element={<TimelinePage />} />
-                    <Route path="conflicts" element={<ConflictsPage />} />
-                    <Route path="clusters" element={<ClustersPage />} />
-                    <Route path="map" element={<MapPage />} />
-                    <Route path="export" element={<ExportPage />} />
-                    <Route path="review/:assetId" element={<ReviewPage />} />
+      <ThemeProvider>
+        <BrowserRouter>
+          <ErrorBoundary>
+            <FirstRunGuard>
+              <Routes>
+                <Route path="first-run" element={<FirstRunPage />} />
+                <Route path="login" element={<LoginPage />} />
+                <Route
+                  path="forgot-password"
+                  element={<ForgotPasswordPage />}
+                />
+                <Route element={<ProtectedRoute />}>
+                  <Route element={<Shell />}>
+                    <Route index element={<Dashboard />} />
+                    <Route
+                      path="organizations"
+                      element={<OrganizationsPage />}
+                    />
+                    <Route path="cases" element={<CaseListPage />} />
+                    <Route path="cases/:caseId" element={<CaseLayout />}>
+                      <Route index element={<CaseDetailPage />} />
+                      <Route path="assets" element={<AssetsPage />} />
+                      <Route path="timeline" element={<TimelinePage />} />
+                      <Route path="conflicts" element={<ConflictsPage />} />
+                      <Route path="clusters" element={<ClustersPage />} />
+                      <Route path="map" element={<MapPage />} />
+                      <Route path="export" element={<ExportPage />} />
+                      <Route path="review/:assetId" element={<ReviewPage />} />
+                    </Route>
+                    <Route
+                      path="settings/plugins"
+                      element={<PluginsSettingsPage />}
+                    />
+                    <Route
+                      path="settings/security"
+                      element={<SecuritySettingsPage />}
+                    />
+                    <Route
+                      path="settings/storage"
+                      element={<StorageSettingsPage />}
+                    />
+                    <Route path="settings/ai" element={<AiSettingsPage />} />
+                    <Route path="*" element={<NotFound />} />
                   </Route>
-                  <Route
-                    path="settings/plugins"
-                    element={<PluginsSettingsPage />}
-                  />
-                  <Route
-                    path="settings/security"
-                    element={<SecuritySettingsPage />}
-                  />
-                  <Route
-                    path="settings/storage"
-                    element={<StorageSettingsPage />}
-                  />
-                  <Route path="settings/ai" element={<AiSettingsPage />} />
-                  <Route path="*" element={<NotFound />} />
                 </Route>
-              </Route>
-            </Routes>
-          </FirstRunGuard>
-          <ToastContainer />
-        </ErrorBoundary>
-      </BrowserRouter>
+              </Routes>
+            </FirstRunGuard>
+            <ToastContainer />
+          </ErrorBoundary>
+        </BrowserRouter>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

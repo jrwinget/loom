@@ -4,6 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { Breadcrumbs } from '@/components/layout/breadcrumbs';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
 import { useAuthStore } from '@/stores/auth-store';
+import { type ThemePreference, useThemeStore } from '@/stores/theme-store';
+
+const THEME_OPTIONS: [ThemePreference, string][] = [
+  ['light', 'Light'],
+  ['dark', 'Dark'],
+  ['system', 'System'],
+];
 
 // kept in this file rather than a `/shortcuts.ts` module so each
 // entry sits next to the dialog that renders it; review/timeline
@@ -34,6 +41,8 @@ const SHORTCUT_GROUPS: { heading: string; items: [string, string][] }[] = [
 export function Header(): React.ReactElement {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const theme = useThemeStore((s) => s.theme);
+  const setTheme = useThemeStore((s) => s.setTheme);
   const [menuOpen, setMenuOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -171,6 +180,32 @@ export function Header(): React.ReactElement {
                   {user.email}
                 </p>
               )}
+              <div
+                className="border-b border-border px-3 py-2"
+                role="group"
+                aria-label="Theme"
+              >
+                <p className="mb-1 text-xs text-muted-foreground">Theme</p>
+                <div className="flex gap-1">
+                  {THEME_OPTIONS.map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      data-testid={`theme-${value}`}
+                      aria-pressed={theme === value}
+                      className={
+                        'flex-1 rounded px-2 py-1 text-xs ' +
+                        (theme === value
+                          ? 'bg-accent font-medium text-foreground'
+                          : 'text-muted-foreground hover:bg-accent/50')
+                      }
+                      onClick={() => setTheme(value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <a
                 href="/settings/security"
                 className={
