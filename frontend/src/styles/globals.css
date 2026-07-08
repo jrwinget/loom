@@ -99,3 +99,15 @@
     @apply outline-2 outline-offset-2 outline-ring;
   }
 }
+
+/* leaflet ships light-only chrome; theme its controls and popups.
+   map tiles stay untouched — they are the document, like pdf pages. */
+.dark .leaflet-control-zoom a,
+.dark .leaflet-control-attribution {
+  @apply border-border bg-background text-foreground;
+}
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  @apply bg-background text-foreground;
+}
