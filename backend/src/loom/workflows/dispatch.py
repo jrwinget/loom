@@ -150,8 +150,16 @@ async def _run_lite_safely(
     surface. the failure is visible via the status map and the
     asset's processing_status/processing_error.
     """
+
+    def _on_step(stage: str, done: int, total: int) -> None:
+        current = _LITE_STATUS.get(workflow_id)
+        if current is not None and current.status == "running":
+            current.stage = stage
+            current.steps_done = done
+            current.steps_total = total
+
     try:
-        await run_sequence(SPECS[name], list(args))
+        await run_sequence(SPECS[name], list(args), on_step=_on_step)
         _LITE_STATUS[workflow_id] = LiteJobStatus(status="completed")
     except EngineUnavailableError as exc:
         logger.error(
