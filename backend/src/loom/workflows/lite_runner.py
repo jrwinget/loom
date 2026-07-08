@@ -14,6 +14,7 @@ processing_status is advanced so the desktop ui reflects progress.
 """
 
 import logging
+from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
@@ -26,13 +27,21 @@ from loom.workflows.shared import get_db_session
 
 logger = logging.getLogger(__name__)
 
+# (stage, steps_done, steps_total) as each step starts
+ProgressCallback = Callable[[str, int, int], None]
 
-async def run_sequence(spec: WorkflowSpec, workflow_args: list[Any]) -> None:
+
+async def run_sequence(
+    spec: WorkflowSpec,
+    workflow_args: list[Any],
+    on_step: ProgressCallback | None = None,
+) -> None:
     """run every step of ``spec`` in order, in-process.
 
     raises the originating exception if a step fails after its
     retries are exhausted; callers schedule this fire-and-forget and
-    are responsible for catching and logging.
+    are responsible for catching and logging. ``on_step`` fires as
+    each step starts so the status map can report progress.
     """
     if spec.asset_status_arg is not None:
         await _set_asset_status(
@@ -41,7 +50,10 @@ async def run_sequence(spec: WorkflowSpec, workflow_args: list[Any]) -> None:
 
     try:
         results: dict[str, Any] = {}
-        for step in spec.steps:
+        total = len(spec.steps)
+        for done, step in enumerate(spec.steps):
+            if on_step is not None:
+                on_step(step.activity.__name__, done, total)
             call_args = step.bind(workflow_args, results)
             results[step.key] = await _call_with_retries(step, call_args)
     except Exception as exc:

@@ -89,6 +89,28 @@ async def test_no_explicit_retry_runs_once_then_raises() -> None:
     assert calls["n"] == 1
 
 
+async def test_reports_stage_progress_per_step() -> None:
+    seen: list[tuple[str, int, int]] = []
+
+    async def extract(asset_id: str) -> None:
+        return None
+
+    async def store(asset_id: str) -> None:
+        return None
+
+    spec = _spec(
+        Step(extract, lambda args, r: [args[0]], timeout_s=1),
+        Step(store, lambda args, r: [args[0]], timeout_s=1),
+    )
+    await lite_runner.run_sequence(
+        spec,
+        ["asset-1"],
+        on_step=lambda stage, done, total: seen.append((stage, done, total)),
+    )
+
+    assert seen == [("extract", 0, 2), ("store", 1, 2)]
+
+
 async def test_sets_processing_then_complete_path() -> None:
     async def noop(asset_id: str) -> None:
         return None

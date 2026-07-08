@@ -1,7 +1,8 @@
 """unit tests for the profile-aware workflow dispatch gateway."""
 
+import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, patch
 
 import pytest
 
@@ -41,7 +42,7 @@ async def test_lite_schedules_in_process_and_completes() -> None:
         assert dispatch.lite_workflow_status("ingest-1").status == "running"
         await dispatch.drain_background_tasks()
 
-    run.assert_awaited_once_with(INGEST, ["asset-1"])
+    run.assert_awaited_once_with(INGEST, ["asset-1"], on_step=ANY)
     assert dispatch.lite_workflow_status("ingest-1").status == "completed"
 
 
@@ -61,6 +62,35 @@ async def test_lite_failure_is_logged_not_raised() -> None:
     assert status.status == "failed"
     assert status.error_code == "processing_error"
     assert "kaboom" in status.error_message
+
+
+async def test_lite_progress_visible_while_running() -> None:
+    """stage/steps are readable mid-run, before terminal state."""
+    release = asyncio.Event()
+
+    async def fake_run(spec, args, on_step=None):  # type: ignore[no-untyped-def]
+        assert on_step is not None
+        on_step("extract_audio", 1, 3)
+        await release.wait()
+
+    with (
+        patch.object(dispatch, "get_settings", return_value=_LITE),
+        patch.object(dispatch, "run_sequence", side_effect=fake_run),
+    ):
+        await dispatch.dispatch_workflow(
+            "transcription", args=["asset-1"], workflow_id="transcribe-3"
+        )
+        # yield so the background task runs up to the event
+        await asyncio.sleep(0)
+        mid = dispatch.lite_workflow_status("transcribe-3")
+        assert mid.status == "running"
+        assert mid.stage == "extract_audio"
+        assert mid.steps_done == 1
+        assert mid.steps_total == 3
+        release.set()
+        await dispatch.drain_background_tasks()
+
+    assert dispatch.lite_workflow_status("transcribe-3").status == "completed"
 
 
 async def test_lite_engine_failure_carries_remedy() -> None:
