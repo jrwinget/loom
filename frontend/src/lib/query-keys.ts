@@ -37,6 +37,10 @@ export const queryKeys = {
     results: (caseId: string, query: string, types?: string[]) =>
       ['search', caseId, query, types] as const,
   },
+  workflows: {
+    status: (caseId: string, workflowId: string) =>
+      ['workflows', caseId, workflowId, 'status'] as const,
+  },
   conflicts: {
     byCase: (caseId: string, resolved?: boolean) =>
       ['conflicts', caseId, resolved] as const,

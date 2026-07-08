@@ -2,6 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Breadcrumbs } from '@/components/layout/breadcrumbs';
+import { JobsMenu } from '@/components/layout/jobs-menu';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -71,6 +72,8 @@ export function Header(): React.ReactElement {
       <Breadcrumbs />
 
       <div className="flex items-center gap-4">
+        <JobsMenu />
+
         <button
           type="button"
           className={
