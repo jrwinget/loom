@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
+import { triggerDownload } from '@/lib/utils';
 import { useToastStore } from '@/stores/toast-store';
 import type {
   CreateExportPayload,
@@ -28,6 +29,31 @@ export function useExport(
     queryFn: () =>
       apiClient.get<ExportBundle>(`/cases/${caseId}/exports/${exportId}`),
     enabled: !!caseId && !!exportId,
+  });
+}
+
+export function useDownloadExport(
+  caseId: string,
+): ReturnType<typeof useMutation<ExportBundle, Error, string>> {
+  return useMutation({
+    mutationFn: (exportId: string) =>
+      apiClient.get<ExportBundle>(`/cases/${caseId}/exports/${exportId}`),
+    onSuccess: (bundle) => {
+      if (bundle.downloadUrl) {
+        triggerDownload(bundle.downloadUrl);
+      } else {
+        useToastStore.getState().addToast({
+          type: 'error',
+          message: 'Download is not ready yet',
+        });
+      }
+    },
+    onError: (error: Error) => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: error.message || 'Failed to fetch download link',
+      });
+    },
   });
 }
 

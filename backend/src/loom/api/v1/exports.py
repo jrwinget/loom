@@ -156,13 +156,12 @@ async def get_export_endpoint(
     # generate download url if export is complete
     if export.status == "complete" and export.storage_key:
         loop = asyncio.get_running_loop()
-        url = await loop.run_in_executor(
+        resp.download_url = await loop.run_in_executor(
             None,
             storage.get_presigned_download_url,
             DERIVATIVES_BUCKET,
             export.storage_key,
             900,
         )
-        resp.storage_key = url
 
     return resp
