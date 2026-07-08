@@ -7,6 +7,19 @@ import type { Asset } from '@/types/asset';
 interface AssetViewerProps {
   asset: Asset;
   src: string;
+  // exposes the underlying <video> element so hosts (the review
+  // workspace) can seek without querying the dom
+  videoRef?: React.MutableRefObject<HTMLVideoElement | null>;
+  onTimeUpdate?: (time: number) => void;
+}
+
+// frame numbers are only shown when the extracted metadata carries a
+// real frame rate; estimating one would mislabel evidence frames
+function assetFrameRate(asset: Asset): number | null {
+  const meta = asset.metadataExtracted;
+  if (!meta || typeof meta !== 'object') return null;
+  const fps = (meta as Record<string, unknown>).frameRate;
+  return typeof fps === 'number' && fps > 0 ? fps : null;
 }
 
 function formatTime(seconds: number): string {
@@ -32,9 +45,12 @@ function formatTime(seconds: number): string {
 function VideoViewer(props: {
   src: string;
   filename: string;
+  fps?: number | null;
+  externalRef?: React.MutableRefObject<HTMLVideoElement | null>;
+  onTimeUpdate?: (time: number) => void;
 }): React.ReactElement {
-  const { src, filename } = props;
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const { src, filename, fps = null, externalRef, onTimeUpdate } = props;
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -44,8 +60,7 @@ function VideoViewer(props: {
   // common formats; surface a download instead of a silent black frame.
   const [failed, setFailed] = useState(false);
 
-  // ~30fps frame estimate
-  const frameNumber = Math.floor(currentTime * 30);
+  const frameNumber = fps ? Math.floor(currentTime * fps) : null;
 
   const togglePlay = useCallback(() => {
     const v = videoRef.current;
@@ -86,7 +101,10 @@ function VideoViewer(props: {
     const v = videoRef.current;
     if (!v) return;
 
-    const onTime = (): void => setCurrentTime(v.currentTime);
+    const onTime = (): void => {
+      setCurrentTime(v.currentTime);
+      onTimeUpdate?.(v.currentTime);
+    };
     const onMeta = (): void => setDuration(v.duration);
     const onEnded = (): void => setPlaying(false);
 
@@ -99,7 +117,7 @@ function VideoViewer(props: {
       v.removeEventListener('loadedmetadata', onMeta);
       v.removeEventListener('ended', onEnded);
     };
-  }, []);
+  }, [onTimeUpdate]);
 
   if (failed) {
     return (
@@ -114,7 +132,12 @@ function VideoViewer(props: {
   return (
     <div data-testid="video-viewer">
       <video
-        ref={videoRef}
+        ref={(el) => {
+          videoRef.current = el;
+          if (externalRef) {
+            externalRef.current = el;
+          }
+        }}
         src={src}
         className="w-full rounded"
         data-testid="video-element"
@@ -132,9 +155,11 @@ function VideoViewer(props: {
         <span>{formatTime(currentTime)}</span>
         <span className="text-muted-foreground">/</span>
         <span>{formatTime(duration)}</span>
-        <span className="text-xs text-muted-foreground">
-          Frame {frameNumber}
-        </span>
+        {frameNumber !== null && (
+          <span className="text-xs text-muted-foreground">
+            Frame {frameNumber}
+          </span>
+        )}
       </div>
 
       {/* controls */}
@@ -550,11 +575,19 @@ function DocumentViewer(props: {
 }
 
 export function AssetViewer(props: AssetViewerProps): React.ReactElement {
-  const { asset, src } = props;
+  const { asset, src, videoRef, onTimeUpdate } = props;
 
   switch (asset.mediaType) {
     case 'video':
-      return <VideoViewer src={src} filename={asset.originalFilename} />;
+      return (
+        <VideoViewer
+          src={src}
+          filename={asset.originalFilename}
+          fps={assetFrameRate(asset)}
+          externalRef={videoRef}
+          onTimeUpdate={onTimeUpdate}
+        />
+      );
     case 'audio':
       return <AudioViewer src={src} filename={asset.originalFilename} />;
     case 'image':
