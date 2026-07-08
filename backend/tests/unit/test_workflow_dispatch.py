@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from loom.services.engines import EngineUnavailableError
 from loom.workflows import dispatch
 from loom.workflows.sequences import INGEST
 
@@ -37,11 +38,11 @@ async def test_lite_schedules_in_process_and_completes() -> None:
         )
         # returns immediately; work is in flight
         assert result.status == "queued"
-        assert dispatch.lite_workflow_status("ingest-1") == "running"
+        assert dispatch.lite_workflow_status("ingest-1").status == "running"
         await dispatch.drain_background_tasks()
 
     run.assert_awaited_once_with(INGEST, ["asset-1"])
-    assert dispatch.lite_workflow_status("ingest-1") == "completed"
+    assert dispatch.lite_workflow_status("ingest-1").status == "completed"
 
 
 async def test_lite_failure_is_logged_not_raised() -> None:
@@ -56,7 +57,32 @@ async def test_lite_failure_is_logged_not_raised() -> None:
         assert result.status == "queued"
         await dispatch.drain_background_tasks()
 
-    assert dispatch.lite_workflow_status("ocr-1") == "failed"
+    status = dispatch.lite_workflow_status("ocr-1")
+    assert status.status == "failed"
+    assert status.error_code == "processing_error"
+    assert "kaboom" in status.error_message
+
+
+async def test_lite_engine_failure_carries_remedy() -> None:
+    """a missing engine surfaces its remedy through the status map."""
+    run = AsyncMock(
+        side_effect=EngineUnavailableError(
+            "transcription", "install the ai extra"
+        )
+    )
+    with (
+        patch.object(dispatch, "get_settings", return_value=_LITE),
+        patch.object(dispatch, "run_sequence", run),
+    ):
+        await dispatch.dispatch_workflow(
+            "transcription", args=["asset-1"], workflow_id="transcribe-1"
+        )
+        await dispatch.drain_background_tasks()
+
+    status = dispatch.lite_workflow_status("transcribe-1")
+    assert status.status == "failed"
+    assert status.error_code == "engine_unavailable"
+    assert status.error_message == "install the ai extra"
 
 
 async def test_server_starts_temporal_workflow() -> None:

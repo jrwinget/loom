@@ -122,6 +122,13 @@ class Asset(UUIDMixin, TimestampMixin, Base):
         nullable=False,
         default="pending",
     )
+    # user-facing reason for a failed processing run; survives a
+    # restart, unlike the in-process workflow status map
+    processing_error: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        default=None,
+    )
     deleted_at: Mapped[datetime | None] = mapped_column(
         nullable=True,
         default=None,
