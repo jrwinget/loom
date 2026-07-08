@@ -13,6 +13,8 @@ export interface Asset {
   sha256Hash: string;
   uploadStatus: UploadStatus;
   processingStatus: ProcessingStatus;
+  // user-facing reason when processingStatus is "failed"
+  processingError?: string | null;
   // extracted media metadata (camelized wire keys, e.g. frameRate,
   // durationSeconds); shape varies by media type
   metadataExtracted?: Record<string, unknown> | null;

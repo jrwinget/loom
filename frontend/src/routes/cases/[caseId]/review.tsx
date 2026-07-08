@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useAsset, useAssetDownloadUrl } from '@/hooks/use-assets';
 import { QueryError } from '@/components/layout/query-error';
+import { useCapabilities } from '@/hooks/use-capabilities';
 import { useTranscript, useStartTranscription } from '@/hooks/use-transcript';
 import { useScenes, useStartSceneDetection } from '@/hooks/use-scenes';
 import { ReviewWorkspace } from '@/components/review/review-workspace';
@@ -34,6 +35,19 @@ export function ReviewPage(): React.ReactElement {
 
   const startTranscription = useStartTranscription(safeCase, safeAsset);
   const startSceneDetection = useStartSceneDetection(safeCase, safeAsset);
+  const { data: capabilities } = useCapabilities();
+
+  // gate only on a confirmed "missing" — while capabilities load,
+  // buttons stay enabled and the backend remains the authority
+  const engines = capabilities?.engines;
+  const canTranscribe =
+    !engines ||
+    engines.transcriptionLocal.status === 'available' ||
+    engines.transcriptionCloud.status === 'available';
+  const transcribeRemedy = engines?.transcriptionLocal.remedy ?? undefined;
+  const canDetectScenes =
+    !engines || engines.sceneDetection.status === 'available';
+  const scenesRemedy = engines?.sceneDetection.remedy ?? undefined;
 
   // error state
   if (assetError) {
@@ -65,7 +79,8 @@ export function ReviewPage(): React.ReactElement {
           type="button"
           data-testid="start-transcription"
           onClick={() => startTranscription.mutate()}
-          disabled={startTranscription.isPending}
+          disabled={startTranscription.isPending || !canTranscribe}
+          title={canTranscribe ? undefined : transcribeRemedy}
           className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
         >
           {startTranscription.isPending ? 'Starting...' : 'Start Transcription'}
@@ -76,7 +91,8 @@ export function ReviewPage(): React.ReactElement {
           type="button"
           data-testid="start-scene-detection"
           onClick={() => startSceneDetection.mutate()}
-          disabled={startSceneDetection.isPending}
+          disabled={startSceneDetection.isPending || !canDetectScenes}
+          title={canDetectScenes ? undefined : scenesRemedy}
           className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
         >
           {startSceneDetection.isPending

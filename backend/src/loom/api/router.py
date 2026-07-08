@@ -5,6 +5,7 @@ from loom.api.v1.annotations import router as annotations_router
 from loom.api.v1.assets import router as assets_router
 from loom.api.v1.audit import router as audit_router
 from loom.api.v1.auth import router as auth_router
+from loom.api.v1.capabilities import router as capabilities_router
 from loom.api.v1.cases import router as cases_router
 from loom.api.v1.clusters import router as clusters_router
 from loom.api.v1.conflicts import router as conflicts_router
@@ -61,4 +62,5 @@ api_router.include_router(custody_router)
 api_router.include_router(integrity_router)
 api_router.include_router(plugins_router)
 api_router.include_router(workflows_router)
+api_router.include_router(capabilities_router)
 api_router.include_router(admin_router)

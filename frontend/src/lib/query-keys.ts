@@ -1,4 +1,5 @@
 export const queryKeys = {
+  capabilities: ['capabilities'] as const,
   cases: {
     all: ['cases'] as const,
     detail: (id: string) => ['cases', id] as const,
