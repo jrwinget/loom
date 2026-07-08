@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/api-client', () => ({
   apiClient: { get: vi.fn(), post: vi.fn() },
   getApiOrigin: () => 'http://api.test',
+  camelizeKeys: (value: unknown) => value,
 }));
 
 vi.mock('@/stores/auth-store', () => ({
@@ -86,7 +87,9 @@ describe('useAsset', () => {
 
 describe('useUpload', () => {
   it('uploads to the /assets/upload route', async () => {
-    const { result } = renderHook(() => useUpload());
+    const { result } = renderHook(() => useUpload(), {
+      wrapper: createWrapper(),
+    });
 
     const file = new File([new Uint8Array([1, 2, 3])], 'evidence.pdf', {
       type: 'application/pdf',

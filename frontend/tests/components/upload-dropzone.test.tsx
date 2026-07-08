@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { UploadDropzone } from
@@ -5,8 +6,9 @@ import { UploadDropzone } from
 import { useUploadStore } from '@/hooks/use-upload';
 
 // the dropzone renders StorageAdvisory, which calls into first-run
-// and storage hooks. stub them so these tests do not need a
-// QueryClientProvider or a live backend.
+// and storage hooks. stub them so these tests do not need a live
+// backend. useUpload itself needs a QueryClient in scope (it
+// invalidates the assets query after a batch).
 vi.mock('@/hooks/use-first-run', () => ({
   useFirstRunStatus: () => ({ data: { deploymentProfile: 'server' } }),
 }));
@@ -21,6 +23,17 @@ vi.mock('@/hooks/use-storage', () => ({
   }),
 }));
 
+function renderDropzone(): ReturnType<typeof render> {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <UploadDropzone caseId="case-1" />
+    </QueryClientProvider>,
+  );
+}
+
 beforeEach(() => {
   // reset upload store between tests
   useUploadStore.setState({ files: [] });
@@ -28,14 +41,14 @@ beforeEach(() => {
 
 describe('UploadDropzone', () => {
   it('renders drop area', () => {
-    render(<UploadDropzone caseId="case-1" />);
+    renderDropzone();
     expect(
       screen.getByTestId('drop-area'),
     ).toBeInTheDocument();
   });
 
   it('shows browse files button', () => {
-    render(<UploadDropzone caseId="case-1" />);
+    renderDropzone();
     expect(
       screen.getByTestId('browse-button'),
     ).toBeInTheDocument();
@@ -53,7 +66,7 @@ describe('UploadDropzone', () => {
     );
     useUploadStore.getState().addFiles([mockFile]);
 
-    render(<UploadDropzone caseId="case-1" />);
+    renderDropzone();
 
     expect(
       screen.getByText('photo.jpg'),
