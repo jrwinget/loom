@@ -9,6 +9,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from loom import __version__
+
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
@@ -83,7 +85,7 @@ def setup_telemetry(app: FastAPI, settings: Settings) -> bool:
     resource = Resource.create(
         {
             "service.name": settings.otel_service_name,
-            "service.version": "0.1.0",
+            "service.version": __version__,
         }
     )
 
