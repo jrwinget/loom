@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { create } from 'zustand';
-import { uploadAssetXhr } from '@/hooks/use-assets';
+import { registerIngestJob, uploadAssetXhr } from '@/hooks/use-assets';
 import { queryKeys } from '@/lib/query-keys';
 import { useToastStore } from '@/stores/toast-store';
 
@@ -94,9 +94,11 @@ export function useUpload(): UseUploadReturn {
         updateFile(entry.id, { status: 'uploading' });
 
         try {
-          await uploadAssetXhr(caseId, entry.file, (pct) => {
+          const asset = await uploadAssetXhr(caseId, entry.file, (pct) => {
             updateFile(entry.id, { progress: pct });
           });
+          // "processing…" stays visible in the jobs menu after upload
+          registerIngestJob(caseId, asset);
           succeeded += 1;
           updateFile(entry.id, {
             status: 'complete',

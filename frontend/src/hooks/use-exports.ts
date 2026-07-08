@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
 import { triggerDownload } from '@/lib/utils';
+import { useJobStore } from '@/stores/job-store';
 import { useToastStore } from '@/stores/toast-store';
 import type {
   CreateExportPayload,
@@ -65,7 +66,15 @@ export function useCreateExport(
   return useMutation({
     mutationFn: (payload: CreateExportPayload) =>
       apiClient.post<ExportBundle>(`/cases/${caseId}/exports`, payload),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // the export workflow id is deterministic (export-{id}); the
+      // jobs watcher polls it and refreshes the list on completion
+      useJobStore.getState().registerJob({
+        workflowId: `export-${data.id}`,
+        caseId,
+        kind: 'export',
+        label: data.name,
+      });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.exports.byCase(caseId),
       });
