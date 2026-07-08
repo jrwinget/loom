@@ -24,6 +24,9 @@ class ExportResponse(BaseModel):
     format: str
     storage_key: str | None
     sha256_hash: str | None
+    # populated by the detail endpoint once the bundle is complete;
+    # list responses never presign
+    download_url: str | None = None
     status: str
     manifest: Any | None = None
     created_by: UUID
