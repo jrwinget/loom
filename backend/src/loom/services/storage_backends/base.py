@@ -41,6 +41,20 @@ class StorageBackend(Protocol):
         content_type: str,
     ) -> None: ...
 
+    def upload_file_move(
+        self,
+        bucket: str,
+        key: str,
+        src_path: str,
+        content_type: str,
+    ) -> None:
+        """move ``src_path`` into storage, consuming the source file.
+
+        streamed uploads land in a temp file first; this avoids a
+        second full copy when the destination shares a filesystem.
+        """
+        ...
+
     def download_file(
         self,
         bucket: str,

@@ -107,6 +107,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     storage_backend = build_storage_backend(settings)
     app.state.storage_backend = storage_backend
 
+    # reap upload temp files orphaned by a crash
+    from loom.services.streaming_upload import cleanup_stale_uploads
+
+    cleanup_stale_uploads()
+
     if not settings.is_lite:
         minio_client = Minio(
             settings.minio_endpoint,
