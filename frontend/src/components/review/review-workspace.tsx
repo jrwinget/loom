@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
 import { AssetViewer } from '@/components/asset/asset-viewer';
 import { TranscriptPanel } from './transcript-panel';
@@ -42,35 +42,23 @@ export function ReviewWorkspace(
 
   const [currentTime, setCurrentTime] = useState(0);
   const [focusedPanel, setFocusedPanel] = useState<FocusedPanel>('video');
-  const videoRef = useRef<HTMLDivElement>(null);
+  // the asset viewer forwards its <video> element here so seeking
+  // works without querying the dom
+  const videoElementRef = useRef<HTMLVideoElement | null>(null);
 
   // seek video to a specific time
   const handleSeek = useCallback((time: number) => {
-    const v = document.querySelector(
-      '[data-testid="video-element"]',
-    ) as HTMLVideoElement | null;
+    const v = videoElementRef.current;
     if (v) {
       v.currentTime = time;
       setCurrentTime(time);
     }
   }, []);
 
-  // track video time updates
-  const handleTimeUpdate = useCallback(() => {
-    const v = document.querySelector(
-      '[data-testid="video-element"]',
-    ) as HTMLVideoElement | null;
-    if (v) {
-      setCurrentTime(v.currentTime);
-    }
+  // time flows from the viewer's native timeupdate event
+  const handleTimeUpdate = useCallback((time: number) => {
+    setCurrentTime(time);
   }, []);
-
-  // install timeupdate listener on mount
-  // (uses interval since asset-viewer owns the element)
-  useEffect(() => {
-    const interval = setInterval(handleTimeUpdate, 250);
-    return () => clearInterval(interval);
-  }, [handleTimeUpdate]);
 
   // keyboard: tab cycles panels
   useKeyboardShortcut(
@@ -130,8 +118,13 @@ export function ReviewWorkspace(
             focusedPanel === 'video' ? 'ring-2 ring-inset ring-primary/30' : ''
           }`}
         >
-          <div className="flex-1 overflow-y-auto p-3" ref={videoRef}>
-            <AssetViewer asset={asset} src={assetSrc} />
+          <div className="flex-1 overflow-y-auto p-3">
+            <AssetViewer
+              asset={asset}
+              src={assetSrc}
+              videoRef={videoElementRef}
+              onTimeUpdate={handleTimeUpdate}
+            />
           </div>
         </section>
 
