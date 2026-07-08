@@ -23,7 +23,7 @@ class Plugin(UUIDMixin, TimestampMixin, Base):
     )
     config: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_by: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id"), nullable=False, index=True
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
 
     webhooks: Mapped[list["Webhook"]] = relationship(
@@ -38,7 +38,7 @@ class Webhook(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "webhooks"
 
     plugin_id: Mapped[UUID] = mapped_column(
-        ForeignKey("plugins.id"), nullable=False, index=True
+        ForeignKey("plugins.id", ondelete="CASCADE"), nullable=False, index=True
     )
     url: Mapped[str] = mapped_column(String(2048), nullable=False)
     events: Mapped[list[str]] = mapped_column(JSON, nullable=False)
@@ -66,7 +66,9 @@ class WebhookDelivery(UUIDMixin, Base):
     __tablename__ = "webhook_deliveries"
 
     webhook_id: Mapped[UUID] = mapped_column(
-        ForeignKey("webhooks.id"), nullable=False, index=True
+        ForeignKey("webhooks.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     event_type: Mapped[str] = mapped_column(String(100), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)

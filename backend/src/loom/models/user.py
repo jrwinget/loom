@@ -1,4 +1,4 @@
-from sqlalchemy import String
+from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from loom.models.base import Base, TimestampMixin, UUIDMixin
@@ -34,14 +34,14 @@ class User(UUIDMixin, TimestampMixin, Base):
         default=False,
     )
     recovery_codes: Mapped[str | None] = mapped_column(
-        String,
+        Text,
         nullable=True,
     )
     # comma-separated sha256 hashes of single-use password-recovery
     # codes minted at first-run. distinct from `recovery_codes`,
     # which scopes to mfa second-factor recovery only.
     password_recovery_codes: Mapped[str | None] = mapped_column(
-        String,
+        Text,
         nullable=True,
     )
     is_active: Mapped[bool] = mapped_column(
