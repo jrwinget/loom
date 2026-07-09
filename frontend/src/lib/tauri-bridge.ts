@@ -86,3 +86,23 @@ export async function factoryReset(): Promise<void> {
   }
   await invokeCommand<void>('factory_reset');
 }
+
+export interface UpdateInfo {
+  version: string;
+  notes: string | null;
+}
+
+// passive check against the release feed; the shell returns null when
+// offline, up to date, or on an install that cannot self-update (deb).
+export async function checkForUpdate(): Promise<UpdateInfo | null> {
+  if (!isTauri) return null;
+  return invokeCommand<UpdateInfo | null>('check_for_update');
+}
+
+// consent lives with the caller: this downloads, stops the sidecar,
+// installs, and relaunches the app. only call it from an explicit
+// user action.
+export async function installUpdate(): Promise<void> {
+  if (!isTauri) return;
+  await invokeCommand<void>('install_update');
+}

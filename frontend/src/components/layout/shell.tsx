@@ -4,6 +4,7 @@ import { Header } from '@/components/layout/header';
 import { JobsWatcher } from '@/components/layout/jobs-watcher';
 import { OfflineBanner } from '@/components/layout/offline-banner';
 import { Sidebar } from '@/components/layout/sidebar';
+import { UpdateBanner } from '@/components/layout/update-banner';
 
 export function Shell(): React.ReactElement {
   const mainRef = useRef<HTMLElement>(null);
@@ -28,6 +29,7 @@ export function Shell(): React.ReactElement {
       <JobsWatcher />
       <div className="flex flex-1 flex-col overflow-hidden">
         <OfflineBanner />
+        <UpdateBanner />
         <Header />
         <main
           ref={mainRef}

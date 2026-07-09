@@ -24,9 +24,18 @@
       "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:8000 http://127.0.0.1:3000; img-src 'self' data: blob: http://127.0.0.1:8000; media-src 'self' http://127.0.0.1:8000; object-src 'self' http://127.0.0.1:8000; frame-src 'self' http://127.0.0.1:8000; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:"
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU1QkZERjVDODNFOTk0NUUKUldSZWxPbURYTisvNVcxUGN0NHZEWE1yZERNTmI1QWJORzlIaEhFYTF2bTMvMHFNQjhETGk4RG4K",
+      "endpoints": [
+        "https://github.com/jrwinget/loom/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["dmg", "msi", "nsis", "appimage", "deb"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
