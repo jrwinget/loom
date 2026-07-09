@@ -77,6 +77,16 @@ export async function restartBackend(): Promise<void> {
   await invokeCommand<void>('restart_backend');
 }
 
+// bundles the shell + backend log files and a version manifest into
+// a user-chosen zip (see export_diagnostics in main.rs). resolves
+// with the saved path, or null when the user cancels the dialog.
+// web builds have no shell or log files to bundle, so null there.
+export async function exportDiagnostics(): Promise<string | null> {
+  if (!isTauri) return null;
+  const result = await invokeCommand<string | null>('export_diagnostics');
+  return result ?? null;
+}
+
 // destructive: wipes loom.db + buckets/ under the chosen data dir,
 // clears the data-dir preference, and restarts the sidecar. invoked
 // only from the FactoryResetDialog after a typed-confirmation gate.

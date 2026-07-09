@@ -106,6 +106,13 @@ export function Sidebar(): React.ReactElement {
           pathname={pathname}
           sidebarOpen={sidebarOpen}
         />
+        <NavLink
+          to="/settings/support"
+          label="Support"
+          collapsedGlyph="?"
+          pathname={pathname}
+          sidebarOpen={sidebarOpen}
+        />
       </nav>
 
       {/* collapse / expand */}
