@@ -33,8 +33,10 @@ class AuditLogEntry(UUIDMixin, Base):
         String,
         nullable=False,
     )
-    resource_id: Mapped[UUID] = mapped_column(
-        nullable=False,
+    # collection-level routes (login, mfa, case create) have no
+    # resource uuid in the path; their entries carry a null id
+    resource_id: Mapped[UUID | None] = mapped_column(
+        nullable=True,
     )
     detail: Mapped[Any | None] = mapped_column(
         JSON,
