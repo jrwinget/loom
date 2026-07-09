@@ -141,7 +141,11 @@ export interface paths {
         post?: never;
         /**
          * Mfa Disable
-         * @description disable mfa (requires current totp code).
+         * @description disable mfa; requires the account password.
+         *
+         *     the password re-check is the point of this endpoint: a stolen
+         *     session token alone must not be able to strip the second factor,
+         *     so a valid access token is necessary but not sufficient.
          */
         delete: operations["mfa_disable_api_v1_auth_mfa_delete"];
         options?: never;
@@ -163,6 +167,26 @@ export interface paths {
          * @description complete mfa challenge with totp or recovery code.
          */
         post: operations["mfa_challenge_api_v1_auth_mfa_challenge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/recovery-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mfa Regenerate Recovery Codes
+         * @description replace recovery codes after proving authenticator possession.
+         */
+        post: operations["mfa_regenerate_recovery_codes_api_v1_auth_mfa_recovery_codes_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3667,6 +3691,11 @@ export interface components {
         };
         /** MfaDisableRequest */
         MfaDisableRequest: {
+            /** Password */
+            password: string;
+        };
+        /** MfaRecoveryCodesRequest */
+        MfaRecoveryCodesRequest: {
             /** Code */
             code: string;
         };
@@ -5033,6 +5062,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MfaChallengeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mfa_regenerate_recovery_codes_api_v1_auth_mfa_recovery_codes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaRecoveryCodesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaVerifyResponse"];
                 };
             };
             /** @description Validation Error */

@@ -7,7 +7,7 @@ interface MfaSetupResponse {
   mfaEnabled: boolean;
 }
 
-interface MfaVerifyRequest {
+interface MfaCodeRequest {
   code: string;
 }
 
@@ -28,7 +28,7 @@ interface MfaChallengeResponse {
 }
 
 interface MfaDisableRequest {
-  code: string;
+  password: string;
 }
 
 export function useMfaSetup() {
@@ -45,7 +45,7 @@ export function useMfaSetup() {
 
 export function useMfaVerify() {
   return useMutation({
-    mutationFn: (payload: MfaVerifyRequest) =>
+    mutationFn: (payload: MfaCodeRequest) =>
       apiClient.post<MfaVerifyResponse>('/auth/mfa/verify', payload),
     onSuccess: () => {
       useToastStore.getState().addToast({
@@ -57,6 +57,25 @@ export function useMfaVerify() {
       useToastStore.getState().addToast({
         type: 'error',
         message: error.message || 'Failed to verify MFA code',
+      });
+    },
+  });
+}
+
+export function useMfaRegenerateRecoveryCodes() {
+  return useMutation({
+    mutationFn: (payload: MfaCodeRequest) =>
+      apiClient.post<MfaVerifyResponse>('/auth/mfa/recovery-codes', payload),
+    onSuccess: () => {
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'New recovery codes generated',
+      });
+    },
+    onError: (error: Error) => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: error.message || 'Failed to regenerate recovery codes',
       });
     },
   });
