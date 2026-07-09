@@ -49,12 +49,22 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ai = [
+# torch-free engine set, sized for the pyinstaller sidecar: local
+# transcription (faster-whisper decodes via the base av dep +
+# ctranslate2), ocr, and scene detection. diarization stays out —
+# pyannote drags torch, whose windows dlls break the bundle collect.
+ai-lite = [
     "faster-whisper>=1.0.0",
-    "pyannote.audio>=4.0.7",
     "pytesseract>=0.3.10",
     "Pillow>=12.2.0",
     "scenedetect>=0.7",
+    # <5: the override erases scenedetect's own bound on opencv, so
+    # the major it was built against is re-pinned here
+    "opencv-python-headless>=4.9,<5",
+]
+ai = [
+    "loom[ai-lite]",
+    "pyannote.audio>=4.0.7",
 ]
 provenance = [
     "c2pa-python>=0.36.0",
@@ -92,6 +102,15 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.uv]
+# scenedetect hard-depends on the GUI opencv build; the never-matching
+# marker removes that edge so the headless build declared in ai-lite
+# provides cv2 everywhere — same image ops, no GUI system libraries
+# for the sidecar bundle to miss on user machines
+override-dependencies = [
+    "opencv-python; sys_platform == 'never'",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/loom"]

@@ -3,7 +3,7 @@
 usage: ``python smoke_sidecar.py <path-to-binary>``
 
 spawns the binary with the lite-profile env (no minio, no temporal)
-and asserts four contracts:
+and asserts five contracts:
 
   1. ``GET /api/v1/health`` returns 200 within 60s — guards the
      v0.1.0/v0.1.1 "sidecar never binds a socket" regression,
@@ -21,7 +21,10 @@ and asserts four contracts:
      lookup rejected the just-created admin and ``/auth/me`` 500'd on
      ``User.id == <jwt sub string>`` under the sqlite uuid binding.
      this is the create-admin-then-sign-back-in flow that surfaced as
-     "invalid email or password" after a desktop restart.
+     "invalid email or password" after a desktop restart,
+  5. ``GET /api/v1/capabilities`` reports the bundled local engines
+     — guards the ai-lite pyinstaller collect: a regression there
+     builds fine and then reports every engine missing at runtime.
 
 the 60s health budget matches ``HEALTH_TIMEOUT`` in ``desktop/
 src-tauri/src/main.rs``. a sidecar that has not bound a socket
@@ -61,6 +64,7 @@ PREFLIGHT_URL: Final = "http://127.0.0.1:8000/api/v1/auth/login"
 COMPLETE_URL: Final = "http://127.0.0.1:8000/api/v1/first-run/complete"
 LOGIN_URL: Final = "http://127.0.0.1:8000/api/v1/auth/login"
 ME_URL: Final = "http://127.0.0.1:8000/api/v1/auth/me"
+CAPABILITIES_URL: Final = "http://127.0.0.1:8000/api/v1/capabilities"
 # mixed-case on purpose: login must match it case-insensitively.
 SMOKE_ADMIN_EMAIL: Final = "Smoke.Admin@Example.com"
 SMOKE_ADMIN_PASSWORD: Final = "correct-horse-battery"  # noqa: S105
@@ -308,6 +312,70 @@ def _check_login_roundtrip() -> tuple[bool, str]:
     )
 
 
+def _check_capabilities() -> tuple[bool, str]:
+    """the bundled sidecar must report its local engines available.
+
+    guards the ai-lite bundling: a pyinstaller collect regression
+    would build fine and then report every engine missing at runtime.
+    ocr and media_pipeline also need host binaries (tesseract,
+    ffmpeg) the runner may lack, so only the pure-python engines are
+    asserted. runs after the login round-trip, which creates the
+    admin whose credentials it reuses.
+    """
+    try:
+        status, raw = _post_json(
+            LOGIN_URL,
+            {
+                "email": SMOKE_ADMIN_EMAIL,
+                "password": SMOKE_ADMIN_PASSWORD,
+            },
+        )
+        if status != 200:
+            return False, f"capabilities login -> {status}, expected 200"
+        token = json.loads(raw).get("access_token")
+        if not token:
+            return False, f"capabilities login without token: {raw!r}"
+
+        req = urllib.request.Request(  # noqa: S310
+            CAPABILITIES_URL,
+            method="GET",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310
+            cap_status = resp.status
+            body = json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        return False, f"HTTP {exc.code} fetching capabilities: {detail}"
+    except (urllib.error.URLError, ConnectionError, OSError) as exc:
+        return False, f"transport error fetching capabilities: {exc!r}"
+
+    if cap_status != 200:
+        return False, f"/capabilities -> {cap_status}, expected 200"
+    engines = body.get("engines") or {}
+
+    scene = engines.get("scene_detection") or {}
+    if scene.get("status") != "available":
+        return False, f"scene_detection missing from bundle: {engines!r}"
+
+    # a fresh sidecar has no whisper weights, so transcription_local
+    # legitimately reports missing — but its remedy must be the
+    # download-a-model one. the not-installed remedy means the engine
+    # import itself failed, i.e. the bundle collect regressed.
+    trans = engines.get("transcription_local") or {}
+    if trans.get("status") != "available":
+        remedy = str(trans.get("remedy") or "")
+        if "model" not in remedy:
+            return False, (
+                f"transcription engine absent from bundle: {trans!r}"
+            )
+    return True, (
+        "bundled engines: scene_detection available; "
+        f"transcription_local {trans.get('status')} "
+        f"({trans.get('remedy') or 'ready'})"
+    )
+
+
 def _terminate(proc: subprocess.Popen[bytes]) -> None:
     if proc.poll() is not None:
         return
@@ -326,7 +394,17 @@ def _terminate(proc: subprocess.Popen[bytes]) -> None:
         proc.wait(timeout=KILL_GRACE_S)
 
 
+def _force_utf8_output() -> None:
+    """windows runners default stdout to cp1252, which cannot encode
+    the arrows in engine remedy strings the capabilities check
+    prints — reconfigure rather than sanitize every message."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main() -> int:
+    _force_utf8_output()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "binary",
@@ -369,6 +447,7 @@ def main() -> int:
                     _check_first_run_status,
                     _check_preflight_cors,
                     _check_login_roundtrip,
+                    _check_capabilities,
                     _check_reported_version,
                 )
                 for check in checks:

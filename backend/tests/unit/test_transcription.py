@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -161,7 +162,24 @@ class TestTranscribeAudio:
         assert excinfo.value.engine == "transcription"
         assert "cloud transcription" in excinfo.value.remedy
 
-    def test_with_faster_whisper_installed(self) -> None:
+    def test_missing_model_raises(self) -> None:
+        # engine installed but no weights downloaded: the remedy must
+        # point at the model manager, not a reinstall
+        mock_fw = MagicMock()
+        with (
+            patch.dict("sys.modules", {"faster_whisper": mock_fw}),
+            patch(
+                "loom.services.model_registry.is_downloaded",
+                return_value=False,
+            ),
+            pytest.raises(EngineUnavailableError) as excinfo,
+        ):
+            transcribe_audio("/fake/path.wav", model_size="tiny")
+
+        assert excinfo.value.engine == "transcription"
+        assert "model" in excinfo.value.remedy
+
+    def test_with_faster_whisper_installed(self, tmp_path: Path) -> None:
         mock_segment = MagicMock()
         mock_segment.start = 0.0
         mock_segment.end = 5.0
@@ -180,17 +198,28 @@ class TestTranscribeAudio:
         mock_fw = MagicMock()
         mock_fw.WhisperModel.return_value = mock_model
 
-        with patch.dict("sys.modules", {"faster_whisper": mock_fw}):
+        with (
+            patch.dict("sys.modules", {"faster_whisper": mock_fw}),
+            patch(
+                "loom.services.model_registry.resolve_model_dir",
+                return_value=tmp_path / "models" / "whisper" / "tiny",
+            ),
+        ):
             result = transcribe_audio("/fake/path.wav", model_size="tiny")
+
+        # the model loads from the registry-resolved local directory,
+        # never a hub alias that could trigger a network fetch
+        loaded_from = mock_fw.WhisperModel.call_args.args[0]
+        assert loaded_from.endswith("tiny")
 
         assert len(result) == 1
         assert result[0]["text"] == "hello world"
         assert result[0]["language"] == "en"
         assert result[0]["model_name"] == "faster-whisper"
-        assert result[0]["model_params"] == {
-            "model_size": "tiny",
-            "compute_type": "int8",
-        }
+        params = result[0]["model_params"]
+        assert params["model_size"] == "tiny"
+        assert params["compute_type"] == "int8"
+        assert params["model_revision"]
 
 
 class TestDiarizeAudio:
