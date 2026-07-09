@@ -930,9 +930,16 @@
             "title": "Ip Address"
           },
           "resource_id": {
-            "format": "uuid",
-            "title": "Resource Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
           },
           "resource_type": {
             "title": "Resource Type",
@@ -959,7 +966,6 @@
           "id",
           "action",
           "resource_type",
-          "resource_id",
           "timestamp"
         ],
         "title": "AuditEntryResponse",

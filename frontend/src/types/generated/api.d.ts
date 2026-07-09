@@ -2559,11 +2559,8 @@ export interface components {
             id: string;
             /** Ip Address */
             ip_address?: string | null;
-            /**
-             * Resource Id
-             * Format: uuid
-             */
-            resource_id: string;
+            /** Resource Id */
+            resource_id?: string | null;
             /** Resource Type */
             resource_type: string;
             /**
