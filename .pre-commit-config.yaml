@@ -37,6 +37,9 @@ repos:
         entry: bash -c 'cd frontend && exec pnpm exec eslint --max-warnings=0 "${@#frontend/}"' --
         language: system
         files: ^frontend/src/.*\.(ts|tsx)$
+        # passing an eslint-ignored file explicitly emits a warning,
+        # which --max-warnings=0 turns into a failure
+        exclude: ^frontend/src/types/generated/api\.d\.ts$
         pass_filenames: true
 
       - id: typecheck
