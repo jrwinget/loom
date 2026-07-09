@@ -114,6 +114,10 @@ describe('LoginPage MFA flow', () => {
       expect(state.token).toBe('jwt-token');
       expect(state.mfaChallengeToken).toBeNull();
     });
+    // the challenge path must leave the login page like the
+    // password-only path does — clearing the challenge alone just
+    // re-renders the sign-in form under the authenticated user
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
   });
 
   it('shows error on failed MFA code', async () => {

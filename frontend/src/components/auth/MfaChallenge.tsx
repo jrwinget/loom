@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth-store';
 import { ApiClientError, apiClient } from '@/lib/api-client';
 import type { User } from '@/types';
@@ -26,6 +27,7 @@ export function MfaChallenge(): React.ReactElement {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { mfaChallengeToken, setAuth, clearMfaChallenge } = useAuthStore();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -48,6 +50,10 @@ export function MfaChallenge(): React.ReactElement {
       try {
         const user = await apiClient.get<User>('/auth/me');
         setAuth(tokens.accessToken, user);
+        // setAuth clears the challenge, which alone would just swap
+        // the login form back in under the now-authenticated user —
+        // leave the page like the password-only path does
+        navigate('/', { replace: true });
       } catch {
         useAuthStore.getState().clearAuth();
         setError('Verified, but could not load your profile. Try again.');
