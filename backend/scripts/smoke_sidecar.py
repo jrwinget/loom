@@ -61,6 +61,7 @@ PREFLIGHT_URL: Final = "http://127.0.0.1:8000/api/v1/auth/login"
 COMPLETE_URL: Final = "http://127.0.0.1:8000/api/v1/first-run/complete"
 LOGIN_URL: Final = "http://127.0.0.1:8000/api/v1/auth/login"
 ME_URL: Final = "http://127.0.0.1:8000/api/v1/auth/me"
+CAPABILITIES_URL: Final = "http://127.0.0.1:8000/api/v1/capabilities"
 # mixed-case on purpose: login must match it case-insensitively.
 SMOKE_ADMIN_EMAIL: Final = "Smoke.Admin@Example.com"
 SMOKE_ADMIN_PASSWORD: Final = "correct-horse-battery"  # noqa: S105
@@ -308,6 +309,58 @@ def _check_login_roundtrip() -> tuple[bool, str]:
     )
 
 
+def _check_capabilities() -> tuple[bool, str]:
+    """the bundled sidecar must report its local engines available.
+
+    guards the ai-lite bundling: a pyinstaller collect regression
+    would build fine and then report every engine missing at runtime.
+    ocr and media_pipeline also need host binaries (tesseract,
+    ffmpeg) the runner may lack, so only the pure-python engines are
+    asserted. runs after the login round-trip, which creates the
+    admin whose credentials it reuses.
+    """
+    try:
+        status, raw = _post_json(
+            LOGIN_URL,
+            {
+                "email": SMOKE_ADMIN_EMAIL,
+                "password": SMOKE_ADMIN_PASSWORD,
+            },
+        )
+        if status != 200:
+            return False, f"capabilities login -> {status}, expected 200"
+        token = json.loads(raw).get("access_token")
+        if not token:
+            return False, f"capabilities login without token: {raw!r}"
+
+        req = urllib.request.Request(  # noqa: S310
+            CAPABILITIES_URL,
+            method="GET",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310
+            cap_status = resp.status
+            body = json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        return False, f"HTTP {exc.code} fetching capabilities: {detail}"
+    except (urllib.error.URLError, ConnectionError, OSError) as exc:
+        return False, f"transport error fetching capabilities: {exc!r}"
+
+    if cap_status != 200:
+        return False, f"/capabilities -> {cap_status}, expected 200"
+    engines = body.get("engines") or {}
+    required = ("transcription_local", "scene_detection")
+    missing = [
+        name
+        for name in required
+        if (engines.get(name) or {}).get("status") != "available"
+    ]
+    if missing:
+        return False, f"engines missing from bundle: {missing} ({engines!r})"
+    return True, "bundled engines available: " + ", ".join(required)
+
+
 def _terminate(proc: subprocess.Popen[bytes]) -> None:
     if proc.poll() is not None:
         return
@@ -369,6 +422,7 @@ def main() -> int:
                     _check_first_run_status,
                     _check_preflight_cors,
                     _check_login_roundtrip,
+                    _check_capabilities,
                     _check_reported_version,
                 )
                 for check in checks:

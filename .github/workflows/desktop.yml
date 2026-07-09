@@ -203,13 +203,13 @@ jobs:
       # then run pyinstaller. splitting the install and bundle steps
       # lets us insert the windows-only Unblock-File between them.
       #
-      # extras list deliberately excludes `ai` (faster-whisper,
-      # pyannote, scenedetect) and `dev` (pytest, ruff, mypy).
-      # the AI deps drag in torch + torchcodec, whose Windows DLLs
-      # are not present in PyInstaller's bundle scope and cause the
-      # sidecar build to crash mid-collect on windows-latest. the
-      # AI features run as opt-in extras installed separately on
-      # the host; the bundled sidecar stays slim.
+      # extras list deliberately excludes `ai` (its pyannote leg
+      # drags torch + torchcodec, whose Windows DLLs are not present
+      # in PyInstaller's bundle scope and crash the sidecar build
+      # mid-collect) and `dev` (pytest, ruff, mypy). `ai-lite` is the
+      # torch-free engine set — local transcription, ocr, scene
+      # detection — sized for the bundle; diarization stays a
+      # server-profile feature.
       - name: Install backend dependencies
         working-directory: backend
         shell: bash
@@ -217,6 +217,7 @@ jobs:
         run: >-
           uv sync
           --extra desktop
+          --extra ai-lite
           --extra report
           --extra url-ingest
           --extra provenance
@@ -306,7 +307,12 @@ jobs:
             --hidden-import aiosqlite \
             --collect-submodules uvicorn \
             --hidden-import uvicorn.logging \
-            --hidden-import uvicorn.loops.auto
+            --hidden-import uvicorn.loops.auto \
+            --collect-all faster_whisper \
+            --collect-all ctranslate2 \
+            --copy-metadata faster-whisper \
+            --copy-metadata pytesseract \
+            --copy-metadata scenedetect
         continue-on-error: false
 
       # smoke-test the sidecar binary before tauri bundles it. this
