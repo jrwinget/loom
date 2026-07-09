@@ -5,6 +5,7 @@ import { useCapabilities } from '@/hooks/use-capabilities';
 import { useTranscript, useStartTranscription } from '@/hooks/use-transcript';
 import { useScenes, useStartSceneDetection } from '@/hooks/use-scenes';
 import { ReviewWorkspace } from '@/components/review/review-workspace';
+import { EnhancementPanel } from '@/components/review/enhancement-panel';
 
 export function ReviewPage(): React.ReactElement {
   const { caseId, assetId } = useParams<{
@@ -124,6 +125,13 @@ export function ReviewPage(): React.ReactElement {
           assetSrc={assetSrc ?? ''}
           segments={transcript?.segments ?? []}
           scenes={scenes ?? []}
+          rightPanel={
+            <EnhancementPanel
+              caseId={safeCase}
+              assetId={safeAsset}
+              filename={asset.originalFilename}
+            />
+          }
         />
       </div>
     </div>

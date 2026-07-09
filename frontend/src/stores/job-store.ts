@@ -5,6 +5,7 @@ export type JobKind =
   | 'scene_detection'
   | 'ocr'
   | 'export'
+  | 'enhancement'
   | 'url_ingest'
   | 'ingest'
   | 'bundle_import';

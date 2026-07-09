@@ -21,8 +21,16 @@ def test_registry_has_every_workflow() -> None:
         "transcription",
         "scene_detection",
         "export",
+        "enhancement",
         "bundle_import",
     }
+
+
+def test_enhancement_is_single_attempt_derivative_step() -> None:
+    # a retry would duplicate the derivative (unique storage key), so
+    # the run is a single attempt of the one enhance_asset step
+    assert _names(seq.ENHANCEMENT) == ["enhance_asset"]
+    assert seq.ENHANCEMENT.steps[0].max_attempts == 1
 
 
 def test_ingest_tail_order() -> None:
@@ -69,7 +77,13 @@ def test_ocr_store_steps_have_no_explicit_retry() -> None:
 def test_asset_status_arg_only_on_ingest_pipelines() -> None:
     assert seq.INGEST.asset_status_arg == 0
     assert seq.URL_INGEST.asset_status_arg == 0
-    for name in ("ocr", "transcription", "scene_detection", "export"):
+    for name in (
+        "ocr",
+        "transcription",
+        "scene_detection",
+        "export",
+        "enhancement",
+    ):
         assert seq.SPECS[name].asset_status_arg is None
 
 
