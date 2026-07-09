@@ -21,6 +21,7 @@ def test_registry_has_every_workflow() -> None:
         "transcription",
         "scene_detection",
         "export",
+        "bundle_import",
     }
 
 

@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any
 from uuid import UUID
 
@@ -5,9 +6,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.asset import Asset
+from loom.models.audit import AuditLogEntry
 from loom.models.case import Case, CaseMembership
 from loom.models.timeline import TimelineEvent
 from loom.models.user import User
+from loom.services.storage_backends.base import (
+    ORIGINALS_BUCKET,
+    StorageBackend,
+)
 
 
 async def create_case(
@@ -137,6 +143,69 @@ async def update_case(
     await session.commit()
     await session.refresh(case)
     return case
+
+
+async def purge_case(
+    session: AsyncSession,
+    case: Case,
+    reason: str,
+    actor_id: str,
+    storage: StorageBackend,
+) -> None:
+    """permanently destroy a case, its assets, and all case-scoped data.
+
+    chain of custody is sacred: the append-only audit tombstone that
+    records exactly what was destroyed (title, reason, each asset's id,
+    filename, and sha256) is written and flushed *before* any row is
+    removed and committed together with the deletion, so a destroyed
+    case can never exist without its record. child rows drop via the
+    on-delete cascade on the case foreign key.
+
+    originals are removed from object storage only after that commit —
+    deleting a file is irreversible and not transactional, so doing it
+    last means a failure there leaves a reap-able orphan file rather
+    than an original destroyed with no committed audit record.
+    """
+    result = await session.execute(
+        select(Asset).where(Asset.case_id == case.id)
+    )
+    assets = list(result.scalars())
+    storage_keys = [asset.storage_key for asset in assets]
+
+    session.add(
+        AuditLogEntry(
+            actor_id=actor_id,
+            action="case_purged",
+            resource_type="cases",
+            resource_id=case.id,
+            detail={
+                "title": case.name,
+                "reason": reason,
+                "asset_count": len(assets),
+                "assets": [
+                    {
+                        "id": str(asset.id),
+                        "original_filename": asset.original_filename,
+                        "sha256": asset.sha256_hash,
+                    }
+                    for asset in assets
+                ],
+            },
+        )
+    )
+    await session.flush()
+
+    await session.delete(case)
+    await session.commit()
+
+    loop = asyncio.get_running_loop()
+    for key in storage_keys:
+        await loop.run_in_executor(
+            None,
+            storage.delete_object,
+            ORIGINALS_BUCKET,
+            key,
+        )
 
 
 _ROLE_HIERARCHY = {"viewer": 0, "editor": 1, "owner": 2}

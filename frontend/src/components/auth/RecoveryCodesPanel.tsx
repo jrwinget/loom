@@ -11,14 +11,28 @@
 
 import { useState } from 'react';
 
+const DEFAULT_DESCRIPTION =
+  'Loom cannot reset your password for you — there is no email server ' +
+  'and no second admin. These eight single-use codes are the only way ' +
+  'to recover your account without losing your data. Store them in a ' +
+  'password manager or print them.';
+
 interface RecoveryCodesPanelProps {
   codes: string[];
   onAcknowledge: () => void;
+  // callers outside first-run (e.g. mfa settings) override the copy;
+  // the defaults preserve the original first-run wording.
+  title?: string;
+  description?: string;
+  acknowledgeLabel?: string;
 }
 
 export function RecoveryCodesPanel({
   codes,
   onAcknowledge,
+  title = 'Save your recovery codes',
+  description = DEFAULT_DESCRIPTION,
+  acknowledgeLabel = 'Continue to Loom',
 }: RecoveryCodesPanelProps): React.ReactElement {
   const [confirmed, setConfirmed] = useState(false);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>(
@@ -67,14 +81,9 @@ export function RecoveryCodesPanel({
           id="recovery-codes-heading"
           className="text-foreground text-lg font-semibold"
         >
-          Save your recovery codes
+          {title}
         </h2>
-        <p className="text-muted-foreground text-sm">
-          Loom cannot reset your password for you — there is no email server and
-          no second admin. These eight single-use codes are the only way to
-          recover your account without losing your data. Store them in a
-          password manager or print them.
-        </p>
+        <p className="text-muted-foreground text-sm">{description}</p>
       </header>
 
       <ul
@@ -134,7 +143,7 @@ export function RecoveryCodesPanel({
         disabled={!confirmed}
         className="bg-primary text-primary-foreground w-full rounded-md px-4 py-2 disabled:opacity-50"
       >
-        Continue to Loom
+        {acknowledgeLabel}
       </button>
     </section>
   );

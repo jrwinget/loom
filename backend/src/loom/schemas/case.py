@@ -15,6 +15,20 @@ class CaseUpdate(BaseModel):
     status: str | None = None
 
 
+class CasePurgeRequest(BaseModel):
+    # exact case title, retyped to confirm intent; matched in the
+    # handler against the loaded case
+    confirm_title: str
+    reason: str = Field(min_length=1)
+
+    @field_validator("reason")
+    @classmethod
+    def reason_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("reason must not be blank")
+        return v
+
+
 class CaseResponse(BaseModel):
     id: UUID
     name: str

@@ -11,6 +11,18 @@ vi.mock('@/hooks/use-case', () => ({
     refetch: vi.fn(),
   }),
   useCaseMembers: () => ({ data: [] }),
+  // the overview now renders the danger zone, which drives archive
+  // and purge through these mutations
+  useUpdateCase: () => ({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
+  usePurgeCase: () => ({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
 }));
 vi.mock('@/hooks/use-audit', () => ({
   useCaseAudit: () => ({ data: { items: [] } }),

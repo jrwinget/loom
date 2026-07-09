@@ -126,6 +126,8 @@ def _server_ref(name: str) -> Any:
         return SceneDetectionWorkflow.run
     if name == "export":
         return "ExportWorkflow"
+    if name == "bundle_import":
+        return "BundleImportWorkflow"
     raise KeyError(f"unknown workflow: {name}")
 
 

@@ -11,6 +11,7 @@ import structlog
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from minio import Minio
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -27,6 +28,13 @@ from loom.security.csrf import CSRFMiddleware
 from loom.security.rate_limit import limiter
 from loom.services.log_redaction import redact_sensitive
 from loom.services.storage_backends import build_storage_backend
+
+
+def _enable_sqlite_foreign_keys(dbapi_conn: Any, _record: Any) -> None:
+    """turn on per-connection foreign-key enforcement for sqlite."""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 
 def _add_otel_context(
@@ -164,6 +172,12 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         pool_pre_ping=settings.db_pool_pre_ping,
         pool_timeout=settings.db_pool_timeout,
     )
+    # sqlite (lite profile) enforces foreign keys only when asked, per
+    # connection; without this a case purge would orphan its assets and
+    # timeline instead of cascading. postgres enforces natively.
+    if settings.database_url.startswith("sqlite"):
+        event.listen(engine.sync_engine, "connect", _enable_sqlite_foreign_keys)
+
     session_factory = async_sessionmaker(
         engine,
         class_=AsyncSession,
