@@ -176,6 +176,10 @@
           "transcription_model": {
             "title": "Transcription Model",
             "type": "string"
+          },
+          "whisper_model": {
+            "title": "Whisper Model",
+            "type": "string"
           }
         },
         "required": [
@@ -183,6 +187,7 @@
           "provider",
           "api_base_url",
           "transcription_model",
+          "whisper_model",
           "api_key_set"
         ],
         "title": "AiSettingsResponse",
@@ -245,6 +250,17 @@
               }
             ],
             "title": "Transcription Model"
+          },
+          "whisper_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whisper Model"
           }
         },
         "title": "AiSettingsUpdate",

@@ -2400,6 +2400,8 @@ export interface components {
             transcription_engine: string;
             /** Transcription Model */
             transcription_model: string;
+            /** Whisper Model */
+            whisper_model: string;
         };
         /**
          * AiSettingsUpdate
@@ -2417,6 +2419,8 @@ export interface components {
             transcription_engine?: string | null;
             /** Transcription Model */
             transcription_model?: string | null;
+            /** Whisper Model */
+            whisper_model?: string | null;
         };
         /** AnnotationCreate */
         AnnotationCreate: {
