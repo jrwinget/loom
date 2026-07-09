@@ -60,7 +60,10 @@ jobs:
               desktop/src-tauri/target/release/bundle/deb/*.deb
           - os: macos-latest
             platform: macos
-            bundles: dmg
+            # app must be built explicitly: createUpdaterArtifacts
+            # derives the macos updater archive (.app.tar.gz) from
+            # the app bundle, which --bundles dmg alone never emits
+            bundles: app,dmg
             # tauri with `--bundles dmg` emits only the .dmg under
             # bundle/dmg/. listing bundle/macos/*.app here would
             # cause softprops/action-gh-release (fail_on_unmatched
