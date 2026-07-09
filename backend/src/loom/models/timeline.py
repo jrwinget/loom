@@ -81,7 +81,7 @@ class TimelineEvent(UUIDMixin, TimestampMixin, Base):
         default="draft",
     )
     created_by: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
     )
 
@@ -123,7 +123,7 @@ class TimelineEventEvidence(UUIDMixin, Base):
         nullable=True,
     )
     linked_by: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
     )
     linked_at: Mapped[datetime] = mapped_column(

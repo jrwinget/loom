@@ -3,6 +3,11 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from loom.services.engines import (
+    REMEDY_FFMPEG,
+    EngineUnavailableError,
+)
+
 logger = logging.getLogger(__name__)
 
 _FFMPEG = shutil.which("ffmpeg")
@@ -11,11 +16,7 @@ _FFMPEG = shutil.which("ffmpeg")
 def _require_ffmpeg() -> str:
     """return ffmpeg path or raise if not found."""
     if _FFMPEG is None:
-        msg = (
-            "ffmpeg is not installed or not on PATH; "
-            "proxy generation is unavailable"
-        )
-        raise RuntimeError(msg)
+        raise EngineUnavailableError("media_pipeline", REMEDY_FFMPEG)
     return _FFMPEG
 
 

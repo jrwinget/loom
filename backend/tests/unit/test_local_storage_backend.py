@@ -98,6 +98,50 @@ class TestUploadFile:
         assert not (stored.stat().st_mode & stat.S_IWUSR)
 
 
+class TestUploadFileMove:
+    def test_moves_and_worms(
+        self,
+        backend: LocalStorageBackend,
+        tmp_path: Path,
+    ) -> None:
+        src = tmp_path / "streamed.tmp"
+        src.write_bytes(b"streamed payload")
+        backend.upload_file_move(
+            ORIGINALS_BUCKET,
+            "case/a/original.bin",
+            str(src),
+            "application/octet-stream",
+        )
+        stored = (
+            tmp_path
+            / "buckets"
+            / ORIGINALS_BUCKET
+            / "case"
+            / "a"
+            / "original.bin"
+        )
+        assert stored.read_bytes() == b"streamed payload"
+        assert not (stored.stat().st_mode & stat.S_IWUSR)
+        # the move consumes the source file
+        assert not src.exists()
+
+    def test_replaces_existing_object(
+        self,
+        backend: LocalStorageBackend,
+        tmp_path: Path,
+    ) -> None:
+        backend.upload_bytes(
+            ORIGINALS_BUCKET, "case/b.bin", b"old", "application/octet-stream"
+        )
+        src = tmp_path / "new.tmp"
+        src.write_bytes(b"new")
+        backend.upload_file_move(
+            ORIGINALS_BUCKET, "case/b.bin", str(src), "application/octet-stream"
+        )
+        stored = tmp_path / "buckets" / ORIGINALS_BUCKET / "case" / "b.bin"
+        assert stored.read_bytes() == b"new"
+
+
 class TestDownloadFile:
     def test_copies_to_dest(
         self, backend: LocalStorageBackend, tmp_path: Path

@@ -7,7 +7,7 @@ export interface AuditEntry {
   actorId: string | null;
   action: string;
   resourceType: string;
-  resourceId: string;
+  resourceId: string | null;
   detail: unknown;
   ipAddress: string | null;
   userAgent: string | null;

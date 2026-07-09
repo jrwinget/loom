@@ -12,6 +12,7 @@ import pytest
 from fastapi import HTTPException
 
 from loom.api.v1 import workflows as wf
+from loom.workflows.dispatch import LiteJobStatus
 
 _ASSET = str(uuid4())
 
@@ -73,9 +74,16 @@ async def test_derive_unknown_prefix_is_none() -> None:
 
 async def test_lite_status_prefers_in_memory() -> None:
     db = AsyncMock()
-    with patch.object(wf, "lite_workflow_status", return_value="failed"):
+    in_memory = LiteJobStatus(
+        status="failed",
+        error_code="engine_unavailable",
+        error_message="install the ai extra",
+    )
+    with patch.object(wf, "lite_workflow_status", return_value=in_memory):
         resp = await wf._lite_status(db, f"ingest-{_ASSET}")
     assert resp.status == "failed"
+    assert resp.error_code == "engine_unavailable"
+    assert resp.error == "install the ai extra"
     db.get.assert_not_called()
 
 

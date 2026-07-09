@@ -1,4 +1,5 @@
 /// <reference types="@testing-library/jest-dom" />
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -24,10 +25,16 @@ vi.mock('@/stores/auth-store', () => ({
 }));
 
 function renderHeader(): void {
+  // the header's breadcrumbs read the query cache for case names
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   render(
-    <MemoryRouter>
-      <Header />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

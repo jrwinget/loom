@@ -5,6 +5,7 @@ from uuid import UUID
 
 import pytest
 
+from loom.services.engines import EngineUnavailableError
 from loom.services.ocr import (
     extract_key_frames,
     run_ocr_on_image,
@@ -41,18 +42,21 @@ class TestExtractKeyFrames:
         finally:
             Path(path).unlink(missing_ok=True)
 
-    def test_ffmpeg_not_found_returns_empty(self) -> None:
+    def test_ffmpeg_not_found_raises(self) -> None:
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
             f.write(b"\x00" * 100)
             path = f.name
 
         try:
-            with patch(
-                "loom.services.ocr.subprocess.run",
-                side_effect=FileNotFoundError("ffmpeg"),
+            with (
+                patch(
+                    "loom.services.ocr.subprocess.run",
+                    side_effect=FileNotFoundError("ffmpeg"),
+                ),
+                pytest.raises(EngineUnavailableError) as excinfo,
             ):
-                result = extract_key_frames(path)
-                assert result == []
+                extract_key_frames(path)
+            assert excinfo.value.engine == "media_pipeline"
         finally:
             Path(path).unlink(missing_ok=True)
 
@@ -60,11 +64,11 @@ class TestExtractKeyFrames:
 class TestRunOcrOnImage:
     """tests for run_ocr_on_image."""
 
-    def test_missing_image_returns_empty(self) -> None:
-        result = run_ocr_on_image("/nonexistent/image.png")
-        assert result == []
+    def test_missing_image_raises(self) -> None:
+        with pytest.raises(FileNotFoundError):
+            run_ocr_on_image("/nonexistent/image.png")
 
-    def test_pytesseract_not_installed_returns_empty(
+    def test_pytesseract_not_installed_raises(
         self,
     ) -> None:
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
@@ -72,13 +76,16 @@ class TestRunOcrOnImage:
             path = f.name
 
         try:
-            with patch.dict("sys.modules", {"pytesseract": None}):
-                result = run_ocr_on_image(path)
-                assert result == []
+            with (
+                patch.dict("sys.modules", {"pytesseract": None}),
+                pytest.raises(EngineUnavailableError) as excinfo,
+            ):
+                run_ocr_on_image(path)
+            assert excinfo.value.engine == "ocr"
         finally:
             Path(path).unlink(missing_ok=True)
 
-    def test_pillow_not_installed_returns_empty(self) -> None:
+    def test_pillow_not_installed_raises(self) -> None:
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             f.write(b"\x89PNG" + b"\x00" * 100)
             path = f.name
@@ -86,16 +93,18 @@ class TestRunOcrOnImage:
         try:
             # ensure pytesseract is "available" but PIL is not
             mock_tess = MagicMock()
-            with patch.dict(
-                "sys.modules",
-                {"pytesseract": mock_tess, "PIL": None},
+            with (
+                patch.dict(
+                    "sys.modules",
+                    {"pytesseract": mock_tess, "PIL": None},
+                ),
+                pytest.raises(EngineUnavailableError),
             ):
-                result = run_ocr_on_image(path)
-                assert result == []
+                run_ocr_on_image(path)
         finally:
             Path(path).unlink(missing_ok=True)
 
-    def test_ocr_exception_returns_empty(self) -> None:
+    def test_ocr_exception_raises(self) -> None:
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             f.write(b"\x89PNG" + b"\x00" * 100)
             path = f.name
@@ -107,16 +116,18 @@ class TestRunOcrOnImage:
             mock_image.size = (100, 100)
             mock_pil.Image.open.return_value = mock_image
             mock_tess.image_to_data.side_effect = RuntimeError("ocr failed")
-            with patch.dict(
-                "sys.modules",
-                {
-                    "pytesseract": mock_tess,
-                    "PIL": mock_pil,
-                    "PIL.Image": mock_pil.Image,
-                },
+            with (
+                patch.dict(
+                    "sys.modules",
+                    {
+                        "pytesseract": mock_tess,
+                        "PIL": mock_pil,
+                        "PIL.Image": mock_pil.Image,
+                    },
+                ),
+                pytest.raises(RuntimeError, match="ocr failed"),
             ):
-                result = run_ocr_on_image(path)
-                assert result == []
+                run_ocr_on_image(path)
         finally:
             Path(path).unlink(missing_ok=True)
 

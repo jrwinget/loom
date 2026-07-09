@@ -254,57 +254,46 @@ def _generate_video_derivatives(
 
     keys: list[str] = []
 
-    # 720p proxy
-    try:
-        proxy_path = str(Path(tmp_dir) / "proxy.mp4")
-        generate_video_proxy(src, proxy_path)
-        proxy_key = f"{base_key}/proxy.mp4"
-        storage.upload_file(
-            DERIVATIVES_BUCKET,
-            proxy_key,
-            proxy_path,
-            "video/mp4",
-        )
-        _record_derivative(
-            session,
-            asset_id,
-            "proxy",
-            proxy_key,
-            "video/mp4",
-            proxy_path,
-        )
-        keys.append(proxy_key)
-    except RuntimeError:
-        logger.warning(
-            "ffmpeg unavailable; skipping video proxy for asset %s",
-            asset_id,
-        )
+    # 720p proxy — a missing ffmpeg raises so the job fails visibly
+    # instead of silently producing an asset with no derivatives
+    proxy_path = str(Path(tmp_dir) / "proxy.mp4")
+    generate_video_proxy(src, proxy_path)
+    proxy_key = f"{base_key}/proxy.mp4"
+    storage.upload_file(
+        DERIVATIVES_BUCKET,
+        proxy_key,
+        proxy_path,
+        "video/mp4",
+    )
+    _record_derivative(
+        session,
+        asset_id,
+        "proxy",
+        proxy_key,
+        "video/mp4",
+        proxy_path,
+    )
+    keys.append(proxy_key)
 
     # thumbnail
-    try:
-        thumb_path = str(Path(tmp_dir) / "thumb.jpg")
-        generate_thumbnail(src, thumb_path)
-        thumb_key = f"{base_key}/thumbnail.jpg"
-        storage.upload_file(
-            DERIVATIVES_BUCKET,
-            thumb_key,
-            thumb_path,
-            "image/jpeg",
-        )
-        _record_derivative(
-            session,
-            asset_id,
-            "thumbnail",
-            thumb_key,
-            "image/jpeg",
-            thumb_path,
-        )
-        keys.append(thumb_key)
-    except RuntimeError:
-        logger.warning(
-            "ffmpeg unavailable; skipping thumbnail for asset %s",
-            asset_id,
-        )
+    thumb_path = str(Path(tmp_dir) / "thumb.jpg")
+    generate_thumbnail(src, thumb_path)
+    thumb_key = f"{base_key}/thumbnail.jpg"
+    storage.upload_file(
+        DERIVATIVES_BUCKET,
+        thumb_key,
+        thumb_path,
+        "image/jpeg",
+    )
+    _record_derivative(
+        session,
+        asset_id,
+        "thumbnail",
+        thumb_key,
+        "image/jpeg",
+        thumb_path,
+    )
+    keys.append(thumb_key)
 
     return keys
 
@@ -321,30 +310,24 @@ def _generate_image_derivatives(
     from loom.services.proxy import generate_image_thumbnail
 
     keys: list[str] = []
-    try:
-        thumb_path = str(Path(tmp_dir) / "thumb.jpg")
-        generate_image_thumbnail(src, thumb_path)
-        thumb_key = f"{base_key}/thumbnail.jpg"
-        storage.upload_file(
-            DERIVATIVES_BUCKET,
-            thumb_key,
-            thumb_path,
-            "image/jpeg",
-        )
-        _record_derivative(
-            session,
-            asset_id,
-            "thumbnail",
-            thumb_key,
-            "image/jpeg",
-            thumb_path,
-        )
-        keys.append(thumb_key)
-    except RuntimeError:
-        logger.warning(
-            "ffmpeg unavailable; skipping image thumbnail for asset %s",
-            asset_id,
-        )
+    thumb_path = str(Path(tmp_dir) / "thumb.jpg")
+    generate_image_thumbnail(src, thumb_path)
+    thumb_key = f"{base_key}/thumbnail.jpg"
+    storage.upload_file(
+        DERIVATIVES_BUCKET,
+        thumb_key,
+        thumb_path,
+        "image/jpeg",
+    )
+    _record_derivative(
+        session,
+        asset_id,
+        "thumbnail",
+        thumb_key,
+        "image/jpeg",
+        thumb_path,
+    )
+    keys.append(thumb_key)
     return keys
 
 
@@ -360,30 +343,24 @@ def _generate_audio_derivatives(
     from loom.services.proxy import generate_waveform
 
     keys: list[str] = []
-    try:
-        wave_path = str(Path(tmp_dir) / "waveform.jpg")
-        generate_waveform(src, wave_path)
-        wave_key = f"{base_key}/waveform.jpg"
-        storage.upload_file(
-            DERIVATIVES_BUCKET,
-            wave_key,
-            wave_path,
-            "image/jpeg",
-        )
-        _record_derivative(
-            session,
-            asset_id,
-            "waveform",
-            wave_key,
-            "image/jpeg",
-            wave_path,
-        )
-        keys.append(wave_key)
-    except RuntimeError:
-        logger.warning(
-            "ffmpeg unavailable; skipping waveform for asset %s",
-            asset_id,
-        )
+    wave_path = str(Path(tmp_dir) / "waveform.jpg")
+    generate_waveform(src, wave_path)
+    wave_key = f"{base_key}/waveform.jpg"
+    storage.upload_file(
+        DERIVATIVES_BUCKET,
+        wave_key,
+        wave_path,
+        "image/jpeg",
+    )
+    _record_derivative(
+        session,
+        asset_id,
+        "waveform",
+        wave_key,
+        "image/jpeg",
+        wave_path,
+    )
+    keys.append(wave_key)
     return keys
 
 

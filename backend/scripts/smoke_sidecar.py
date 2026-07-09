@@ -55,6 +55,7 @@ from pathlib import Path
 from typing import Final
 
 HEALTH_URL: Final = "http://127.0.0.1:8000/api/v1/health"
+OPENAPI_URL: Final = "http://127.0.0.1:8000/openapi.json"
 FIRST_RUN_URL: Final = "http://127.0.0.1:8000/api/v1/first-run/status"
 PREFLIGHT_URL: Final = "http://127.0.0.1:8000/api/v1/auth/login"
 COMPLETE_URL: Final = "http://127.0.0.1:8000/api/v1/first-run/complete"
@@ -102,6 +103,32 @@ def _poll_health() -> bool:
                 return True
         time.sleep(POLL_INTERVAL_S)
     return False
+
+
+def _check_reported_version() -> tuple[bool, str]:
+    """assert the frozen binary reports the packaged version.
+
+    pyinstaller must carry the loom dist-info into the bundle
+    (``--copy-metadata loom``); without it importlib.metadata falls
+    back to "0.0.0+dev" and the app misreports its version in the
+    openapi doc and telemetry.
+    """
+    try:
+        # OPENAPI_URL is a hardcoded http://127.0.0.1 literal -- bandit
+        # S310 does not apply.
+        with urllib.request.urlopen(  # noqa: S310
+            OPENAPI_URL, timeout=5
+        ) as resp:
+            body = json.loads(resp.read())
+    except (urllib.error.URLError, ConnectionError, OSError) as exc:
+        return False, f"transport error from {OPENAPI_URL}: {exc!r}"
+    reported = str(body.get("info", {}).get("version", ""))
+    if reported in ("", "0.0.0+dev", "0.1.0"):
+        return False, (
+            f"frozen binary reports version {reported!r} — the loom "
+            "dist-info is missing from the bundle (--copy-metadata)"
+        )
+    return True, f"reported version {reported}"
 
 
 def _check_first_run_status() -> tuple[bool, str]:
@@ -338,21 +365,18 @@ def main() -> int:
         try:
             if _poll_health():
                 print(f"OK: {HEALTH_URL} -> 200")
-                ok, message = _check_first_run_status()
-                if not ok:
-                    print(f"FAIL: {message}")
-                    return 1
-                print(f"OK: {message}")
-                ok, message = _check_preflight_cors()
-                if not ok:
-                    print(f"FAIL: {message}")
-                    return 1
-                print(f"OK: {message}")
-                ok, message = _check_login_roundtrip()
-                if not ok:
-                    print(f"FAIL: {message}")
-                    return 1
-                print(f"OK: {message}")
+                checks = (
+                    _check_first_run_status,
+                    _check_preflight_cors,
+                    _check_login_roundtrip,
+                    _check_reported_version,
+                )
+                for check in checks:
+                    ok, message = check()
+                    if not ok:
+                        print(f"FAIL: {message}")
+                        return 1
+                    print(f"OK: {message}")
                 return 0
 
             # if the binary exited on its own, surface its stderr --

@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from loom.services.engines import EngineUnavailableError
 from loom.services.transcription import (
     align_transcript_with_speakers,
     diarize_audio,
@@ -146,17 +147,19 @@ class TestStoreTranscriptSegments:
 class TestTranscribeAudio:
     """tests for transcribe_audio graceful fallback."""
 
-    def test_missing_faster_whisper_returns_stub(
+    def test_missing_faster_whisper_raises(
         self,
     ) -> None:
-        with patch.dict("sys.modules", {"faster_whisper": None}):
-            result = transcribe_audio("/fake/path.wav")
+        # a fabricated placeholder transcript row is worse than a
+        # visible failure on an evidence product
+        with (
+            patch.dict("sys.modules", {"faster_whisper": None}),
+            pytest.raises(EngineUnavailableError) as excinfo,
+        ):
+            transcribe_audio("/fake/path.wav")
 
-        assert len(result) == 1
-        assert "unavailable" in result[0]["text"]
-        # stub still records model name so ui can flag provenance
-        assert result[0]["model_name"] == "faster-whisper"
-        assert result[0]["model_version"] == "unknown"
+        assert excinfo.value.engine == "transcription"
+        assert "cloud transcription" in excinfo.value.remedy
 
     def test_with_faster_whisper_installed(self) -> None:
         mock_segment = MagicMock()

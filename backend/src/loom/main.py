@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from loom import __version__
 from loom.api.router import api_router
 from loom.config import get_settings
 from loom.observability import setup_db_telemetry, setup_telemetry
@@ -106,6 +107,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     storage_backend = build_storage_backend(settings)
     app.state.storage_backend = storage_backend
 
+    # reap upload temp files orphaned by a crash
+    from loom.services.streaming_upload import cleanup_stale_uploads
+
+    cleanup_stale_uploads()
+
     if not settings.is_lite:
         minio_client = Minio(
             settings.minio_endpoint,
@@ -143,7 +149,7 @@ def create_app() -> FastAPI:
     application = FastAPI(
         title="Loom",
         description="Evidence operating system",
-        version="0.1.0",
+        version=__version__,
         lifespan=_lifespan,
         debug=settings.debug,
     )

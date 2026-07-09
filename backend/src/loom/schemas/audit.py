@@ -10,7 +10,7 @@ class AuditEntryResponse(BaseModel):
     actor_id: UUID | None = None
     action: str
     resource_type: str
-    resource_id: UUID
+    resource_id: UUID | None = None
     detail: Any | None = None
     ip_address: str | None = None
     user_agent: str | None = None

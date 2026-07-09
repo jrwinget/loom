@@ -296,6 +296,7 @@ jobs:
             --distpath dist \
             --add-data "alembic${sep}alembic" \
             --add-data "alembic.ini${sep}." \
+            --copy-metadata loom \
             --hidden-import fastapi \
             --hidden-import fastapi.routing \
             --hidden-import sqlalchemy \

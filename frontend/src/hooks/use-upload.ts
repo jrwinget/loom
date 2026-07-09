@@ -1,6 +1,9 @@
 import { useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { create } from 'zustand';
-import { getApiOrigin } from '@/lib/api-client';
+import { registerIngestJob, uploadAssetXhr } from '@/hooks/use-assets';
+import { queryKeys } from '@/lib/query-keys';
+import { useToastStore } from '@/stores/toast-store';
 
 type FileStatus = 'pending' | 'uploading' | 'complete' | 'error';
 
@@ -61,6 +64,7 @@ interface UseUploadReturn {
 
 export function useUpload(): UseUploadReturn {
   const { files, addFiles, removeFile, updateFile } = useUploadStore();
+  const queryClient = useQueryClient();
 
   // track whether an upload cycle is running
   const uploadingRef = useRef(false);
@@ -83,54 +87,25 @@ export function useUpload(): UseUploadReturn {
         .getState()
         .files.filter((f) => f.status === 'pending');
 
-      const token =
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        (await import('@/stores/auth-store')).useAuthStore.getState().token;
+      let succeeded = 0;
+      let failed = 0;
 
       for (const entry of pending) {
         updateFile(entry.id, { status: 'uploading' });
 
         try {
-          const formData = new FormData();
-          formData.append('file', entry.file);
-
-          await new Promise<void>((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', `${getApiOrigin()}/cases/${caseId}/assets/upload`);
-
-            if (token) {
-              xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-            }
-
-            xhr.upload.addEventListener('progress', (e) => {
-              if (e.lengthComputable) {
-                const pct = Math.round((e.loaded / e.total) * 100);
-                updateFile(entry.id, {
-                  progress: pct,
-                });
-              }
-            });
-
-            xhr.addEventListener('load', () => {
-              if (xhr.status >= 200 && xhr.status < 300) {
-                resolve();
-              } else {
-                reject(new Error(`Upload failed: ${xhr.statusText}`));
-              }
-            });
-
-            xhr.addEventListener('error', () => {
-              reject(new Error('Upload network error'));
-            });
-
-            xhr.send(formData);
+          const asset = await uploadAssetXhr(caseId, entry.file, (pct) => {
+            updateFile(entry.id, { progress: pct });
           });
-
+          // "processing…" stays visible in the jobs menu after upload
+          registerIngestJob(caseId, asset);
+          succeeded += 1;
           updateFile(entry.id, {
             status: 'complete',
             progress: 100,
           });
         } catch (err) {
+          failed += 1;
           updateFile(entry.id, {
             status: 'error',
             error: err instanceof Error ? err.message : 'Unknown error',
@@ -138,9 +113,27 @@ export function useUpload(): UseUploadReturn {
         }
       }
 
+      if (succeeded > 0) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.assets.byCase(caseId),
+        });
+      }
+      if (failed > 0) {
+        useToastStore.getState().addToast({
+          type: 'error',
+          message: `${succeeded} uploaded, ${failed} failed`,
+        });
+      } else if (succeeded > 0) {
+        useToastStore.getState().addToast({
+          type: 'success',
+          message:
+            succeeded === 1 ? '1 file uploaded' : `${succeeded} files uploaded`,
+        });
+      }
+
       uploadingRef.current = false;
     },
-    [updateFile],
+    [updateFile, queryClient],
   );
 
   return {
