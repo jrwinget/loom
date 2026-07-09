@@ -1267,6 +1267,25 @@
         "title": "CaseMemberResponse",
         "type": "object"
       },
+      "CasePurgeRequest": {
+        "properties": {
+          "confirm_title": {
+            "title": "Confirm Title",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm_title",
+          "reason"
+        ],
+        "title": "CasePurgeRequest",
+        "type": "object"
+      },
       "CaseResponse": {
         "properties": {
           "asset_count": {
@@ -7007,6 +7026,50 @@
       }
     },
     "/api/v1/cases/{case_id}": {
+      "delete": {
+        "description": "permanently destroy a case and its evidence (owner only).\n\nthe case must be closed or archived first (an explicit lifecycle\nstep guards against destroying live work), the exact title must be\nconfirmed, and a reason is required. an append-only audit tombstone\nis written before anything is deleted.",
+        "operationId": "purge_case_endpoint_api_v1_cases__case_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CasePurgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Purge Case Endpoint",
+        "tags": [
+          "cases"
+        ]
+      },
       "get": {
         "description": "get case detail.",
         "operationId": "get_case_endpoint_api_v1_cases__case_id__get",
