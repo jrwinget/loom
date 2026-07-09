@@ -11868,6 +11868,30 @@
         ]
       }
     },
+    "/api/v1/imports/bundle": {
+      "post": {
+        "description": "accept a portable bundle, verify it, and start the import.\n\nreturns the new case id, the import workflow id to poll, and the\nsignature verification status the operator should be shown.",
+        "operationId": "import_bundle_api_v1_imports_bundle_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Bundle Api V1 Imports Bundle Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Import Bundle",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/v1/organizations": {
       "get": {
         "description": "list organizations user belongs to.",

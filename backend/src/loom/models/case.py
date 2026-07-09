@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
+    Index,
     String,
     UniqueConstraint,
     func,
@@ -19,6 +20,13 @@ class Case(UUIDMixin, TimestampMixin, Base):
         CheckConstraint(
             "status IN ('active', 'closed', 'archived')",
             name="ck_cases_status",
+        ),
+        # a unique index (not a table constraint) so the lite upgrade
+        # can add it without a sqlite table rebuild
+        Index(
+            "ix_cases_source_bundle_sha256",
+            "source_bundle_sha256",
+            unique=True,
         ),
     )
 
@@ -38,6 +46,13 @@ class Case(UUIDMixin, TimestampMixin, Base):
     created_by: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
+    )
+    # sha256 of the portable bundle this case was imported from, if
+    # any. unique so re-importing the same bundle is rejected rather
+    # than silently duplicating a whole case.
+    source_bundle_sha256: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
     )
 
 

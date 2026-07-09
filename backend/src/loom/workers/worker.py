@@ -11,6 +11,8 @@ from loom.workflows.correlation_activities import (
 from loom.workflows.correlation_workflow import CorrelationWorkflow
 from loom.workflows.export_activities import build_export
 from loom.workflows.export_workflow import ExportWorkflow
+from loom.workflows.import_activities import import_bundle
+from loom.workflows.import_workflow import BundleImportWorkflow
 from loom.workflows.ingest_activities import (
     extract_asset_metadata,
     generate_asset_proxies,
@@ -71,6 +73,7 @@ async def main() -> None:  # pragma: no cover
             SceneDetectionWorkflow,
             CorrelationWorkflow,
             UrlIngestWorkflow,
+            BundleImportWorkflow,
         ],
         activities=[
             verify_asset_hash,
@@ -79,6 +82,7 @@ async def main() -> None:  # pragma: no cover
             record_derivatives_custody,
             mark_asset_complete,
             build_export,
+            import_bundle,
             extract_audio,
             transcribe_asset,
             diarize_asset,

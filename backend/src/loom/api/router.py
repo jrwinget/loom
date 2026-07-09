@@ -17,6 +17,7 @@ from loom.api.v1.exports import router as exports_router
 from loom.api.v1.first_run import router as first_run_router
 from loom.api.v1.geo import router as geo_router
 from loom.api.v1.health import router as health_router
+from loom.api.v1.imports import router as imports_router
 from loom.api.v1.integrity import router as integrity_router
 from loom.api.v1.mfa import router as mfa_router
 from loom.api.v1.ocr import router as ocr_router
@@ -60,6 +61,7 @@ api_router.include_router(shared_evidence_router)
 api_router.include_router(storage_router)
 api_router.include_router(settings_router)
 api_router.include_router(engines_router)
+api_router.include_router(imports_router)
 api_router.include_router(custody_router)
 api_router.include_router(integrity_router)
 api_router.include_router(plugins_router)
