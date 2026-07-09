@@ -24,13 +24,13 @@ function JobProgress(props: { job: TrackedJob }): React.ReactElement {
       aria-valuemax={100}
       aria-valuenow={pct ?? undefined}
       aria-label={`${job.label} progress`}
-      className="mt-1 h-1.5 w-full overflow-hidden rounded bg-muted"
+      className="bg-muted mt-1 h-1.5 w-full overflow-hidden rounded"
     >
       <div
         className={
           pct === null
-            ? 'h-full w-1/3 animate-pulse rounded bg-primary'
-            : 'h-full rounded bg-primary transition-all'
+            ? 'bg-primary h-full w-1/3 animate-pulse rounded'
+            : 'bg-primary h-full rounded transition-all'
         }
         style={pct === null ? undefined : { width: `${pct}%` }}
       />
@@ -45,10 +45,10 @@ function JobRow(props: { job: TrackedJob }): React.ReactElement {
   return (
     <li
       data-testid={`job-row-${job.workflowId}`}
-      className="border-b border-border px-3 py-2 last:border-b-0"
+      className="border-border border-b px-3 py-2 last:border-b-0"
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="truncate text-sm text-foreground">
+        <p className="text-foreground truncate text-sm">
           <span className="text-muted-foreground">
             {KIND_LABELS[job.kind]}:{' '}
           </span>
@@ -67,10 +67,10 @@ function JobRow(props: { job: TrackedJob }): React.ReactElement {
       </div>
       {job.status === 'running' && <JobProgress job={job} />}
       {job.stage && job.status === 'running' && (
-        <p className="mt-1 text-xs text-muted-foreground">{job.stage}</p>
+        <p className="text-muted-foreground mt-1 text-xs">{job.stage}</p>
       )}
       {job.status === 'failed' && job.error && (
-        <p className="mt-1 text-xs text-destructive">{job.error}</p>
+        <p className="text-destructive mt-1 text-xs">{job.error}</p>
       )}
       {job.status !== 'running' && (
         <div className="mt-1 flex gap-3">
@@ -78,7 +78,7 @@ function JobRow(props: { job: TrackedJob }): React.ReactElement {
             <button
               type="button"
               data-testid={`job-retry-${job.workflowId}`}
-              className="text-xs text-primary hover:underline"
+              className="text-primary text-xs hover:underline"
               onClick={() => {
                 dismissJob(job.workflowId);
                 job.retry?.();
@@ -90,7 +90,7 @@ function JobRow(props: { job: TrackedJob }): React.ReactElement {
           <button
             type="button"
             data-testid={`job-dismiss-${job.workflowId}`}
-            className="text-xs text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground text-xs"
             onClick={() => dismissJob(job.workflowId)}
           >
             Dismiss
@@ -132,8 +132,8 @@ export function JobsMenu(): React.ReactElement {
         aria-expanded={open}
         aria-label={running === 0 ? 'Jobs' : `Jobs: ${running} running`}
         className={
-          'relative rounded-md border border-border px-2 py-1 ' +
-          'text-xs text-muted-foreground hover:bg-accent'
+          'border-border relative rounded-md border px-2 py-1 ' +
+          'text-muted-foreground hover:bg-accent text-xs'
         }
         onClick={() => setOpen((prev) => !prev)}
       >
@@ -143,9 +143,9 @@ export function JobsMenu(): React.ReactElement {
             data-testid="jobs-running-badge"
             aria-hidden="true"
             className={
-              'absolute -right-1.5 -top-1.5 flex h-4 min-w-4 ' +
-              'items-center justify-center rounded-full bg-primary ' +
-              'px-1 text-[10px] font-medium text-primary-foreground'
+              'absolute -top-1.5 -right-1.5 flex h-4 min-w-4 ' +
+              'bg-primary items-center justify-center rounded-full ' +
+              'text-primary-foreground px-1 text-[10px] font-medium'
             }
           >
             {running}
@@ -157,12 +157,12 @@ export function JobsMenu(): React.ReactElement {
         <div
           data-testid="jobs-menu"
           className={
-            'absolute right-0 top-full z-50 mt-1 w-80 rounded-md ' +
-            'border border-border bg-background shadow-lg'
+            'absolute top-full right-0 z-50 mt-1 w-80 rounded-md ' +
+            'border-border bg-background border shadow-lg'
           }
         >
           {ordered.length === 0 ? (
-            <p className="px-3 py-4 text-sm text-muted-foreground">
+            <p className="text-muted-foreground px-3 py-4 text-sm">
               No jobs yet. Transcriptions, exports, and processing show up here.
             </p>
           ) : (
@@ -177,8 +177,8 @@ export function JobsMenu(): React.ReactElement {
                   type="button"
                   data-testid="jobs-clear-finished"
                   className={
-                    'w-full border-t border-border px-3 py-2 ' +
-                    'text-left text-xs text-muted-foreground ' +
+                    'border-border w-full border-t px-3 py-2 ' +
+                    'text-muted-foreground text-left text-xs ' +
                     'hover:text-foreground'
                   }
                   onClick={clearFinished}

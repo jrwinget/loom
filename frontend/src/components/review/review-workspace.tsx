@@ -98,7 +98,7 @@ export function ReviewWorkspace(
   return (
     <div data-testid="review-workspace" className="flex h-full flex-col">
       {/* top search bar */}
-      <div className="border-b border-border px-4 py-2">
+      <div className="border-border border-b px-4 py-2">
         <SearchBar caseId={caseId} onResultClick={onSearchResultClick} />
       </div>
 
@@ -114,8 +114,8 @@ export function ReviewWorkspace(
         <section
           aria-label="Video player"
           data-testid="panel-video"
-          className={`flex flex-col overflow-hidden border-r border-border ${
-            focusedPanel === 'video' ? 'ring-2 ring-inset ring-primary/30' : ''
+          className={`border-border flex flex-col overflow-hidden border-r ${
+            focusedPanel === 'video' ? 'ring-primary/30 ring-2 ring-inset' : ''
           }`}
         >
           <div className="flex-1 overflow-y-auto p-3">
@@ -132,9 +132,9 @@ export function ReviewWorkspace(
         <section
           aria-label="Transcript"
           data-testid="panel-transcript"
-          className={`flex flex-col overflow-hidden border-r border-border ${
+          className={`border-border flex flex-col overflow-hidden border-r ${
             focusedPanel === 'transcript'
-              ? 'ring-2 ring-inset ring-primary/30'
+              ? 'ring-primary/30 ring-2 ring-inset'
               : ''
           }`}
         >
@@ -151,11 +151,11 @@ export function ReviewWorkspace(
           aria-label="Annotations"
           data-testid="panel-right"
           className={`flex flex-col overflow-hidden ${
-            focusedPanel === 'right' ? 'ring-2 ring-inset ring-primary/30' : ''
+            focusedPanel === 'right' ? 'ring-primary/30 ring-2 ring-inset' : ''
           }`}
         >
           {rightPanel ?? (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
               Annotations panel
             </div>
           )}
@@ -163,7 +163,7 @@ export function ReviewWorkspace(
 
         {/* bottom: scene browser spanning full width */}
         <div
-          className="col-span-3 border-t border-border"
+          className="border-border col-span-3 border-t"
           data-testid="scene-strip"
         >
           <SceneBrowser

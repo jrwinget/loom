@@ -25,6 +25,7 @@ import { AiSettingsPage } from '@/routes/settings/ai';
 import { PluginsSettingsPage } from '@/routes/settings/plugins';
 import { SecuritySettingsPage } from '@/routes/settings/security';
 import { StorageSettingsPage } from '@/routes/settings/storage';
+import { SupportPage } from '@/routes/settings/support';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,8 +40,8 @@ function NotFound(): React.ReactElement {
   return (
     <div className="flex h-full items-center justify-center">
       <div className="text-center">
-        <h1 className="text-4xl font-bold text-foreground">404</h1>
-        <p className="mt-2 text-muted-foreground">Page not found</p>
+        <h1 className="text-foreground text-4xl font-bold">404</h1>
+        <p className="text-muted-foreground mt-2">Page not found</p>
       </div>
     </div>
   );
@@ -91,6 +92,7 @@ export function App(): React.ReactElement {
                       element={<StorageSettingsPage />}
                     />
                     <Route path="settings/ai" element={<AiSettingsPage />} />
+                    <Route path="settings/support" element={<SupportPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Route>
                 </Route>

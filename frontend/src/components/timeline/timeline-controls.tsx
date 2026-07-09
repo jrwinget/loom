@@ -49,13 +49,13 @@ export function TimelineControls(
   return (
     <div
       data-testid="timeline-controls"
-      className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3"
+      className="border-border bg-card flex flex-wrap items-center gap-3 rounded-lg border p-3"
     >
       {/* add event button */}
       <button
         type="button"
         data-testid="add-event-btn"
-        className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm font-medium"
         onClick={onAddEvent}
       >
         Add Event
@@ -65,14 +65,14 @@ export function TimelineControls(
       <div className="flex items-center gap-1.5">
         <label
           htmlFor="status-filter"
-          className="text-xs text-muted-foreground"
+          className="text-muted-foreground text-xs"
         >
           Status:
         </label>
         <select
           id="status-filter"
           data-testid="status-filter"
-          className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+          className="border-input bg-background rounded-md border px-2 py-1 text-xs"
           value={statusFilter}
           onChange={(e) =>
             onStatusFilterChange(e.target.value as EventStatus | 'all')
@@ -91,7 +91,7 @@ export function TimelineControls(
         <div className="flex items-center gap-1.5">
           <label
             htmlFor="correlation-threshold"
-            className="text-xs text-muted-foreground"
+            className="text-muted-foreground text-xs"
           >
             Correlation ≥
           </label>
@@ -113,7 +113,7 @@ export function TimelineControls(
           />
           <span
             data-testid="correlation-threshold-value"
-            className="text-xs tabular-nums text-muted-foreground"
+            className="text-muted-foreground text-xs tabular-nums"
           >
             {Math.round(confidenceThreshold * 100)}%
           </span>
@@ -122,13 +122,13 @@ export function TimelineControls(
 
       {/* zoom control */}
       <div className="ml-auto flex items-center gap-1.5">
-        <label htmlFor="zoom-level" className="text-xs text-muted-foreground">
+        <label htmlFor="zoom-level" className="text-muted-foreground text-xs">
           Zoom:
         </label>
         <select
           id="zoom-level"
           data-testid="zoom-level"
-          className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+          className="border-input bg-background rounded-md border px-2 py-1 text-xs"
           value={zoomLevel}
           onChange={(e) => onZoomChange(e.target.value as ZoomLevel)}
         >

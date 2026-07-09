@@ -74,7 +74,7 @@ export function Header(): React.ReactElement {
     <header
       className={
         'flex h-14 items-center justify-between ' +
-        'border-b border-border px-6'
+        'border-border border-b px-6'
       }
       role="banner"
     >
@@ -86,8 +86,8 @@ export function Header(): React.ReactElement {
         <button
           type="button"
           className={
-            'rounded-md border border-border px-2 py-1 ' +
-            'text-xs text-muted-foreground hover:bg-accent'
+            'border-border rounded-md border px-2 py-1 ' +
+            'text-muted-foreground hover:bg-accent text-xs'
           }
           aria-label="Keyboard shortcuts"
           data-testid="open-shortcuts"
@@ -102,28 +102,28 @@ export function Header(): React.ReactElement {
             <Dialog.Content
               data-testid="shortcuts-dialog"
               className={
-                'fixed left-1/2 top-1/2 w-full max-w-md bg-card ' +
+                'bg-card fixed top-1/2 left-1/2 w-full max-w-md ' +
                 '-translate-x-1/2 -translate-y-1/2 rounded-lg ' +
-                'border border-border p-6 shadow-lg'
+                'border-border border p-6 shadow-lg'
               }
             >
-              <Dialog.Title className="text-lg font-semibold text-foreground">
+              <Dialog.Title className="text-foreground text-lg font-semibold">
                 Keyboard shortcuts
               </Dialog.Title>
-              <Dialog.Description className="mt-1 text-sm text-muted-foreground">
+              <Dialog.Description className="text-muted-foreground mt-1 text-sm">
                 Shortcuts are scoped to the panel that owns them.
               </Dialog.Description>
               <div className="mt-4 space-y-4">
                 {SHORTCUT_GROUPS.map((group) => (
                   <section key={group.heading}>
-                    <h3 className="text-sm font-medium text-foreground">
+                    <h3 className="text-foreground text-sm font-medium">
                       {group.heading}
                     </h3>
                     <dl className="mt-2 space-y-1 text-sm">
                       {group.items.map(([keys, label]) => (
                         <div key={keys} className="flex justify-between gap-4">
                           <dt className="text-muted-foreground">{label}</dt>
-                          <dd className="font-mono text-xs text-foreground">
+                          <dd className="text-foreground font-mono text-xs">
                             {keys}
                           </dd>
                         </div>
@@ -136,7 +136,7 @@ export function Header(): React.ReactElement {
                 <Dialog.Close asChild>
                   <button
                     type="button"
-                    className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-2 text-sm"
                   >
                     Close
                   </button>
@@ -151,7 +151,7 @@ export function Header(): React.ReactElement {
             type="button"
             className={
               'flex h-8 w-8 items-center justify-center ' +
-              'rounded-full bg-muted text-xs font-medium ' +
+              'bg-muted rounded-full text-xs font-medium ' +
               'text-foreground'
             }
             aria-label="User menu"
@@ -167,16 +167,16 @@ export function Header(): React.ReactElement {
             <div
               data-testid="user-menu-dropdown"
               className={
-                'absolute right-0 top-full z-50 mt-1 w-56 ' +
-                'rounded-md border border-border bg-background ' +
+                'absolute top-full right-0 z-50 mt-1 w-56 ' +
+                'border-border bg-background rounded-md border ' +
                 'py-1 shadow-lg'
               }
             >
               {user?.email && (
                 <p
                   className={
-                    'truncate border-b border-border px-3 ' +
-                    'py-2 text-sm text-foreground'
+                    'border-border truncate border-b px-3 ' +
+                    'text-foreground py-2 text-sm'
                   }
                   data-testid="user-menu-email"
                 >
@@ -184,11 +184,11 @@ export function Header(): React.ReactElement {
                 </p>
               )}
               <div
-                className="border-b border-border px-3 py-2"
+                className="border-border border-b px-3 py-2"
                 role="group"
                 aria-label="Theme"
               >
-                <p className="mb-1 text-xs text-muted-foreground">Theme</p>
+                <p className="text-muted-foreground mb-1 text-xs">Theme</p>
                 <div className="flex gap-1">
                   {THEME_OPTIONS.map(([value, label]) => (
                     <button
@@ -199,7 +199,7 @@ export function Header(): React.ReactElement {
                       className={
                         'flex-1 rounded px-2 py-1 text-xs ' +
                         (theme === value
-                          ? 'bg-accent font-medium text-foreground'
+                          ? 'bg-accent text-foreground font-medium'
                           : 'text-muted-foreground hover:bg-accent/50')
                       }
                       onClick={() => setTheme(value)}

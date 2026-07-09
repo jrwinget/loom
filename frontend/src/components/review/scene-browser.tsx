@@ -51,7 +51,7 @@ export function SceneBrowser(props: SceneBrowserProps): React.ReactElement {
     return (
       <div
         data-testid="scene-browser"
-        className="flex h-16 items-center justify-center text-xs text-muted-foreground"
+        className="text-muted-foreground flex h-16 items-center justify-center text-xs"
       >
         No scenes detected
       </div>
@@ -61,7 +61,7 @@ export function SceneBrowser(props: SceneBrowserProps): React.ReactElement {
   return (
     <div data-testid="scene-browser" className="flex flex-col gap-1">
       <div className="flex items-center gap-2 px-2">
-        <span className="text-[10px] font-medium text-muted-foreground">
+        <span className="text-muted-foreground text-[10px] font-medium">
           Scenes
         </span>
         <span
@@ -76,7 +76,7 @@ export function SceneBrowser(props: SceneBrowserProps): React.ReactElement {
         {scenes.map((scene) => {
           const isActive = scene.id === activeSceneId;
           return (
-            <div key={scene.id} className="relative flex-shrink-0">
+            <div key={scene.id} className="relative shrink-0">
               <button
                 ref={isActive ? activeRef : undefined}
                 type="button"
@@ -92,12 +92,12 @@ export function SceneBrowser(props: SceneBrowserProps): React.ReactElement {
                 }
                 className={`rounded border transition-colors ${
                   isActive
-                    ? 'border-primary ring-2 ring-primary/50'
+                    ? 'border-primary ring-primary/50 ring-2'
                     : 'border-border hover:border-primary/50'
                 }`}
               >
                 {/* thumbnail or placeholder */}
-                <div className="flex h-12 w-20 items-center justify-center rounded-t bg-muted text-xs text-muted-foreground">
+                <div className="bg-muted text-muted-foreground flex h-12 w-20 items-center justify-center rounded-t text-xs">
                   {scene.thumbnailUrl ? (
                     <img
                       src={scene.thumbnailUrl}
@@ -109,14 +109,14 @@ export function SceneBrowser(props: SceneBrowserProps): React.ReactElement {
                   )}
                 </div>
                 {!compact && (
-                  <div className="px-1 py-0.5 text-center text-[10px] text-muted-foreground">
+                  <div className="text-muted-foreground px-1 py-0.5 text-center text-[10px]">
                     {formatTimestamp(scene.startTime)}
                     <span className="mx-0.5">-</span>
                     {formatTimestamp(scene.endTime)}
                   </div>
                 )}
               </button>
-              <div className="absolute right-0.5 top-0.5">
+              <div className="absolute top-0.5 right-0.5">
                 <WhyPopover
                   modelName={scene.modelName}
                   modelVersion={scene.modelVersion}

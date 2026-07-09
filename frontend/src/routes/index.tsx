@@ -33,7 +33,7 @@ function SkeletonCards(): React.ReactElement {
       {Array.from({ length: 3 }, (_, i) => (
         <div
           key={i}
-          className="h-36 animate-pulse rounded-lg border border-border bg-muted/40"
+          className="border-border bg-muted/40 h-36 animate-pulse rounded-lg border"
         />
       ))}
     </div>
@@ -49,14 +49,14 @@ function ActiveJobsCard(): React.ReactElement | null {
     <section
       aria-label="Active jobs"
       data-testid="dashboard-jobs"
-      className="rounded-lg border border-border p-4"
+      className="border-border rounded-lg border p-4"
     >
-      <h2 className="text-sm font-semibold text-foreground">Running now</h2>
+      <h2 className="text-foreground text-sm font-semibold">Running now</h2>
       <ul className="mt-2 space-y-1">
         {running.slice(0, 5).map((job) => (
           <li
             key={job.workflowId}
-            className="truncate text-sm text-muted-foreground"
+            className="text-muted-foreground truncate text-sm"
           >
             {job.label}
             {job.stage ? ` — ${job.stage}` : ''}
@@ -77,15 +77,15 @@ function StorageCard(): React.ReactElement | null {
     <section
       aria-label="Storage"
       data-testid="dashboard-storage"
-      className="rounded-lg border border-border p-4"
+      className="border-border rounded-lg border p-4"
     >
-      <h2 className="text-sm font-semibold text-foreground">Storage</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <h2 className="text-foreground text-sm font-semibold">Storage</h2>
+      <p className="text-muted-foreground mt-2 text-sm">
         {formatBytes(data.freeBytes)} free of {formatBytes(data.totalBytes)}
       </p>
       <Link
         to="/settings/storage"
-        className="mt-1 inline-block text-xs text-primary hover:underline"
+        className="text-primary mt-1 inline-block text-xs hover:underline"
       >
         Manage storage
       </Link>
@@ -104,14 +104,14 @@ function RecentActivityCard(props: {
     <section
       aria-label="Recent activity"
       data-testid="dashboard-activity"
-      className="rounded-lg border border-border p-4"
+      className="border-border rounded-lg border p-4"
     >
-      <h2 className="text-sm font-semibold text-foreground">
+      <h2 className="text-foreground text-sm font-semibold">
         Recent activity — {props.caseName}
       </h2>
       <ul className="mt-2 space-y-1">
         {data.items.slice(0, 5).map((entry) => (
-          <li key={entry.id} className="truncate text-sm text-muted-foreground">
+          <li key={entry.id} className="text-muted-foreground truncate text-sm">
             {entry.action.replace(/_/g, ' ')} · {formatWhen(entry.timestamp)}
           </li>
         ))}
@@ -135,13 +135,13 @@ export function Dashboard(): React.ReactElement {
   return (
     <div className="space-y-6" data-testid="dashboard">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Home</h1>
+        <h1 className="text-foreground text-2xl font-semibold">Home</h1>
         <button
           type="button"
           data-testid="dashboard-new-case"
           onClick={() => setCreateOpen(true)}
           className={
-            'rounded-md bg-primary px-4 py-2 text-sm ' +
+            'bg-primary rounded-md px-4 py-2 text-sm ' +
             'text-primary-foreground hover:bg-primary/90'
           }
         >
@@ -159,10 +159,10 @@ export function Dashboard(): React.ReactElement {
 
       <section aria-label="Recent cases">
         <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 className="text-foreground text-lg font-semibold">
             Recent cases
           </h2>
-          <Link to="/cases" className="text-sm text-primary hover:underline">
+          <Link to="/cases" className="text-primary text-sm hover:underline">
             All cases
           </Link>
         </div>
@@ -184,7 +184,7 @@ export function Dashboard(): React.ReactElement {
 
         {!isLoading && !isError && recent.length === 0 && (
           <p
-            className="mt-4 text-sm text-muted-foreground"
+            className="text-muted-foreground mt-4 text-sm"
             data-testid="dashboard-empty"
           >
             No cases yet. Create your first case to get started.

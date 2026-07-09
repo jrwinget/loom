@@ -74,3 +74,8 @@ docker/nginx/certs/
 tmp/
 .claude/
 CLAUDE.md
+
+# fetched host binaries (scripts/fetch-desktop-binaries.py); only
+# the placeholder README is tracked
+desktop/src-tauri/binaries/*
+!desktop/src-tauri/binaries/README.txt

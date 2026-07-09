@@ -77,6 +77,16 @@ export async function restartBackend(): Promise<void> {
   await invokeCommand<void>('restart_backend');
 }
 
+// bundles the shell + backend log files and a version manifest into
+// a user-chosen zip (see export_diagnostics in main.rs). resolves
+// with the saved path, or null when the user cancels the dialog.
+// web builds have no shell or log files to bundle, so null there.
+export async function exportDiagnostics(): Promise<string | null> {
+  if (!isTauri) return null;
+  const result = await invokeCommand<string | null>('export_diagnostics');
+  return result ?? null;
+}
+
 // destructive: wipes loom.db + buckets/ under the chosen data dir,
 // clears the data-dir preference, and restarts the sidecar. invoked
 // only from the FactoryResetDialog after a typed-confirmation gate.
@@ -85,4 +95,24 @@ export async function factoryReset(): Promise<void> {
     throw new Error('factory_reset is only available inside the desktop app');
   }
   await invokeCommand<void>('factory_reset');
+}
+
+export interface UpdateInfo {
+  version: string;
+  notes: string | null;
+}
+
+// passive check against the release feed; the shell returns null when
+// offline, up to date, or on an install that cannot self-update (deb).
+export async function checkForUpdate(): Promise<UpdateInfo | null> {
+  if (!isTauri) return null;
+  return invokeCommand<UpdateInfo | null>('check_for_update');
+}
+
+// consent lives with the caller: this downloads, stops the sidecar,
+// installs, and relaunches the app. only call it from an explicit
+// user action.
+export async function installUpdate(): Promise<void> {
+  if (!isTauri) return;
+  await invokeCommand<void>('install_update');
 }

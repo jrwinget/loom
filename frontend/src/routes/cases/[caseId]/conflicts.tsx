@@ -58,10 +58,10 @@ export function ConflictsPage(): React.ReactElement {
     <div className="flex flex-col gap-4 p-6">
       {/* header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">
+        <h1 className="text-foreground text-2xl font-bold">
           Conflicts
           {!isLoading && (
-            <span className="ml-2 text-lg font-normal text-muted-foreground">
+            <span className="text-muted-foreground ml-2 text-lg font-normal">
               ({total})
             </span>
           )}
@@ -102,7 +102,7 @@ export function ConflictsPage(): React.ReactElement {
             <div
               key={i}
               data-testid="conflict-skeleton"
-              className="h-20 animate-pulse rounded-lg bg-muted"
+              className="bg-muted h-20 animate-pulse rounded-lg"
             />
           ))}
         </div>
@@ -112,9 +112,9 @@ export function ConflictsPage(): React.ReactElement {
       {!isError && !isLoading && items.length === 0 && (
         <div
           data-testid="conflicts-empty"
-          className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border"
+          className="border-border flex h-48 items-center justify-center rounded-lg border border-dashed"
         >
-          <p className="text-sm text-muted-foreground">No conflicts found</p>
+          <p className="text-muted-foreground text-sm">No conflicts found</p>
         </div>
       )}
 
@@ -127,13 +127,13 @@ export function ConflictsPage(): React.ReactElement {
               type="button"
               data-testid={`conflict-item-${item.eventId}`}
               onClick={() => handleSelectItem(item)}
-              className="flex w-full items-center justify-between rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-accent/30"
+              className="border-border bg-card hover:bg-accent/30 flex w-full items-center justify-between rounded-lg border p-4 text-left transition-colors"
             >
               <div>
-                <h3 className="text-sm font-semibold text-foreground">
+                <h3 className="text-foreground text-sm font-semibold">
                   {item.eventTitle}
                 </h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                <p className="text-muted-foreground mt-0.5 text-xs">
                   {item.supportingCount} support
                   {item.supportingCount !== 1 ? 's' : ''},{' '}
                   {item.contradictingCount} contradict

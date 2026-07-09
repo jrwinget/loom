@@ -30,9 +30,9 @@ export function ClustersPage(): React.ReactElement {
   return (
     <div className="flex flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Clusters</h1>
+        <h1 className="text-foreground text-2xl font-bold">Clusters</h1>
         <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1 text-sm text-muted-foreground">
+          <label className="text-muted-foreground flex items-center gap-1 text-sm">
             Window (s):
             <input
               type="number"
@@ -40,7 +40,7 @@ export function ClustersPage(): React.ReactElement {
               value={windowSeconds}
               onChange={(e) => setWindowSeconds(Number(e.target.value) || 60)}
               data-testid="window-seconds-input"
-              className="w-20 rounded border border-border bg-background px-2 py-1 text-sm text-foreground"
+              className="border-border bg-background text-foreground w-20 rounded border px-2 py-1 text-sm"
             />
           </label>
           <button
@@ -48,7 +48,7 @@ export function ClustersPage(): React.ReactElement {
             data-testid="run-clustering-btn"
             onClick={handleRunClustering}
             disabled={proposeClusters.isPending}
-            className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm disabled:opacity-50"
           >
             {proposeClusters.isPending ? 'Running...' : 'Run Clustering'}
           </button>
@@ -89,7 +89,7 @@ export function ClustersPage(): React.ReactElement {
             <div
               key={i}
               data-testid="cluster-skeleton"
-              className="h-28 animate-pulse rounded-lg bg-muted"
+              className="bg-muted h-28 animate-pulse rounded-lg"
             />
           ))}
         </div>

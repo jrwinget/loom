@@ -72,7 +72,7 @@ function CreatePluginDialog({
       data-testid="create-plugin-dialog"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     >
-      <div className="w-full max-w-md rounded-lg bg-background p-6 shadow-lg">
+      <div className="bg-background w-full max-w-md rounded-lg p-6 shadow-lg">
         <h2 className="mb-4 text-lg font-semibold">Create Plugin</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -144,7 +144,7 @@ function CreatePluginDialog({
             </button>
             <button
               type="submit"
-              className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground"
+              className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm"
             >
               Create
             </button>
@@ -170,7 +170,7 @@ function PluginCard({ plugin, onSelect }: PluginCardProps): React.ReactElement {
   return (
     <div
       data-testid={`plugin-card-${plugin.id}`}
-      className="rounded-lg border p-4 hover:border-primary/50"
+      className="hover:border-primary/50 rounded-lg border p-4"
     >
       <div className="flex items-start justify-between">
         <button
@@ -180,13 +180,13 @@ function PluginCard({ plugin, onSelect }: PluginCardProps): React.ReactElement {
         >
           <h3 className="font-medium">{plugin.name}</h3>
           {plugin.description && (
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="text-muted-foreground mt-1 text-sm">
               {plugin.description}
             </p>
           )}
           <div className="mt-2 flex items-center gap-2">
             <TypeBadge type={plugin.pluginType} />
-            <span className="text-xs text-muted-foreground">
+            <span className="text-muted-foreground text-xs">
               v{plugin.version}
             </span>
           </div>
@@ -233,7 +233,7 @@ export function PluginList({
         <button
           data-testid="create-plugin-btn"
           onClick={() => setShowCreate(true)}
-          className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground"
+          className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm"
         >
           Add Plugin
         </button>

@@ -50,13 +50,23 @@ def transcribe_audio(
     except ImportError as exc:
         raise EngineUnavailableError("transcription", REMEDY_WHISPER) from exc
 
+    # weights come exclusively from the pinned registry: passing the
+    # local directory (not a size alias) keeps faster-whisper off the
+    # network entirely — no implicit hub download, ever
+    from loom.services.model_registry import get_spec, resolve_model_dir
+
+    model_dir = resolve_model_dir(model_size)
     provenance = build_provenance(
         _WHISPER_MODEL_NAME,
         _WHISPER_PACKAGE,
-        {"model_size": model_size, "compute_type": "int8"},
+        {
+            "model_size": model_size,
+            "compute_type": "int8",
+            "model_revision": get_spec(model_size).revision,
+        },
     )
 
-    model = WhisperModel(model_size, compute_type="int8")
+    model = WhisperModel(str(model_dir), compute_type="int8")
     segments_iter, info = model.transcribe(audio_path)
 
     results: list[dict[str, Any]] = []
@@ -261,7 +271,13 @@ def diarize_audio(audio_path: str) -> list[dict[str, Any]]:
     if pipeline is None:
         logger.warning("failed to load pyannote pipeline")
         return []
-    diarization = pipeline(audio_path)
+    # newer pyannote annotates the pipeline output as a union that
+    # includes streaming iterators; this pipeline always returns an
+    # Annotation, so narrow by capability before using it
+    diarization: Any = pipeline(audio_path)
+    if not hasattr(diarization, "itertracks"):
+        logger.warning("unexpected diarization output; skipping")
+        return []
     provenance = build_provenance(_PYANNOTE_MODEL_NAME, _PYANNOTE_PACKAGE)
 
     results: list[dict[str, Any]] = []

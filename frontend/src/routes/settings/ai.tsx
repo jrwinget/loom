@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 
+import { EnginesPanel } from '@/components/settings/engines-panel';
 import {
   useAiProviders,
   useAiSettings,
@@ -27,6 +28,7 @@ function AiSettingsForm(props: {
   const [provider, setProvider] = useState(initial.provider);
   const [model, setModel] = useState(initial.transcriptionModel);
   const [baseUrl, setBaseUrl] = useState(initial.apiBaseUrl);
+  const [whisperModel, setWhisperModel] = useState(initial.whisperModel);
   const [apiKey, setApiKey] = useState('');
 
   const cloud = engine === 'cloud';
@@ -64,6 +66,7 @@ function AiSettingsForm(props: {
   const handleSave = (e: React.FormEvent): void => {
     e.preventDefault();
     const patch: AiSettingsUpdate = { transcription_engine: engine };
+    if (!cloud) patch.whisper_model = whisperModel;
     if (cloud) {
       patch.provider = provider;
       patch.transcription_model = model;
@@ -81,7 +84,7 @@ function AiSettingsForm(props: {
   return (
     <form onSubmit={handleSave} className="mt-6 space-y-6">
       <fieldset className="space-y-3">
-        <legend className="text-sm font-medium text-foreground">
+        <legend className="text-foreground text-sm font-medium">
           Transcription engine
         </legend>
         <label className="flex items-start gap-2 text-sm">
@@ -94,11 +97,26 @@ function AiSettingsForm(props: {
             className="mt-1"
           />
           <span>
-            <span className="font-medium text-foreground">On-device</span>
-            <span className="block text-muted-foreground">
-              Runs locally; nothing leaves this machine. Requires the local
-              model to be installed.
+            <span className="text-foreground font-medium">On-device</span>
+            <span className="text-muted-foreground block">
+              Runs locally; nothing leaves this machine. Requires a downloaded
+              speech model (see below).
             </span>
+            {!cloud && (
+              <label className="mt-2 block text-sm">
+                <span className="text-muted-foreground">Speech model</span>
+                <select
+                  data-testid="whisper-model-select"
+                  value={whisperModel}
+                  onChange={(e) => setWhisperModel(e.target.value)}
+                  className="border-border bg-background ml-2 rounded border px-2 py-1"
+                >
+                  <option value="tiny">tiny (fastest)</option>
+                  <option value="base">base (balanced)</option>
+                  <option value="small">small (most accurate)</option>
+                </select>
+              </label>
+            )}
           </span>
         </label>
         <label className="flex items-start gap-2 text-sm">
@@ -111,10 +129,10 @@ function AiSettingsForm(props: {
             className="mt-1"
           />
           <span>
-            <span className="font-medium text-foreground">
+            <span className="text-foreground font-medium">
               Cloud (your API key)
             </span>
-            <span className="block text-muted-foreground">
+            <span className="text-muted-foreground block">
               Sends audio to a provider you choose and configure below.
             </span>
           </span>
@@ -122,7 +140,7 @@ function AiSettingsForm(props: {
       </fieldset>
 
       {cloud && (
-        <div className="space-y-4 rounded border border-border p-4">
+        <div className="border-border space-y-4 rounded border p-4">
           <p
             role="note"
             className={
@@ -141,7 +159,7 @@ function AiSettingsForm(props: {
               value={provider}
               onChange={(e) => onProviderChange(e.target.value)}
               data-testid="provider-select"
-              className="mt-1 w-full rounded border border-border bg-background px-2 py-1"
+              className="border-border bg-background mt-1 w-full rounded border px-2 py-1"
             >
               <option value="">Select a provider…</option>
               {grouped.map((g) => (
@@ -158,7 +176,7 @@ function AiSettingsForm(props: {
           </label>
 
           {selected?.note && (
-            <p className="text-xs text-muted-foreground">{selected.note}</p>
+            <p className="text-muted-foreground text-xs">{selected.note}</p>
           )}
 
           {selected && !unavailable && (
@@ -170,7 +188,7 @@ function AiSettingsForm(props: {
                     value={model}
                     onChange={(e) => setModel(e.target.value)}
                     data-testid="model-select"
-                    className="mt-1 w-full rounded border border-border bg-background px-2 py-1"
+                    className="border-border bg-background mt-1 w-full rounded border px-2 py-1"
                   >
                     {selected.models.map((m) => (
                       <option key={m.id} value={m.id}>
@@ -185,7 +203,7 @@ function AiSettingsForm(props: {
                     onChange={(e) => setModel(e.target.value)}
                     placeholder="whisper-1"
                     data-testid="model-input"
-                    className="mt-1 w-full rounded border border-border bg-background px-2 py-1"
+                    className="border-border bg-background mt-1 w-full rounded border px-2 py-1"
                   />
                 )}
               </label>
@@ -200,7 +218,7 @@ function AiSettingsForm(props: {
                   placeholder="https://your-server.example/v1"
                   data-testid="base-url-input"
                   className={
-                    'mt-1 w-full rounded border border-border px-2 py-1 ' +
+                    'border-border mt-1 w-full rounded border px-2 py-1 ' +
                     (baseUrlEditable
                       ? 'bg-background'
                       : 'bg-muted text-muted-foreground')
@@ -230,7 +248,7 @@ function AiSettingsForm(props: {
                     initial.apiKeySet ? '•••••••• (unchanged)' : 'sk-…'
                   }
                   autoComplete="off"
-                  className="mt-1 w-full rounded border border-border bg-background px-2 py-1"
+                  className="border-border bg-background mt-1 w-full rounded border px-2 py-1"
                 />
               </label>
             </>
@@ -241,7 +259,7 @@ function AiSettingsForm(props: {
       <button
         type="submit"
         disabled={update.isPending || !canSave}
-        className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-4 py-2 text-sm font-medium disabled:opacity-50"
       >
         {update.isPending ? 'Saving…' : 'Save'}
       </button>
@@ -256,16 +274,17 @@ export function AiSettingsPage(): React.ReactElement {
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <h1 className="text-xl font-semibold text-foreground">AI &amp; models</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <h1 className="text-foreground text-xl font-semibold">AI &amp; models</h1>
+      <p className="text-muted-foreground mt-1 text-sm">
         Choose how transcription runs. OCR and scene detection run on-device
         only.
       </p>
       {!ready ? (
-        <p className="mt-6 text-sm text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground mt-6 text-sm">Loading…</p>
       ) : (
         <AiSettingsForm initial={settings.data} providers={providers.data} />
       )}
+      <EnginesPanel />
     </div>
   );
 }

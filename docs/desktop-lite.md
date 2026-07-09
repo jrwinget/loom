@@ -233,7 +233,7 @@ first run. The layout is:
     loom-originals/          # immutable originals (WORM)
     loom-derivatives/        # proxies, transcripts, thumbnails
   logs/
-    backend.log              # backend process log
+    backend.jsonl            # backend log (rotated, redacted)
 ```
 
 Files inside `buckets/loom-originals/` are marked read-only (OS
@@ -276,6 +276,31 @@ with the sidecar's captured stderr and a Retry button. Retry kills
 the current sidecar and respawns it; the panel returns to "Loom is
 starting…" until the next outcome.
 
+## Logs and diagnostics
+
+Loom keeps two sets of local logs, both size-capped (files rotate
+at 5 MB, the newest five are kept):
+
+- **Desktop shell log** — in the platform's application log folder:
+  Linux `~/.local/share/io.loom.desktop/logs`, macOS
+  `~/Library/Logs/io.loom.desktop`, Windows
+  `%LOCALAPPDATA%\io.loom.desktop\logs`. Everything the backend
+  prints is mirrored here, and a shell crash leaves a
+  `crash-<timestamp>.txt` file alongside.
+- **Backend log** — `<data dir>/logs/backend.jsonl`. Lines are
+  scrubbed before they hit disk: email addresses become
+  `<redacted-email>` and home-directory paths collapse to `~`.
+
+**Settings → Support → Export diagnostics…** zips exactly three
+things: the shell log folder, the backend log folder, and a
+`manifest.txt` with the app version, OS, and timestamp. It never
+contains your evidence, the database, or stored secrets.
+
+Loom has no remote crash reporting by design: field laptops are
+usually offline exactly when something breaks, and the data on
+them is legally sensitive. Diagnostics leave the machine only when
+you export and share them yourself.
+
 ## Troubleshooting
 
 **The app stays on "Loom is starting…" forever.**
@@ -288,10 +313,10 @@ Linux or Event Viewer on Windows.
 
 **The boot panel switches to an error view.**
 Read the captured stderr in the panel; that line is the sidecar's
-own diagnosis. The full log lives at:
-
-- macOS/Linux: `~/.loom/logs/backend.log`
-- Windows: `%USERPROFILE%\.loom\logs\backend.log`
+own diagnosis. The full log lives at
+`<data dir>/logs/backend.jsonl` (by default
+`~/.loom/data/logs/backend.jsonl`); see
+[Logs and diagnostics](#logs-and-diagnostics).
 
 A common case is `LOOM_DATABASE_URL` pointing at a path Loom cannot
 write to (read-only mount, missing parent directory). Pick a fresh
@@ -321,8 +346,18 @@ Desktop Lite is local-only by design:
 - The backend binds to `127.0.0.1` only. There is no listener on
   any external interface; other machines on the same network cannot
   reach it.
-- No outbound network calls are made by Loom itself by default. Update
-  checks, telemetry, and crash reporting are off.
+- Telemetry and crash reporting do not exist. The one background
+  network call Loom makes is a **passive update check**: shortly
+  after launch (and daily while running) the app fetches
+  `latest.json` from this repository's GitHub Releases to learn
+  whether a newer version exists. Nothing downloads or installs
+  without an explicit click on the update banner, downloads are
+  verified against a signing key pinned in the app, and the check
+  fails silently when offline. `.deb` installs cannot self-update
+  (the updater swaps the AppImage binary in place) and are never
+  offered one — update via your package workflow or the releases
+  page. Windows installers remain OS-unsigned, so SmartScreen may
+  warn on first run of an updated build.
 - There are two opt-in exceptions, each requiring an explicit action:
   - **URL ingestion** — when you submit a URL via the ingest form, Loom
     fetches it and (best-effort) requests a Wayback Machine snapshot.

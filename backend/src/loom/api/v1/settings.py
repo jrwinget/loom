@@ -35,6 +35,7 @@ def _to_response(config: AiConfig) -> AiSettingsResponse:
         provider=config.provider,
         api_base_url=config.api_base_url,
         transcription_model=config.transcription_model,
+        whisper_model=config.whisper_model,
         api_key_set=bool(config.api_key),
     )
 

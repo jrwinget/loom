@@ -88,23 +88,23 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 shadow-lg"
+          className="border-border bg-card fixed top-1/2 left-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg border p-6 shadow-lg"
           data-testid="export-wizard"
         >
-          <Dialog.Title className="text-lg font-semibold text-foreground">
+          <Dialog.Title className="text-foreground text-lg font-semibold">
             Export Bundle — Step {step} of 3
           </Dialog.Title>
           <div aria-live="polite" className="sr-only">
             Step {step} of 3
           </div>
-          <Dialog.Description className="mt-1 text-sm text-muted-foreground">
+          <Dialog.Description className="text-muted-foreground mt-1 text-sm">
             Configure and generate an export bundle.
           </Dialog.Description>
 
           {step === 1 && (
             <div className="mt-4 space-y-3" data-testid="wizard-step-1">
               <label className="block">
-                <span className="text-sm font-medium text-foreground">
+                <span className="text-foreground text-sm font-medium">
                   Export Name
                 </span>
                 <input
@@ -112,19 +112,19 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-ring mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-hidden"
                   placeholder="e.g. Case export 2026-03"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm font-medium text-foreground">
+                <span className="text-foreground text-sm font-medium">
                   Format
                 </span>
                 <select
                   value={format}
                   onChange={(e) => setFormat(e.target.value as ExportFormat)}
-                  className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="border-border bg-background text-foreground focus:ring-ring mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-hidden"
                 >
                   {FORMAT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -139,7 +139,7 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
                   type="button"
                   disabled={!name.trim()}
                   onClick={() => setStep(2)}
-                  className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-2 text-sm disabled:opacity-50"
                 >
                   Next
                 </button>
@@ -154,27 +154,27 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
                   type="checkbox"
                   checked={includeOriginals}
                   onChange={(e) => setIncludeOriginals(e.target.checked)}
-                  className="h-4 w-4 rounded border border-border"
+                  className="border-border h-4 w-4 rounded border"
                 />
-                <span className="text-sm text-foreground">
+                <span className="text-foreground text-sm">
                   Include original files
                 </span>
               </label>
 
               <label className="block">
-                <span className="text-sm font-medium text-foreground">
+                <span className="text-foreground text-sm font-medium">
                   Date Range Start
                 </span>
                 <input
                   type="date"
                   value={dateStart}
                   onChange={(e) => setDateStart(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="border-border bg-background text-foreground focus:ring-ring mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-hidden"
                 />
               </label>
 
               <label className="block">
-                <span className="text-sm font-medium text-foreground">
+                <span className="text-foreground text-sm font-medium">
                   Date Range End
                 </span>
                 <input
@@ -185,7 +185,7 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
                   aria-describedby={
                     dateRangeError ? 'date-range-error' : undefined
                   }
-                  className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="border-border bg-background text-foreground focus:ring-ring mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-hidden"
                 />
               </label>
 
@@ -194,7 +194,7 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
                   id="date-range-error"
                   role="alert"
                   data-testid="date-range-error"
-                  className="text-sm text-destructive"
+                  className="text-destructive text-sm"
                 >
                   {dateRangeError}
                 </p>
@@ -204,7 +204,7 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent"
+                  className="text-muted-foreground hover:bg-accent rounded-md px-3 py-2 text-sm"
                 >
                   Back
                 </button>
@@ -212,7 +212,7 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
                   type="button"
                   onClick={() => setStep(3)}
                   disabled={dateRangeError !== null}
-                  className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-2 text-sm disabled:opacity-50"
                 >
                   Next
                 </button>
@@ -222,7 +222,7 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
 
           {step === 3 && (
             <div className="mt-4 space-y-3" data-testid="wizard-step-3">
-              <div className="rounded-md border border-border p-3 text-sm">
+              <div className="border-border rounded-md border p-3 text-sm">
                 <p>
                   <strong>Name:</strong> {name}
                 </p>
@@ -250,7 +250,7 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent"
+                  className="text-muted-foreground hover:bg-accent rounded-md px-3 py-2 text-sm"
                 >
                   Back
                 </button>
@@ -259,7 +259,7 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
                   disabled={createExport.isPending}
                   onClick={handleSubmit}
                   data-testid="export-submit"
-                  className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-2 text-sm disabled:opacity-50"
                 >
                   {createExport.isPending ? 'Exporting...' : 'Create Export'}
                 </button>

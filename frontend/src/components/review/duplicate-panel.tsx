@@ -30,16 +30,16 @@ function MemberRow(props: {
       data-testid={`member-${member.id}`}
       className="flex items-center gap-2 px-3 py-1.5 text-sm"
     >
-      <span className="flex-1 truncate text-foreground">
+      <span className="text-foreground flex-1 truncate">
         {member.originalFilename}
       </span>
       {member.distance !== null && (
-        <span className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground text-xs">
           d={member.distance.toFixed(3)}
         </span>
       )}
       {member.isPrimary ? (
-        <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+        <span className="bg-primary/10 text-primary rounded px-1.5 py-0.5 text-xs font-medium">
           Primary
         </span>
       ) : (
@@ -47,7 +47,7 @@ function MemberRow(props: {
           <button
             type="button"
             onClick={onMarkPrimary}
-            className="rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent/30"
+            className="border-border text-muted-foreground hover:bg-accent/30 rounded border px-1.5 py-0.5 text-xs"
           >
             Set primary
           </button>
@@ -70,7 +70,7 @@ export function DuplicatePanel(props: DuplicatePanelProps): React.ReactElement {
     return (
       <div
         data-testid="duplicate-panel"
-        className="flex h-32 items-center justify-center text-sm text-muted-foreground"
+        className="text-muted-foreground flex h-32 items-center justify-center text-sm"
       >
         No duplicate clusters found
       </div>
@@ -88,16 +88,16 @@ export function DuplicatePanel(props: DuplicatePanelProps): React.ReactElement {
           <div
             key={cluster.id}
             data-testid={`cluster-${cluster.id}`}
-            className="rounded border border-border"
+            className="border-border rounded border"
           >
             {/* cluster header */}
             <button
               type="button"
               onClick={() => toggle(cluster.id)}
               aria-expanded={isExpanded}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent/30"
+              className="hover:bg-accent/30 flex w-full items-center gap-2 px-3 py-2 text-left"
             >
-              <span className="text-sm font-medium text-foreground">
+              <span className="text-foreground text-sm font-medium">
                 {cluster.members.length} files
               </span>
               <span
@@ -106,14 +106,14 @@ export function DuplicatePanel(props: DuplicatePanelProps): React.ReactElement {
               >
                 {cluster.status}
               </span>
-              <span className="ml-auto text-xs text-muted-foreground">
+              <span className="text-muted-foreground ml-auto text-xs">
                 {isExpanded ? '▲' : '▼'}
               </span>
             </button>
 
             {/* expanded members */}
             {isExpanded && (
-              <div className="border-t border-border">
+              <div className="border-border border-t">
                 {cluster.members.map((member) => (
                   <MemberRow
                     key={member.id}
@@ -128,7 +128,7 @@ export function DuplicatePanel(props: DuplicatePanelProps): React.ReactElement {
 
                 {/* status controls */}
                 {onUpdateStatus && (
-                  <div className="flex gap-2 border-t border-border px-3 py-2">
+                  <div className="border-border flex gap-2 border-t px-3 py-2">
                     <button
                       type="button"
                       data-testid="mark-reviewed"

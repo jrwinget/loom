@@ -1,6 +1,6 @@
 [package]
 name = "loom-desktop"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Tauri v2 desktop shell for the Loom evidence OS"
 license = "AGPL-3.0-or-later"
@@ -15,6 +15,14 @@ tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-store = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+# persistent rotating shell logs. 2.8 is the floor for
+# RotationStrategy::KeepSome (size-capped file retention).
+tauri-plugin-log = "2.8"
+log = "0.4"
+# diagnostics zip assembly for the export_diagnostics command.
+zip = "4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "process"] }
@@ -39,7 +47,7 @@ sysinfo = { version = "0.39", default-features = false, features = ["disk"] }
 # the latest patch release. this pin holds the whole graph at the
 # last good version. remove once tauri-utils ships a release that
 # builds against time >= 0.3.48, or once a lockfile is committed.
-time = "=0.3.49"
+time = "=0.3.53"
 
 # windows-only: a job object holds the sidecar bootloader so that
 # closing the handle on shell exit cascades termination to every

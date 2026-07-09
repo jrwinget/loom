@@ -15,7 +15,7 @@ function SkeletonBlock(): React.ReactElement {
   return (
     <div
       data-testid="skeleton-event"
-      className="h-28 animate-pulse rounded-lg bg-muted"
+      className="bg-muted h-28 animate-pulse rounded-lg"
     />
   );
 }
@@ -50,9 +50,9 @@ export function TimelineCanvas(props: TimelineCanvasProps): React.ReactElement {
     return (
       <div
         data-testid="timeline-canvas"
-        className="flex h-64 items-center justify-center rounded-lg border border-dashed border-border"
+        className="border-border flex h-64 items-center justify-center rounded-lg border border-dashed"
       >
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           No events on this timeline yet
         </p>
       </div>
@@ -62,15 +62,12 @@ export function TimelineCanvas(props: TimelineCanvasProps): React.ReactElement {
   return (
     <div data-testid="timeline-canvas" className="relative">
       {/* horizontal axis line */}
-      <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-border" />
+      <div className="bg-border absolute top-1/2 right-0 left-0 h-0.5" />
 
       {/* events laid out horizontally */}
       <div className="flex gap-4 overflow-x-auto px-4 py-8">
         {events.map((event) => (
-          <div
-            key={event.id}
-            className="min-w-[220px] max-w-[280px] flex-shrink-0"
-          >
+          <div key={event.id} className="max-w-[280px] min-w-[220px] shrink-0">
             <TimelineEventCard
               event={event}
               selected={selectedEventId === event.id}

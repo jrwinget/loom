@@ -176,6 +176,10 @@
           "transcription_model": {
             "title": "Transcription Model",
             "type": "string"
+          },
+          "whisper_model": {
+            "title": "Whisper Model",
+            "type": "string"
           }
         },
         "required": [
@@ -183,6 +187,7 @@
           "provider",
           "api_base_url",
           "transcription_model",
+          "whisper_model",
           "api_key_set"
         ],
         "title": "AiSettingsResponse",
@@ -245,6 +250,17 @@
               }
             ],
             "title": "Transcription Model"
+          },
+          "whisper_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whisper Model"
           }
         },
         "title": "AiSettingsUpdate",
@@ -6211,7 +6227,7 @@
   "info": {
     "description": "Evidence operating system",
     "title": "Loom",
-    "version": "0.2.0"
+    "version": "0.2.1"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -12766,6 +12782,154 @@
           }
         },
         "summary": "Get Ai Providers",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/engines": {
+      "get": {
+        "description": "probe results plus the whisper model catalog with local state.",
+        "operationId": "engine_status_api_v1_settings_engines_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Engine Status Api V1 Settings Engines Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Engine Status",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/engines/models/{name}": {
+      "delete": {
+        "operationId": "delete_model_api_v1_settings_engines_models__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Model",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/engines/models/{name}/download": {
+      "post": {
+        "description": "start an explicit model download; poll the status endpoint.\n\nthe one deliberate egress on the desktop profile \u2014 admin-only\nand never implicit. 202 with the initial state; idempotent for\nan already-downloaded or already-downloading model.",
+        "operationId": "download_model_api_v1_settings_engines_models__name__download_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Download Model Api V1 Settings Engines Models  Name  Download Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Model",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/engines/models/{name}/status": {
+      "get": {
+        "operationId": "model_status_api_v1_settings_engines_models__name__status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Model Status Api V1 Settings Engines Models  Name  Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Model Status",
         "tags": [
           "settings"
         ]

@@ -79,7 +79,7 @@ export function MultiVideoSync(props: MultiVideoSyncProps): React.ReactElement {
         data-testid="multi-video-empty"
         className="flex h-48 items-center justify-center"
       >
-        <p className="text-sm text-muted-foreground">No videos to sync</p>
+        <p className="text-muted-foreground text-sm">No videos to sync</p>
       </div>
     );
   }
@@ -140,7 +140,7 @@ export function MultiVideoSync(props: MultiVideoSyncProps): React.ReactElement {
           type="button"
           data-testid="play-pause-btn"
           onClick={handlePlayPause}
-          className="rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+          className="bg-primary text-primary-foreground rounded px-3 py-1.5 text-sm"
         >
           {playing ? 'Pause' : 'Play'}
         </button>
@@ -154,7 +154,7 @@ export function MultiVideoSync(props: MultiVideoSyncProps): React.ReactElement {
           className="flex-1"
           aria-label="Seek"
         />
-        <span className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground text-xs">
           {currentTime.toFixed(1)}s
         </span>
       </div>

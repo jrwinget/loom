@@ -38,12 +38,12 @@ export function CaseLayout(): React.ReactElement {
       <div className="space-y-2">
         <Link
           to="/cases"
-          className="text-sm text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground text-sm"
         >
           ‹ Cases
         </Link>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-foreground">
+          <h1 className="text-foreground text-2xl font-semibold">
             {caseData?.name ?? 'Case'}
           </h1>
           {caseData && (
@@ -62,7 +62,7 @@ export function CaseLayout(): React.ReactElement {
       </div>
       <nav
         aria-label="Case sections"
-        className="flex gap-1 border-b border-border"
+        className="border-border flex gap-1 border-b"
       >
         {SECTIONS.map((s) => (
           <NavLink key={s.label} to={s.to} end={s.end} className={sectionClass}>

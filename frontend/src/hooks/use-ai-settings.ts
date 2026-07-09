@@ -7,6 +7,7 @@ export interface AiSettings {
   provider: string;
   apiBaseUrl: string;
   transcriptionModel: string;
+  whisperModel: string;
   apiKeySet: boolean;
 }
 
@@ -18,6 +19,7 @@ export interface AiSettingsUpdate {
   api_base_url?: string;
   transcription_model?: string;
   api_key?: string;
+  whisper_model?: string;
 }
 
 export interface AiProviderModel {

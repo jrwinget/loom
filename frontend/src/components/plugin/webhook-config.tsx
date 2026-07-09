@@ -39,7 +39,7 @@ function DeliveryLog({
   const deliveries = data?.items ?? [];
 
   if (deliveries.length === 0) {
-    return <p className="text-sm text-muted-foreground">No deliveries yet</p>;
+    return <p className="text-muted-foreground text-sm">No deliveries yet</p>;
   }
 
   return (
@@ -68,7 +68,7 @@ function DeliveryLog({
                 {d.statusCode ?? 'failed'}
               </span>
             </td>
-            <td className="py-2 text-muted-foreground">
+            <td className="text-muted-foreground py-2">
               {d.deliveredAt ?? 'pending'}
             </td>
           </tr>
@@ -182,7 +182,7 @@ export function WebhookConfig({
 
         <button
           type="submit"
-          className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground"
+          className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm"
           disabled={!url || selectedEvents.length === 0}
         >
           Add Webhook
@@ -201,7 +201,7 @@ export function WebhookConfig({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">{webhook.url}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     {webhook.events.join(', ')}
                   </p>
                 </div>

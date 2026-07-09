@@ -103,12 +103,12 @@ function ToastItem(props: {
       <span className="mt-0.5 shrink-0" aria-hidden="true">
         {ICON_MAP[toast.type]}
       </span>
-      <p className="flex-1 text-sm text-foreground">{toast.message}</p>
+      <p className="text-foreground flex-1 text-sm">{toast.message}</p>
       <button
         type="button"
         onClick={() => onDismiss(toast.id)}
         aria-label="Dismiss notification"
-        className="shrink-0 text-muted-foreground hover:text-foreground"
+        className="text-muted-foreground hover:text-foreground shrink-0"
       >
         <svg
           className="h-4 w-4"
@@ -156,7 +156,7 @@ export function ToastContainer(): React.ReactElement | null {
     <div
       data-testid="toast-container"
       aria-label="Notifications"
-      className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2"
+      className="pointer-events-none fixed right-4 bottom-4 z-50 flex flex-col gap-2"
     >
       {toasts.map((t) => (
         <div key={t.id} className="pointer-events-auto">

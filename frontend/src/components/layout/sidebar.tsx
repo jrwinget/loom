@@ -60,14 +60,14 @@ export function Sidebar(): React.ReactElement {
     <aside
       data-testid="sidebar"
       aria-label="Main navigation"
-      className={`flex flex-col border-r border-border bg-muted/40 transition-all ${
+      className={`border-border bg-muted/40 flex flex-col border-r transition-all ${
         sidebarOpen ? 'w-60' : 'w-14'
       }`}
     >
       {/* logo / title */}
-      <div className="flex h-14 items-center border-b border-border px-4">
+      <div className="border-border flex h-14 items-center border-b px-4">
         {sidebarOpen && (
-          <span className="text-lg font-semibold text-foreground">Loom</span>
+          <span className="text-foreground text-lg font-semibold">Loom</span>
         )}
       </div>
 
@@ -106,14 +106,21 @@ export function Sidebar(): React.ReactElement {
           pathname={pathname}
           sidebarOpen={sidebarOpen}
         />
+        <NavLink
+          to="/settings/support"
+          label="Support"
+          collapsedGlyph="?"
+          pathname={pathname}
+          sidebarOpen={sidebarOpen}
+        />
       </nav>
 
       {/* collapse / expand */}
-      <div className="border-t border-border p-2">
+      <div className="border-border border-t p-2">
         <button
           type="button"
           onClick={toggleSidebar}
-          className="w-full rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="text-muted-foreground hover:bg-accent hover:text-accent-foreground w-full rounded-md px-3 py-2 text-sm"
           aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           {sidebarOpen ? '←' : '→'}

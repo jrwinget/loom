@@ -90,18 +90,18 @@ export function UploadDropzone(props: UploadDropzoneProps): React.ReactElement {
   return (
     <div data-testid="upload-dropzone">
       <Tabs.Root defaultValue="files" data-testid="upload-tabs">
-        <Tabs.List className="mb-4 flex gap-1 border-b border-border">
+        <Tabs.List className="border-border mb-4 flex gap-1 border-b">
           <Tabs.Trigger
             value="files"
             data-testid="tab-files"
-            className="border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground"
+            className="text-muted-foreground hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground border-b-2 border-transparent px-4 py-2 text-sm font-medium transition-colors"
           >
             Files
           </Tabs.Trigger>
           <Tabs.Trigger
             value="url"
             data-testid="tab-url"
-            className="border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground"
+            className="text-muted-foreground hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground border-b-2 border-transparent px-4 py-2 text-sm font-medium transition-colors"
           >
             URL
           </Tabs.Trigger>
@@ -119,14 +119,14 @@ export function UploadDropzone(props: UploadDropzoneProps): React.ReactElement {
               dragOver ? 'border-primary bg-primary/5' : 'border-border bg-card'
             }`}
           >
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               Drag and drop files here, or
             </p>
             <button
               type="button"
               data-testid="browse-button"
               onClick={handleBrowse}
-              className="mt-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 rounded-md px-4 py-2 text-sm font-medium"
             >
               Browse files
             </button>
@@ -148,16 +148,16 @@ export function UploadDropzone(props: UploadDropzoneProps): React.ReactElement {
                 <div
                   key={f.id}
                   data-testid={`upload-file-${f.id}`}
-                  className="flex items-center gap-3 rounded-md border border-border bg-card p-3"
+                  className="border-border bg-card flex items-center gap-3 rounded-md border p-3"
                 >
                   <div className="min-w-0 flex-1">
                     <p
-                      className="truncate text-sm font-medium text-foreground"
+                      className="text-foreground truncate text-sm font-medium"
                       data-testid="file-name"
                     >
                       {f.file.name}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-muted-foreground text-xs">
                       {formatBytes(f.file.size)}
                     </p>
                   </div>
@@ -170,10 +170,10 @@ export function UploadDropzone(props: UploadDropzoneProps): React.ReactElement {
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-label={`Uploading ${f.file.name}`}
-                      className="h-2 w-24 overflow-hidden rounded-full bg-muted"
+                      className="bg-muted h-2 w-24 overflow-hidden rounded-full"
                     >
                       <div
-                        className="h-full bg-primary transition-all"
+                        className="bg-primary h-full transition-all"
                         style={{
                           width: `${f.progress}%`,
                         }}
@@ -195,7 +195,7 @@ export function UploadDropzone(props: UploadDropzoneProps): React.ReactElement {
                       type="button"
                       data-testid="remove-file"
                       onClick={() => removeFile(f.id)}
-                      className="text-xs text-muted-foreground hover:text-foreground"
+                      className="text-muted-foreground hover:text-foreground text-xs"
                     >
                       Remove
                     </button>
@@ -209,7 +209,7 @@ export function UploadDropzone(props: UploadDropzoneProps): React.ReactElement {
                   type="button"
                   disabled={isUploading}
                   onClick={handleUploadAll}
-                  className="mt-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
                 >
                   {isUploading ? 'Uploading...' : 'Upload all'}
                 </button>

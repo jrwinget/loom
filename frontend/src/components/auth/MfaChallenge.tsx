@@ -67,12 +67,12 @@ export function MfaChallenge(): React.ReactElement {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-8">
+      <div className="border-border bg-card w-full max-w-sm space-y-6 rounded-lg border p-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-foreground text-2xl font-bold">
             Two-Factor Authentication
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-2 text-sm">
             Enter your authenticator code or a recovery code
           </p>
         </div>
@@ -80,7 +80,7 @@ export function MfaChallenge(): React.ReactElement {
           <div>
             <label
               htmlFor="mfa-code"
-              className="block text-sm font-medium text-foreground"
+              className="text-foreground block text-sm font-medium"
             >
               Code
             </label>
@@ -91,27 +91,27 @@ export function MfaChallenge(): React.ReactElement {
               autoComplete="one-time-code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
+              className="border-input bg-background text-foreground mt-1 block w-full rounded-md border px-3 py-2"
               placeholder="000000"
               required
             />
           </div>
           {error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-destructive text-sm">
               {error}
             </p>
           )}
           <button
             type="submit"
             disabled={submitting || !code}
-            className="w-full rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
+            className="bg-primary text-primary-foreground w-full rounded-md px-4 py-2 disabled:opacity-50"
           >
             {submitting ? 'Verifying...' : 'Verify'}
           </button>
           <button
             type="button"
             onClick={clearMfaChallenge}
-            className="w-full text-sm text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground w-full text-sm"
           >
             Back to login
           </button>

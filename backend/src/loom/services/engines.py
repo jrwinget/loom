@@ -20,6 +20,10 @@ REMEDY_WHISPER = (
     "on-device transcription is not installed — use cloud "
     "transcription (Settings → AI) or install the ai extra"
 )
+REMEDY_WHISPER_MODEL = (
+    "no speech model is downloaded — download one in Settings → AI "
+    "(a one-time download), or use cloud transcription"
+)
 REMEDY_TESSERACT = (
     "OCR is not installed — install the ai extra and the tesseract binary"
 )
@@ -48,7 +52,15 @@ class EngineStatus:
 
 
 def _probe_import(module: str, remedy: str) -> EngineStatus:
-    if importlib.util.find_spec(module) is not None:
+    # find_spec imports the parent package of a dotted name first and
+    # RAISES when that parent is absent entirely (pyannote.audio on
+    # any install without the ai extra) — a missing engine, not an
+    # error, so the capabilities endpoint must not 500 on it
+    try:
+        found = importlib.util.find_spec(module) is not None
+    except ModuleNotFoundError:
+        found = False
+    if found:
         return EngineStatus(status="available")
     return EngineStatus(status="missing", remedy=remedy)
 
@@ -75,7 +87,7 @@ def _probe_binary(binary: str, remedy: str) -> EngineStatus:
 def probe_engines() -> dict[str, EngineStatus]:
     """inventory the processing engines this install can actually run."""
     return {
-        "transcription_local": _probe_import("faster_whisper", REMEDY_WHISPER),
+        "transcription_local": _probe_transcription(),
         "ocr": _probe_ocr(),
         "scene_detection": _probe_import("scenedetect", REMEDY_SCENEDETECT),
         "media_pipeline": _probe_binary("ffmpeg", REMEDY_FFMPEG),
@@ -83,10 +95,31 @@ def probe_engines() -> dict[str, EngineStatus]:
     }
 
 
+def _probe_transcription() -> EngineStatus:
+    """the engine import alone is not runnable — weights are separate.
+
+    distinguishing "engine absent" from "engine present, model not
+    downloaded" matters because the operator's next action differs:
+    the first needs a reinstall, the second one click in settings.
+    """
+    status = _probe_import("faster_whisper", REMEDY_WHISPER)
+    if status.status != "available":
+        return status
+
+    # lazy: the registry imports settings, and this module must stay
+    # importable from anywhere without config side effects
+    from loom.services.model_registry import installed_models
+
+    if not installed_models():
+        return EngineStatus(status="missing", remedy=REMEDY_WHISPER_MODEL)
+    return status
+
+
 def _probe_ocr() -> EngineStatus:
     # pytesseract is a thin wrapper; the binary does the work
-    if importlib.util.find_spec("pytesseract") is None:
-        return EngineStatus(status="missing", remedy=REMEDY_TESSERACT)
+    wrapper = _probe_import("pytesseract", REMEDY_TESSERACT)
+    if wrapper.status != "available":
+        return wrapper
     if shutil.which("tesseract") is None:
         return EngineStatus(status="missing", remedy=REMEDY_TESSERACT)
     return EngineStatus(status="available")
