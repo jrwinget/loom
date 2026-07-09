@@ -233,7 +233,7 @@ first run. The layout is:
     loom-originals/          # immutable originals (WORM)
     loom-derivatives/        # proxies, transcripts, thumbnails
   logs/
-    backend.log              # backend process log
+    backend.jsonl            # backend log (rotated, redacted)
 ```
 
 Files inside `buckets/loom-originals/` are marked read-only (OS
