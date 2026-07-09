@@ -47,9 +47,9 @@ export function CaseDetailPage(): React.ReactElement {
         aria-label="Loading case details"
         className="animate-pulse space-y-4"
       >
-        <div className="h-8 w-1/3 rounded bg-muted" />
-        <div className="h-4 w-2/3 rounded bg-muted" />
-        <div className="h-64 rounded bg-muted" />
+        <div className="bg-muted h-8 w-1/3 rounded" />
+        <div className="bg-muted h-4 w-2/3 rounded" />
+        <div className="bg-muted h-64 rounded" />
       </div>
     );
   }
@@ -59,15 +59,15 @@ export function CaseDetailPage(): React.ReactElement {
   return (
     <div className="space-y-6">
       {caseData.description && (
-        <p className="text-sm text-muted-foreground">{caseData.description}</p>
+        <p className="text-muted-foreground text-sm">{caseData.description}</p>
       )}
 
       <Tabs.Root defaultValue="overview">
-        <Tabs.List className="flex gap-1 border-b border-border">
+        <Tabs.List className="border-border flex gap-1 border-b">
           <Tabs.Trigger
             value="overview"
             className={
-              'px-3 py-2 text-sm text-muted-foreground ' +
+              'text-muted-foreground px-3 py-2 text-sm ' +
               'data-[state=active]:border-b-2 ' +
               'data-[state=active]:border-primary ' +
               'data-[state=active]:text-foreground'
@@ -79,7 +79,7 @@ export function CaseDetailPage(): React.ReactElement {
             <Tabs.Trigger
               value="members"
               className={
-                'px-3 py-2 text-sm text-muted-foreground ' +
+                'text-muted-foreground px-3 py-2 text-sm ' +
                 'data-[state=active]:border-b-2 ' +
                 'data-[state=active]:border-primary ' +
                 'data-[state=active]:text-foreground'
@@ -92,32 +92,32 @@ export function CaseDetailPage(): React.ReactElement {
 
         <Tabs.Content value="overview" className="pt-4">
           <div className={'grid grid-cols-1 gap-4 sm:grid-cols-3'}>
-            <div className={'rounded-lg border border-border bg-card p-4'}>
-              <p className="text-xs text-muted-foreground">Assets</p>
-              <p className="text-2xl font-semibold text-foreground">
+            <div className={'border-border bg-card rounded-lg border p-4'}>
+              <p className="text-muted-foreground text-xs">Assets</p>
+              <p className="text-foreground text-2xl font-semibold">
                 {caseData.assetCount}
               </p>
             </div>
-            <div className={'rounded-lg border border-border bg-card p-4'}>
-              <p className="text-xs text-muted-foreground">Events</p>
-              <p className="text-2xl font-semibold text-foreground">
+            <div className={'border-border bg-card rounded-lg border p-4'}>
+              <p className="text-muted-foreground text-xs">Events</p>
+              <p className="text-foreground text-2xl font-semibold">
                 {caseData.eventCount}
               </p>
             </div>
-            <div className={'rounded-lg border border-border bg-card p-4'}>
-              <p className="text-xs text-muted-foreground">Members</p>
-              <p className="text-2xl font-semibold text-foreground">
+            <div className={'border-border bg-card rounded-lg border p-4'}>
+              <p className="text-muted-foreground text-xs">Members</p>
+              <p className="text-foreground text-2xl font-semibold">
                 {members?.length ?? 0}
               </p>
             </div>
           </div>
 
           <div className="mt-6">
-            <h2 className="text-sm font-medium text-foreground">
+            <h2 className="text-foreground text-sm font-medium">
               Recent Activity
             </h2>
             {recentActivity.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="text-muted-foreground mt-2 text-sm">
                 No recent activity to display.
               </p>
             ) : (
@@ -126,15 +126,14 @@ export function CaseDetailPage(): React.ReactElement {
                   <li key={entry.id} className="flex items-start gap-3">
                     <div
                       className={
-                        'mt-1.5 h-2 w-2 flex-shrink-0 ' +
-                        'rounded-full bg-primary'
+                        'mt-1.5 h-2 w-2 shrink-0 ' + 'bg-primary rounded-full'
                       }
                     />
                     <div>
-                      <p className="text-sm text-foreground">
+                      <p className="text-foreground text-sm">
                         {describeAuditEntry(entry)}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-muted-foreground text-xs">
                         {formatAuditTimestamp(entry.timestamp)}
                       </p>
                     </div>
@@ -148,24 +147,24 @@ export function CaseDetailPage(): React.ReactElement {
         {!isLite && (
           <Tabs.Content value="members" className="pt-4">
             {!members || members.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-muted-foreground text-sm">
                 No members assigned to this case.
               </p>
             ) : (
-              <ul className="divide-y divide-border">
+              <ul className="divide-border divide-y">
                 {members.map((m) => (
                   <li
                     key={m.id}
                     className={'flex items-center justify-between py-3'}
                   >
                     <div>
-                      <p className="text-sm font-medium text-foreground">
+                      <p className="text-foreground text-sm font-medium">
                         {m.displayName}
                       </p>
-                      <p className="text-xs text-muted-foreground">{m.email}</p>
+                      <p className="text-muted-foreground text-xs">{m.email}</p>
                     </div>
                     <span
-                      className={'text-xs font-medium text-muted-foreground'}
+                      className={'text-muted-foreground text-xs font-medium'}
                     >
                       {m.role}
                     </span>

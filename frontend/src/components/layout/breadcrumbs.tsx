@@ -83,7 +83,7 @@ export function Breadcrumbs(): React.ReactElement {
 
   return (
     <nav aria-label="Breadcrumb">
-      <ol className="flex items-center gap-1 text-sm text-muted-foreground">
+      <ol className="text-muted-foreground flex items-center gap-1 text-sm">
         {crumbs.map((crumb, i) => {
           const isLast = i === crumbs.length - 1;
           return (

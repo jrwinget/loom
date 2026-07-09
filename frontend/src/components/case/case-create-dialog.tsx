@@ -38,36 +38,36 @@ export function CaseCreateDialog(
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 shadow-lg">
-          <Dialog.Title className="text-lg font-semibold text-foreground">
+        <Dialog.Content className="border-border bg-card fixed top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border p-6 shadow-lg">
+          <Dialog.Title className="text-foreground text-lg font-semibold">
             Create Case
           </Dialog.Title>
-          <Dialog.Description className="mt-1 text-sm text-muted-foreground">
+          <Dialog.Description className="text-muted-foreground mt-1 text-sm">
             Provide a name and optional description.
           </Dialog.Description>
 
           <form onSubmit={handleSubmit} className="mt-4">
             <label className="block">
-              <span className="text-sm font-medium text-foreground">Name</span>
+              <span className="text-foreground text-sm font-medium">Name</span>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-ring mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-hidden"
                 placeholder="Case name"
               />
             </label>
 
             <label className="mt-3 block">
-              <span className="text-sm font-medium text-foreground">
+              <span className="text-foreground text-sm font-medium">
                 Description
               </span>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-ring mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-hidden"
                 placeholder="Optional description"
               />
             </label>
@@ -76,7 +76,7 @@ export function CaseCreateDialog(
               <Dialog.Close asChild>
                 <button
                   type="button"
-                  className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent"
+                  className="text-muted-foreground hover:bg-accent rounded-md px-3 py-2 text-sm"
                 >
                   Cancel
                 </button>
@@ -84,7 +84,7 @@ export function CaseCreateDialog(
               <button
                 type="submit"
                 disabled={createCase.isPending}
-                className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-2 text-sm disabled:opacity-50"
               >
                 {createCase.isPending ? 'Creating...' : 'Create'}
               </button>

@@ -27,21 +27,21 @@ export function ExportPage(): React.ReactElement {
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-foreground">Exports</h1>
+      <h1 className="text-foreground text-2xl font-bold">Exports</h1>
 
       <Tabs.Root defaultValue="bundle" data-testid="export-tabs">
-        <Tabs.List className="flex gap-1 border-b border-border">
+        <Tabs.List className="border-border flex gap-1 border-b">
           <Tabs.Trigger
             value="bundle"
             data-testid="tab-bundle"
-            className="border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground"
+            className="text-muted-foreground hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground border-b-2 border-transparent px-4 py-2 text-sm font-medium transition-colors"
           >
             Export Bundle
           </Tabs.Trigger>
           <Tabs.Trigger
             value="report"
             data-testid="tab-report"
-            className="border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground"
+            className="text-muted-foreground hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground border-b-2 border-transparent px-4 py-2 text-sm font-medium transition-colors"
           >
             Evidence Report
           </Tabs.Trigger>
@@ -53,7 +53,7 @@ export function ExportPage(): React.ReactElement {
             <button
               type="button"
               onClick={() => setWizardOpen(true)}
-              className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm"
               data-testid="new-export-btn"
             >
               New Export
@@ -68,11 +68,11 @@ export function ExportPage(): React.ReactElement {
           )}
 
           {isLoading && (
-            <p className="text-sm text-muted-foreground">Loading exports...</p>
+            <p className="text-muted-foreground text-sm">Loading exports...</p>
           )}
 
           {!isLoading && exports.length === 0 && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               No exports yet. Create one to get started.
             </p>
           )}
@@ -82,12 +82,12 @@ export function ExportPage(): React.ReactElement {
               {exports.map((exp) => (
                 <div
                   key={exp.id}
-                  className="flex items-center justify-between rounded-md border border-border p-4"
+                  className="border-border flex items-center justify-between rounded-md border p-4"
                   data-testid={`export-row-${exp.id}`}
                 >
                   <div>
-                    <p className="font-medium text-foreground">{exp.name}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-foreground font-medium">{exp.name}</p>
+                    <p className="text-muted-foreground text-xs">
                       {exp.format} — created{' '}
                       {new Date(exp.createdAt).toLocaleDateString()}
                     </p>
@@ -105,7 +105,7 @@ export function ExportPage(): React.ReactElement {
                         type="button"
                         onClick={() => downloadExport.mutate(exp.id)}
                         disabled={downloadExport.isPending}
-                        className="text-sm text-primary hover:underline disabled:opacity-50"
+                        className="text-primary text-sm hover:underline disabled:opacity-50"
                         data-testid={`export-download-${exp.id}`}
                       >
                         {downloadExport.isPending &&

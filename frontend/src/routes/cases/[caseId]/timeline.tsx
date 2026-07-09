@@ -122,7 +122,7 @@ export function TimelinePage(): React.ReactElement {
 
   return (
     <div className="flex flex-col gap-4 p-6">
-      <h1 className="text-2xl font-bold text-foreground">Timeline</h1>
+      <h1 className="text-foreground text-2xl font-bold">Timeline</h1>
 
       <TimelineControls
         onAddEvent={handleAddEvent}
@@ -180,16 +180,16 @@ export function TimelinePage(): React.ReactElement {
           >
             <h2
               id="event-detail-title"
-              className="text-lg font-semibold text-foreground"
+              className="text-foreground text-lg font-semibold"
             >
               {selectedEvent.title}
             </h2>
             {selectedEvent.description && (
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="text-muted-foreground mt-2 text-sm">
                 {selectedEvent.description}
               </p>
             )}
-            <div className={'mt-4 space-y-2 text-sm text-muted-foreground'}>
+            <div className={'text-muted-foreground mt-4 space-y-2 text-sm'}>
               <p>
                 Status:{' '}
                 <span className="font-medium">{selectedEvent.status}</span>
@@ -246,11 +246,11 @@ function AddEventForm(props: AddEventFormProps): React.ReactElement {
     <form
       data-testid="add-event-form"
       onSubmit={handleSubmit}
-      className={'rounded-lg border border-border bg-card p-4 ' + 'space-y-3'}
+      className={'border-border bg-card rounded-lg border p-4 ' + 'space-y-3'}
     >
-      <h3 className="text-sm font-semibold text-foreground">New Event</h3>
+      <h3 className="text-foreground text-sm font-semibold">New Event</h3>
       <div>
-        <label htmlFor="event-title" className="text-xs text-muted-foreground">
+        <label htmlFor="event-title" className="text-muted-foreground text-xs">
           Title
         </label>
         <input
@@ -260,15 +260,15 @@ function AddEventForm(props: AddEventFormProps): React.ReactElement {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className={
-            'mt-1 w-full rounded-md border border-border ' +
-            'bg-background px-3 py-1.5 text-sm text-foreground'
+            'border-border mt-1 w-full rounded-md border ' +
+            'bg-background text-foreground px-3 py-1.5 text-sm'
           }
         />
       </div>
       <div>
         <label
           htmlFor="event-description"
-          className="text-xs text-muted-foreground"
+          className="text-muted-foreground text-xs"
         >
           Description
         </label>
@@ -278,15 +278,15 @@ function AddEventForm(props: AddEventFormProps): React.ReactElement {
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
           className={
-            'mt-1 w-full rounded-md border border-border ' +
-            'bg-background px-3 py-1.5 text-sm text-foreground'
+            'border-border mt-1 w-full rounded-md border ' +
+            'bg-background text-foreground px-3 py-1.5 text-sm'
           }
         />
       </div>
       <div>
         <label
           htmlFor="event-occurred-at"
-          className="text-xs text-muted-foreground"
+          className="text-muted-foreground text-xs"
         >
           Occurred at
         </label>
@@ -297,8 +297,8 @@ function AddEventForm(props: AddEventFormProps): React.ReactElement {
           value={occurredAt}
           onChange={(e) => setOccurredAt(e.target.value)}
           className={
-            'mt-1 w-full rounded-md border border-border ' +
-            'bg-background px-3 py-1.5 text-sm text-foreground'
+            'border-border mt-1 w-full rounded-md border ' +
+            'bg-background text-foreground px-3 py-1.5 text-sm'
           }
         />
       </div>
@@ -307,8 +307,8 @@ function AddEventForm(props: AddEventFormProps): React.ReactElement {
           type="submit"
           disabled={submitting}
           className={
-            'rounded-md bg-primary px-3 py-1.5 text-sm ' +
-            'font-medium text-primary-foreground ' +
+            'bg-primary rounded-md px-3 py-1.5 text-sm ' +
+            'text-primary-foreground font-medium ' +
             'hover:bg-primary/90 disabled:opacity-50'
           }
         >
@@ -318,8 +318,8 @@ function AddEventForm(props: AddEventFormProps): React.ReactElement {
           type="button"
           onClick={onCancel}
           className={
-            'rounded-md border border-border px-3 py-1.5 ' +
-            'text-sm text-muted-foreground hover:bg-accent'
+            'border-border rounded-md border px-3 py-1.5 ' +
+            'text-muted-foreground hover:bg-accent text-sm'
           }
         >
           Cancel

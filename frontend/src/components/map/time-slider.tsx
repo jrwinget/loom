@@ -77,7 +77,7 @@ export function TimeSlider(props: TimeSliderProps): React.ReactElement {
 
   return (
     <div data-testid="time-slider" className="flex flex-col gap-2 px-4 py-3">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <div className="text-muted-foreground flex items-center justify-between text-xs">
         <span data-testid="time-label-start">
           {formatLabel(toIso(localStart))}
         </span>

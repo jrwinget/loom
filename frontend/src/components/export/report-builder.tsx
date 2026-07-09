@@ -61,28 +61,28 @@ export function ReportBuilder(props: ReportBuilderProps): React.ReactElement {
     <div data-testid="report-builder" className="space-y-6">
       {/* date range */}
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-foreground">
+        <legend className="text-foreground text-sm font-medium">
           Date Range
         </legend>
         <div className="flex gap-3">
           <label className="block flex-1">
-            <span className="text-xs text-muted-foreground">Start</span>
+            <span className="text-muted-foreground text-xs">Start</span>
             <input
               type="date"
               value={dateStart}
               onChange={(e) => setDateStart(e.target.value)}
               data-testid="report-date-start"
-              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+              className="border-border bg-background text-foreground mt-1 block w-full rounded-md border px-3 py-2 text-sm"
             />
           </label>
           <label className="block flex-1">
-            <span className="text-xs text-muted-foreground">End</span>
+            <span className="text-muted-foreground text-xs">End</span>
             <input
               type="date"
               value={dateEnd}
               onChange={(e) => setDateEnd(e.target.value)}
               data-testid="report-date-end"
-              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+              className="border-border bg-background text-foreground mt-1 block w-full rounded-md border px-3 py-2 text-sm"
             />
           </label>
         </div>
@@ -90,19 +90,19 @@ export function ReportBuilder(props: ReportBuilderProps): React.ReactElement {
 
       {/* event selection */}
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-foreground">Events</legend>
+        <legend className="text-foreground text-sm font-medium">Events</legend>
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={allEvents}
             onChange={(e) => setAllEvents(e.target.checked)}
-            className="h-4 w-4 rounded border-border"
+            className="border-border h-4 w-4 rounded"
           />
-          <span className="text-sm text-foreground">All events</span>
+          <span className="text-foreground text-sm">All events</span>
         </label>
         {!allEvents && (
           <div
-            className="max-h-40 space-y-1 overflow-y-auto rounded border border-border p-2"
+            className="border-border max-h-40 space-y-1 overflow-y-auto rounded border p-2"
             data-testid="event-checkboxes"
           >
             {events.map((event) => (
@@ -111,9 +111,9 @@ export function ReportBuilder(props: ReportBuilderProps): React.ReactElement {
                   type="checkbox"
                   checked={selectedEventIds.has(event.id)}
                   onChange={() => toggleEvent(event.id)}
-                  className="h-4 w-4 rounded border-border"
+                  className="border-border h-4 w-4 rounded"
                 />
-                <span className="text-sm text-foreground">{event.title}</span>
+                <span className="text-foreground text-sm">{event.title}</span>
               </label>
             ))}
           </div>
@@ -122,7 +122,7 @@ export function ReportBuilder(props: ReportBuilderProps): React.ReactElement {
 
       {/* section toggles */}
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-foreground">
+        <legend className="text-foreground text-sm font-medium">
           Include Sections
         </legend>
         <label className="flex items-center gap-2">
@@ -130,33 +130,33 @@ export function ReportBuilder(props: ReportBuilderProps): React.ReactElement {
             type="checkbox"
             checked={includeEvidence}
             onChange={(e) => setIncludeEvidence(e.target.checked)}
-            className="h-4 w-4 rounded border-border"
+            className="border-border h-4 w-4 rounded"
           />
-          <span className="text-sm text-foreground">Evidence</span>
+          <span className="text-foreground text-sm">Evidence</span>
         </label>
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={includeContradictions}
             onChange={(e) => setIncludeContradictions(e.target.checked)}
-            className="h-4 w-4 rounded border-border"
+            className="border-border h-4 w-4 rounded"
           />
-          <span className="text-sm text-foreground">Contradictions</span>
+          <span className="text-foreground text-sm">Contradictions</span>
         </label>
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={includeCustody}
             onChange={(e) => setIncludeCustody(e.target.checked)}
-            className="h-4 w-4 rounded border-border"
+            className="border-border h-4 w-4 rounded"
           />
-          <span className="text-sm text-foreground">Chain of Custody</span>
+          <span className="text-foreground text-sm">Chain of Custody</span>
         </label>
       </fieldset>
 
       {/* executive summary */}
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-foreground">
+        <legend className="text-foreground text-sm font-medium">
           Executive Summary
         </legend>
         <textarea
@@ -165,7 +165,7 @@ export function ReportBuilder(props: ReportBuilderProps): React.ReactElement {
           data-testid="report-summary"
           placeholder="Brief overview of the case and key findings..."
           rows={4}
-          className="block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+          className="border-border bg-background text-foreground placeholder:text-muted-foreground block w-full rounded-md border px-3 py-2 text-sm"
         />
       </fieldset>
 
@@ -175,7 +175,7 @@ export function ReportBuilder(props: ReportBuilderProps): React.ReactElement {
         data-testid="generate-report-btn"
         onClick={handleSubmit}
         disabled={createExport.isPending}
-        className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm disabled:opacity-50"
       >
         {createExport.isPending ? 'Generating...' : 'Generate Report'}
       </button>

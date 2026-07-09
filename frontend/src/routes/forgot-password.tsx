@@ -72,21 +72,21 @@ export function ForgotPasswordPage(): React.ReactElement {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <div
-          className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-card p-8 text-center"
+          className="border-border bg-card w-full max-w-sm space-y-4 rounded-lg border p-8 text-center"
           data-testid="forgot-password-success"
         >
-          <h1 className="text-xl font-semibold text-foreground">
+          <h1 className="text-foreground text-xl font-semibold">
             Password reset
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             You can now sign in with your new password.
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-muted-foreground text-xs">
             {remaining === 0
               ? 'You have no recovery codes left. Generate a new set after signing in.'
               : `${remaining} recovery code${remaining === 1 ? '' : 's'} remaining.`}
           </p>
-          <p className="text-xs text-muted-foreground">Redirecting…</p>
+          <p className="text-muted-foreground text-xs">Redirecting…</p>
         </div>
       </div>
     );
@@ -94,12 +94,12 @@ export function ForgotPasswordPage(): React.ReactElement {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-8">
+      <div className="border-border bg-card w-full max-w-sm space-y-6 rounded-lg border p-8">
         <header className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-foreground text-2xl font-bold">
             Recover your password
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-2 text-sm">
             Enter one of the single-use codes you saved when you first set up
             Loom.
           </p>
@@ -109,7 +109,7 @@ export function ForgotPasswordPage(): React.ReactElement {
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-foreground"
+              className="text-foreground block text-sm font-medium"
             >
               Email
             </label>
@@ -119,14 +119,14 @@ export function ForgotPasswordPage(): React.ReactElement {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
+              className="border-input bg-background text-foreground mt-1 block w-full rounded-md border px-3 py-2"
               required
             />
           </div>
           <div>
             <label
               htmlFor="code"
-              className="block text-sm font-medium text-foreground"
+              className="text-foreground block text-sm font-medium"
             >
               Recovery code
             </label>
@@ -138,7 +138,7 @@ export function ForgotPasswordPage(): React.ReactElement {
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="aaaaa-bbbbb-ccccc-ddddd"
-              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-foreground"
+              className="border-input bg-background text-foreground mt-1 block w-full rounded-md border px-3 py-2 font-mono"
               required
               minLength={20}
             />
@@ -146,7 +146,7 @@ export function ForgotPasswordPage(): React.ReactElement {
           <div>
             <label
               htmlFor="new-password"
-              className="block text-sm font-medium text-foreground"
+              className="text-foreground block text-sm font-medium"
             >
               New password (minimum {MIN_PASSWORD_LENGTH} characters)
             </label>
@@ -156,7 +156,7 @@ export function ForgotPasswordPage(): React.ReactElement {
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
+              className="border-input bg-background text-foreground mt-1 block w-full rounded-md border px-3 py-2"
               required
               minLength={MIN_PASSWORD_LENGTH}
             />
@@ -164,7 +164,7 @@ export function ForgotPasswordPage(): React.ReactElement {
           <div>
             <label
               htmlFor="confirm-password"
-              className="block text-sm font-medium text-foreground"
+              className="text-foreground block text-sm font-medium"
             >
               Confirm new password
             </label>
@@ -174,19 +174,19 @@ export function ForgotPasswordPage(): React.ReactElement {
               autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
+              className="border-input bg-background text-foreground mt-1 block w-full rounded-md border px-3 py-2"
               required
             />
           </div>
           {error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-destructive text-sm">
               {error}
             </p>
           )}
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
+            className="bg-primary text-primary-foreground w-full rounded-md px-4 py-2 disabled:opacity-50"
           >
             {submitting ? 'Resetting…' : 'Reset password'}
           </button>

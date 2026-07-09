@@ -109,9 +109,9 @@ export function LoginPage(): React.ReactElement {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-8">
+      <div className="border-border bg-card w-full max-w-sm space-y-6 rounded-lg border p-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-foreground text-2xl font-bold">
             Sign in to Loom
           </h1>
         </div>
@@ -119,7 +119,7 @@ export function LoginPage(): React.ReactElement {
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-foreground"
+              className="text-foreground block text-sm font-medium"
             >
               Email
             </label>
@@ -129,14 +129,14 @@ export function LoginPage(): React.ReactElement {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
+              className="border-input bg-background text-foreground mt-1 block w-full rounded-md border px-3 py-2"
               required
             />
           </div>
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-foreground"
+              className="text-foreground block text-sm font-medium"
             >
               Password
             </label>
@@ -146,25 +146,25 @@ export function LoginPage(): React.ReactElement {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
+              className="border-input bg-background text-foreground mt-1 block w-full rounded-md border px-3 py-2"
               required
             />
           </div>
           {error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-destructive text-sm">
               {error}
             </p>
           )}
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
+            className="bg-primary text-primary-foreground w-full rounded-md px-4 py-2 disabled:opacity-50"
           >
             {submitting ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
 
-        <div className="space-y-2 border-t border-border pt-4 text-center text-sm">
+        <div className="border-border space-y-2 border-t pt-4 text-center text-sm">
           {firstRunLoading && (
             <p className="text-muted-foreground" data-testid="recovery-loading">
               Loading recovery options…
@@ -183,7 +183,7 @@ export function LoginPage(): React.ReactElement {
           {!firstRunLoading && !firstRunError && showRecoveryLink && (
             <Link
               to="/forgot-password"
-              className="block text-muted-foreground hover:underline"
+              className="text-muted-foreground block hover:underline"
               data-testid="forgot-password-link"
             >
               Forgot your password?
@@ -193,7 +193,7 @@ export function LoginPage(): React.ReactElement {
             <button
               type="button"
               onClick={() => setResetOpen(true)}
-              className="text-xs text-destructive hover:underline"
+              className="text-destructive text-xs hover:underline"
               data-testid="factory-reset-link"
             >
               Reset Loom (deletes all data)

@@ -13,15 +13,15 @@ export function CaseListPage(): React.ReactElement {
       {/* page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Cases</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-foreground text-2xl font-semibold">Cases</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
             Manage your investigation cases.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setDialogOpen(true)}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium"
         >
           Create Case
         </button>

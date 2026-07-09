@@ -190,10 +190,10 @@ export function FirstRunPage(): React.ReactElement {
   if (isError || !status) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-card p-8 text-center">
+        <div className="border-border bg-card w-full max-w-sm space-y-4 rounded-lg border p-8 text-center">
           <p
             role="alert"
-            className="text-sm text-destructive"
+            className="text-destructive text-sm"
             data-testid="first-run-error"
           >
             Couldn&apos;t reach the backend. If this persists, restart Loom or
@@ -203,7 +203,7 @@ export function FirstRunPage(): React.ReactElement {
             <button
               type="button"
               onClick={() => setResetOpen(true)}
-              className="text-xs text-destructive hover:underline"
+              className="text-destructive text-xs hover:underline"
               data-testid="factory-reset-link"
             >
               Reset Loom (deletes all data)
@@ -228,12 +228,12 @@ export function FirstRunPage(): React.ReactElement {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="w-full max-w-lg space-y-6 rounded-lg border border-border bg-card p-8">
+      <div className="border-border bg-card w-full max-w-lg space-y-6 rounded-lg border p-8">
         <header className="space-y-2 text-center">
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-foreground text-2xl font-bold">
             Welcome to Loom
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Loom combines source documents into defensible event timelines.
           </p>
         </header>
@@ -247,21 +247,21 @@ export function FirstRunPage(): React.ReactElement {
             <div>
               <h2
                 id="data-dir-heading"
-                className="text-lg font-semibold text-foreground"
+                className="text-foreground text-lg font-semibold"
               >
                 Pick a data directory
               </h2>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-muted-foreground text-sm">
                 Loom stores originals, derivatives, and its SQLite database
                 under this folder. Pick an external drive if you expect large
                 case files.
               </p>
             </div>
 
-            <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+            <div className="border-border bg-muted/40 rounded-md border p-3 text-sm">
               <p className="text-muted-foreground">Current data directory</p>
               <p
-                className="break-all font-mono text-foreground"
+                className="text-foreground font-mono break-all"
                 data-testid="chosen-data-dir"
               >
                 {chosenDir ?? defaultDir ?? '(unset)'}
@@ -269,13 +269,13 @@ export function FirstRunPage(): React.ReactElement {
             </div>
 
             {dirError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-destructive text-sm">
                 {dirError}
               </p>
             )}
 
             {changed && (
-              <p className="rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
+              <p className="border-border bg-muted/40 text-muted-foreground rounded-md border p-2 text-xs">
                 Loom will switch to this directory when you continue.
               </p>
             )}
@@ -285,7 +285,7 @@ export function FirstRunPage(): React.ReactElement {
                 type="button"
                 onClick={handleContinueFromDir}
                 disabled={switching || check.isPending}
-                className="flex-1 rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {switching ? 'Switching…' : 'Use this directory'}
               </button>
@@ -293,7 +293,7 @@ export function FirstRunPage(): React.ReactElement {
                 type="button"
                 onClick={handlePickDifferent}
                 disabled={switching || check.isPending}
-                className="flex-1 rounded-md border border-border bg-background px-4 py-2 text-foreground hover:bg-accent disabled:opacity-50"
+                className="border-border bg-background text-foreground hover:bg-accent flex-1 rounded-md border px-4 py-2 disabled:opacity-50"
               >
                 {check.isPending ? 'Validating…' : 'Pick different directory…'}
               </button>
@@ -303,14 +303,14 @@ export function FirstRunPage(): React.ReactElement {
 
         {step === 'admin' && (
           <>
-            <p className="text-center text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-center text-sm">
               Let&apos;s set up your admin account.
             </p>
 
             {isLite && chosenDir && (
-              <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+              <div className="border-border bg-muted/40 rounded-md border p-3 text-sm">
                 <p className="text-muted-foreground">Data directory</p>
-                <p className="break-all font-mono text-foreground">
+                <p className="text-foreground font-mono break-all">
                   {chosenDir}
                 </p>
               </div>
@@ -320,7 +320,7 @@ export function FirstRunPage(): React.ReactElement {
               <div>
                 <label
                   htmlFor="fullName"
-                  className="block text-sm font-medium text-foreground"
+                  className="text-foreground block text-sm font-medium"
                 >
                   Full name
                 </label>
@@ -330,7 +330,7 @@ export function FirstRunPage(): React.ReactElement {
                   autoComplete="name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
+                  className="border-input bg-background text-foreground mt-1 block w-full rounded-md border px-3 py-2"
                   required
                   minLength={1}
                 />
@@ -338,7 +338,7 @@ export function FirstRunPage(): React.ReactElement {
               <div>
                 <label
                   htmlFor="email"
-                  className="block text-sm font-medium text-foreground"
+                  className="text-foreground block text-sm font-medium"
                 >
                   Email
                 </label>
@@ -348,14 +348,14 @@ export function FirstRunPage(): React.ReactElement {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
+                  className="border-input bg-background text-foreground mt-1 block w-full rounded-md border px-3 py-2"
                   required
                 />
               </div>
               <div>
                 <label
                   htmlFor="password"
-                  className="block text-sm font-medium text-foreground"
+                  className="text-foreground block text-sm font-medium"
                 >
                   Password (minimum {MIN_PASSWORD_LENGTH} characters)
                 </label>
@@ -365,7 +365,7 @@ export function FirstRunPage(): React.ReactElement {
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
+                  className="border-input bg-background text-foreground mt-1 block w-full rounded-md border px-3 py-2"
                   required
                   minLength={MIN_PASSWORD_LENGTH}
                 />
@@ -373,7 +373,7 @@ export function FirstRunPage(): React.ReactElement {
               <div>
                 <label
                   htmlFor="confirm"
-                  className="block text-sm font-medium text-foreground"
+                  className="text-foreground block text-sm font-medium"
                 >
                   Confirm password
                 </label>
@@ -383,19 +383,19 @@ export function FirstRunPage(): React.ReactElement {
                   autoComplete="new-password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
+                  className="border-input bg-background text-foreground mt-1 block w-full rounded-md border px-3 py-2"
                   required
                 />
               </div>
               {error && (
-                <p role="alert" className="text-sm text-destructive">
+                <p role="alert" className="text-destructive text-sm">
                   {error}
                 </p>
               )}
               <button
                 type="submit"
                 disabled={complete.isPending}
-                className="w-full rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
+                className="bg-primary text-primary-foreground w-full rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {complete.isPending
                   ? 'Creating account…'

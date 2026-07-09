@@ -29,16 +29,16 @@ export function BackendBootGate({
   if (status === 'error') {
     return (
       <div className="flex min-h-screen items-center justify-center px-4 py-12">
-        <div className="w-full max-w-lg space-y-4 rounded-lg border border-border bg-card p-8">
-          <h1 className="text-xl font-semibold text-foreground">
+        <div className="border-border bg-card w-full max-w-lg space-y-4 rounded-lg border p-8">
+          <h1 className="text-foreground text-xl font-semibold">
             Loom backend did not start
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             The local backend exited before it could answer a health check. The
             captured output is below.
           </p>
           <pre
-            className="max-h-64 overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs text-foreground"
+            className="border-border bg-muted/40 text-foreground max-h-64 overflow-auto rounded-md border p-3 text-xs"
             data-testid="backend-error-output"
           >
             {error ?? 'unknown error'}
@@ -47,7 +47,7 @@ export function BackendBootGate({
             type="button"
             onClick={handleRetry}
             disabled={retrying}
-            className="rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 disabled:opacity-50"
           >
             {retrying ? 'Retrying…' : 'Retry'}
           </button>
@@ -58,11 +58,11 @@ export function BackendBootGate({
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md space-y-3 rounded-lg border border-border bg-card p-8 text-center">
-        <h1 className="text-lg font-semibold text-foreground">
+      <div className="border-border bg-card w-full max-w-md space-y-3 rounded-lg border p-8 text-center">
+        <h1 className="text-foreground text-lg font-semibold">
           Loom is starting…
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           Waiting for the local backend to come online.
         </p>
       </div>

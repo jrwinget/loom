@@ -46,7 +46,7 @@ export function StorageAdvisory(
     <div
       role="alert"
       data-testid="storage-advisory"
-      className="border-warning/60 bg-warning/10 mb-3 flex flex-col gap-2 rounded-md border p-3 text-sm text-foreground sm:flex-row sm:items-center sm:justify-between"
+      className="border-warning/60 bg-warning/10 text-foreground mb-3 flex flex-col gap-2 rounded-md border p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
         <p className="font-medium">Low free space on data drive</p>
@@ -56,7 +56,7 @@ export function StorageAdvisory(
       </div>
       <Link
         to="/settings/storage"
-        className="shrink-0 rounded-md border border-border bg-background px-3 py-1 text-xs font-medium text-foreground hover:bg-accent"
+        className="border-border bg-background text-foreground hover:bg-accent shrink-0 rounded-md border px-3 py-1 text-xs font-medium"
       >
         Change storage in Settings
       </Link>

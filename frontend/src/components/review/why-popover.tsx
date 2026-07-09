@@ -75,9 +75,9 @@ export function WhyPopover(props: WhyPopoverProps): React.ReactElement {
           toggle();
         }}
         className={cn(
-          'rounded border border-border px-1.5 py-0 text-[10px] font-medium',
+          'border-border rounded border px-1.5 py-0 text-[10px] font-medium',
           'text-muted-foreground hover:border-foreground/40 hover:text-foreground',
-          'focus:outline-none focus:ring-1 focus:ring-primary',
+          'focus:ring-primary focus:ring-1 focus:outline-hidden',
         )}
       >
         {label}
@@ -88,11 +88,11 @@ export function WhyPopover(props: WhyPopoverProps): React.ReactElement {
           data-testid="why-popover-content"
           aria-label="AI output provenance"
           className={cn(
-            'absolute z-50 mt-1 w-72 rounded border border-border bg-popover p-3',
-            'text-xs text-popover-foreground shadow-md',
+            'border-border bg-popover absolute z-50 mt-1 w-72 rounded border p-3',
+            'text-popover-foreground text-xs shadow-md',
           )}
         >
-          <p className="mb-2 text-[11px] font-semibold text-muted-foreground">
+          <p className="text-muted-foreground mb-2 text-[11px] font-semibold">
             {scope}
           </p>
           <dl className="space-y-1">
@@ -116,13 +116,13 @@ export function WhyPopover(props: WhyPopoverProps): React.ReactElement {
                 </div>
               ))}
           </dl>
-          <p className="mt-2 border-t border-border pt-2 text-[10px] text-muted-foreground">
+          <p className="border-border text-muted-foreground mt-2 border-t pt-2 text-[10px]">
             AI output — verify before relying on it.{' '}
             <a
               href="https://github.com/jrwinget/loom/blob/main/docs/ai-model-cards.md"
               target="_blank"
               rel="noreferrer"
-              className="underline hover:text-foreground"
+              className="hover:text-foreground underline"
             >
               Model card
             </a>
@@ -131,7 +131,7 @@ export function WhyPopover(props: WhyPopoverProps): React.ReactElement {
             <p className="mt-1 text-[10px]">
               <a
                 href={sourceHref}
-                className="text-primary underline hover:text-primary/80"
+                className="text-primary hover:text-primary/80 underline"
               >
                 {sourceLabel}
               </a>

@@ -100,8 +100,8 @@ export function TranscriptPanel(
   return (
     <div data-testid="transcript-panel" className="flex h-full flex-col">
       {/* header with speaker filter */}
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <span className="text-xs font-medium text-foreground">Transcript</span>
+      <div className="border-border flex items-center gap-2 border-b px-3 py-2">
+        <span className="text-foreground text-xs font-medium">Transcript</span>
         <span
           data-testid="ai-generated-badge"
           aria-label="AI-generated content"
@@ -115,7 +115,7 @@ export function TranscriptPanel(
             aria-label="Filter by speaker"
             value={speakerFilter ?? ''}
             onChange={(e) => setSpeakerFilter(e.target.value || null)}
-            className="ml-auto rounded border border-border bg-card px-2 py-0.5 text-xs text-foreground"
+            className="border-border bg-card text-foreground ml-auto rounded border px-2 py-0.5 text-xs"
           >
             <option value="">All speakers</option>
             {speakers.map((s) => (
@@ -129,12 +129,12 @@ export function TranscriptPanel(
 
       {/* annotation creation button */}
       {selectedText && onCreateAnnotation && (
-        <div className="border-b border-border px-3 py-1">
+        <div className="border-border border-b px-3 py-1">
           <button
             type="button"
             data-testid="create-annotation-btn"
             onClick={handleCreateAnnotation}
-            className="rounded bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground"
+            className="bg-primary text-primary-foreground rounded px-2 py-0.5 text-xs font-medium"
           >
             Create Annotation
           </button>
@@ -149,7 +149,7 @@ export function TranscriptPanel(
         data-testid="segments-container"
       >
         {filtered.length === 0 && (
-          <p className="p-4 text-sm text-muted-foreground">
+          <p className="text-muted-foreground p-4 text-sm">
             No transcript segments available
           </p>
         )}
@@ -169,7 +169,7 @@ export function TranscriptPanel(
                   onSeek(seg.startTime);
                 }
               }}
-              className={`cursor-pointer border-l-2 px-3 py-2 transition-colors hover:bg-accent/30 ${
+              className={`hover:bg-accent/30 cursor-pointer border-l-2 px-3 py-2 transition-colors ${
                 isActive
                   ? 'border-l-primary bg-accent/50'
                   : 'border-l-transparent'
@@ -187,7 +187,7 @@ export function TranscriptPanel(
                     {seg.speakerLabel}
                   </span>
                 )}
-                <span className="text-xs text-muted-foreground">
+                <span className="text-muted-foreground text-xs">
                   {formatTimestamp(seg.startTime)}
                   {' - '}
                   {formatTimestamp(seg.endTime)}
@@ -220,7 +220,7 @@ export function TranscriptPanel(
                   />
                 </div>
               </div>
-              <p className="mt-0.5 text-sm text-foreground">{seg.text}</p>
+              <p className="text-foreground mt-0.5 text-sm">{seg.text}</p>
             </div>
           );
         })}

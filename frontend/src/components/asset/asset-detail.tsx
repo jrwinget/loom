@@ -47,8 +47,8 @@ interface MetaRowProps {
 function MetaRow(props: MetaRowProps): React.ReactElement {
   return (
     <div className="flex justify-between py-1.5">
-      <span className="text-xs text-muted-foreground">{props.label}</span>
-      <span className="text-xs font-medium text-foreground">{props.value}</span>
+      <span className="text-muted-foreground text-xs">{props.label}</span>
+      <span className="text-foreground text-xs font-medium">{props.value}</span>
     </div>
   );
 }
@@ -103,12 +103,12 @@ function ClockDriftBadge(
       data-testid="clock-drift-row"
       className="flex items-center justify-between py-1.5"
     >
-      <span className="text-xs text-muted-foreground">Clock</span>
+      <span className="text-muted-foreground text-xs">Clock</span>
       <span className="flex items-center gap-2">
         {offsetSeconds !== null && (
           <span
             data-testid="clock-offset"
-            className="text-xs font-medium text-foreground"
+            className="text-foreground text-xs font-medium"
           >
             {formatOffset(offsetSeconds)}
           </span>
@@ -145,15 +145,13 @@ function CustodyTimeline(props: {
       {props.entries.map((entry) => (
         <div key={entry.id} className="flex items-start gap-3">
           <div
-            className={
-              'mt-1 h-2 w-2 flex-shrink-0 ' + 'rounded-full bg-primary'
-            }
+            className={'mt-1 h-2 w-2 shrink-0 ' + 'bg-primary rounded-full'}
           />
           <div>
-            <p className="text-xs font-medium text-foreground">
+            <p className="text-foreground text-xs font-medium">
               {formatCustodyAction(entry.action)}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               {formatDate(entry.timestamp)}
             </p>
           </div>
@@ -177,7 +175,7 @@ export function AssetDetail(props: AssetDetailProps): React.ReactElement {
 
   return (
     <div data-testid="asset-detail" className="flex flex-col gap-4 p-4">
-      <h2 className={'truncate text-lg font-semibold text-foreground'}>
+      <h2 className={'text-foreground truncate text-lg font-semibold'}>
         {asset.originalFilename}
       </h2>
 
@@ -198,13 +196,13 @@ export function AssetDetail(props: AssetDetailProps): React.ReactElement {
         <p
           role="alert"
           data-testid="processing-error"
-          className="text-sm text-destructive"
+          className="text-destructive text-sm"
         >
           {asset.processingError}
         </p>
       )}
 
-      <div className="divide-y divide-border">
+      <div className="divide-border divide-y">
         <MetaRow label="Media type" value={asset.mediaType} />
         <MetaRow label="MIME type" value={asset.mimeType} />
         <MetaRow label="File size" value={formatBytes(asset.fileSizeBytes)} />
@@ -223,18 +221,18 @@ export function AssetDetail(props: AssetDetailProps): React.ReactElement {
       </div>
 
       <div>
-        <h3 className={'mb-2 text-sm font-semibold text-foreground'}>
+        <h3 className={'text-foreground mb-2 text-sm font-semibold'}>
           Chain of custody
         </h3>
         {custodyLoading ? (
           <div className="animate-pulse space-y-2">
-            <div className="h-4 w-3/4 rounded bg-muted" />
-            <div className="h-4 w-1/2 rounded bg-muted" />
+            <div className="bg-muted h-4 w-3/4 rounded" />
+            <div className="bg-muted h-4 w-1/2 rounded" />
           </div>
         ) : custodyData && custodyData.items.length > 0 ? (
           <CustodyTimeline entries={custodyData.items} />
         ) : (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-muted-foreground text-xs">
             No custody records available.
           </p>
         )}
@@ -247,8 +245,8 @@ export function AssetDetail(props: AssetDetailProps): React.ReactElement {
           data-testid="download-button"
           className={
             'inline-flex items-center justify-center ' +
-            'rounded-md bg-primary px-4 py-2 text-sm ' +
-            'font-medium text-primary-foreground ' +
+            'bg-primary rounded-md px-4 py-2 text-sm ' +
+            'text-primary-foreground font-medium ' +
             'hover:bg-primary/90'
           }
         >

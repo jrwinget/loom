@@ -65,11 +65,11 @@ export function RecoveryCodesPanel({
       <header className="space-y-2">
         <h2
           id="recovery-codes-heading"
-          className="text-lg font-semibold text-foreground"
+          className="text-foreground text-lg font-semibold"
         >
           Save your recovery codes
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           Loom cannot reset your password for you — there is no email server and
           no second admin. These eight single-use codes are the only way to
           recover your account without losing your data. Store them in a
@@ -79,12 +79,12 @@ export function RecoveryCodesPanel({
 
       <ul
         data-testid="recovery-codes-list"
-        className="grid grid-cols-1 gap-2 rounded-md border border-border bg-muted/40 p-4 font-mono text-sm sm:grid-cols-2"
+        className="border-border bg-muted/40 grid grid-cols-1 gap-2 rounded-md border p-4 font-mono text-sm sm:grid-cols-2"
       >
         {codes.map((code) => (
           <li
             key={code}
-            className="select-all break-all text-foreground"
+            className="text-foreground break-all select-all"
             data-testid="recovery-code"
           >
             {code}
@@ -96,25 +96,25 @@ export function RecoveryCodesPanel({
         <button
           type="button"
           onClick={handleCopy}
-          className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-accent"
+          className="border-border bg-background text-foreground hover:bg-accent rounded-md border px-3 py-2 text-sm"
         >
           {copyState === 'copied' ? 'Copied!' : 'Copy to clipboard'}
         </button>
         <button
           type="button"
           onClick={handleDownload}
-          className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-accent"
+          className="border-border bg-background text-foreground hover:bg-accent rounded-md border px-3 py-2 text-sm"
         >
           Download as .txt
         </button>
         {copyState === 'error' && (
-          <p role="alert" className="w-full text-xs text-destructive">
+          <p role="alert" className="text-destructive w-full text-xs">
             Could not access the clipboard. Use the download button instead.
           </p>
         )}
       </div>
 
-      <label className="flex items-start gap-2 text-sm text-foreground">
+      <label className="text-foreground flex items-start gap-2 text-sm">
         <input
           type="checkbox"
           checked={confirmed}
@@ -132,7 +132,7 @@ export function RecoveryCodesPanel({
         type="button"
         onClick={onAcknowledge}
         disabled={!confirmed}
-        className="w-full rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
+        className="bg-primary text-primary-foreground w-full rounded-md px-4 py-2 disabled:opacity-50"
       >
         Continue to Loom
       </button>

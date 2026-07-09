@@ -97,7 +97,7 @@ export function SearchBar(props: SearchBarProps): React.ReactElement {
     <div data-testid="search-bar" className="relative w-full max-w-xl">
       <div className="relative">
         <span
-          className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+          className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 -translate-y-1/2"
           aria-hidden="true"
         >
           &#x1F50D;
@@ -119,7 +119,7 @@ export function SearchBar(props: SearchBarProps): React.ReactElement {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search (Ctrl+K)"
-          className="w-full rounded border border-border bg-card py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="border-border bg-card text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full rounded border py-1.5 pr-3 pl-8 text-sm focus:ring-2 focus:outline-hidden"
         />
       </div>
 
@@ -130,11 +130,11 @@ export function SearchBar(props: SearchBarProps): React.ReactElement {
           data-testid="search-results"
           role="region"
           aria-label="Search results"
-          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded border border-border bg-card shadow-lg"
+          className="border-border bg-card absolute top-full right-0 left-0 z-50 mt-1 max-h-80 overflow-y-auto rounded border shadow-lg"
         >
           {/* type tabs */}
           {availableTypes.length > 0 && (
-            <div className="flex border-b border-border">
+            <div className="border-border flex border-b">
               {availableTypes.map((t) => (
                 <button
                   key={t}
@@ -143,12 +143,12 @@ export function SearchBar(props: SearchBarProps): React.ReactElement {
                   onClick={() => setSelectedTab(t)}
                   className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                     activeTab === t
-                      ? 'border-b-2 border-primary' + ' text-foreground'
+                      ? 'border-primary border-b-2' + ' text-foreground'
                       : 'text-muted-foreground' + ' hover:text-foreground'
                   }`}
                 >
                   {typeLabels[t] ?? t}
-                  <span className="ml-1 text-muted-foreground">
+                  <span className="text-muted-foreground ml-1">
                     {grouped.get(t)?.length ?? 0}
                   </span>
                 </button>
@@ -164,19 +164,19 @@ export function SearchBar(props: SearchBarProps): React.ReactElement {
                 type="button"
                 data-testid={`search-result-${r.id}`}
                 onClick={() => handleResultClick(r)}
-                className="flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/30"
+                className="hover:bg-accent/30 flex w-full items-start gap-2 px-3 py-2 text-left transition-colors"
               >
-                <span className="mt-0.5 text-xs font-medium text-muted-foreground">
+                <span className="text-muted-foreground mt-0.5 text-xs font-medium">
                   {r.type}
                 </span>
-                <span className="text-sm text-foreground">
+                <span className="text-foreground text-sm">
                   {highlightMatch(r.text, query)}
                 </span>
               </button>
             ))}
 
           {availableTypes.length === 0 && (
-            <p className="p-3 text-sm text-muted-foreground">
+            <p className="text-muted-foreground p-3 text-sm">
               No results found
             </p>
           )}

@@ -34,7 +34,7 @@ function ContentTypeBadge(props: { contentType: string }): React.ReactElement {
   return (
     <span
       data-testid="content-type-badge"
-      className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground"
+      className="bg-muted text-muted-foreground inline-flex rounded px-1.5 py-0.5 text-xs font-medium"
     >
       {label}
     </span>
@@ -100,9 +100,9 @@ export function ClusterReview(props: ClusterReviewProps): React.ReactElement {
     return (
       <div
         data-testid="clusters-empty"
-        className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border"
+        className="border-border flex h-48 items-center justify-center rounded-lg border border-dashed"
       >
-        <p className="text-sm text-muted-foreground">No clusters to review</p>
+        <p className="text-muted-foreground text-sm">No clusters to review</p>
       </div>
     );
   }
@@ -117,7 +117,7 @@ export function ClusterReview(props: ClusterReviewProps): React.ReactElement {
             data-testid="merge-clusters-btn"
             onClick={handleMerge}
             disabled={mergeClusters.isPending}
-            className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm disabled:opacity-50"
           >
             {mergeClusters.isPending
               ? 'Merging...'
@@ -134,7 +134,7 @@ export function ClusterReview(props: ClusterReviewProps): React.ReactElement {
           <div
             key={cluster.id}
             data-testid={`cluster-card-${cluster.id}`}
-            className="rounded-lg border border-border p-4"
+            className="border-border rounded-lg border p-4"
           >
             {/* header row */}
             <div className="flex items-start justify-between gap-2">
@@ -143,7 +143,7 @@ export function ClusterReview(props: ClusterReviewProps): React.ReactElement {
                   type="checkbox"
                   checked={selected.has(cluster.id)}
                   onChange={() => toggleSelect(cluster.id)}
-                  className="h-4 w-4 rounded border-border"
+                  className="border-border h-4 w-4 rounded"
                   aria-label={`Select cluster ${cluster.proposedTitle}`}
                 />
                 <div>
@@ -153,14 +153,14 @@ export function ClusterReview(props: ClusterReviewProps): React.ReactElement {
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
                       data-testid="cluster-title-edit"
-                      className="rounded border border-border bg-background px-2 py-1 text-sm text-foreground"
+                      className="border-border bg-background text-foreground rounded border px-2 py-1 text-sm"
                     />
                   ) : (
-                    <h3 className="text-sm font-semibold text-foreground">
+                    <h3 className="text-foreground text-sm font-semibold">
                       {cluster.proposedTitle}
                     </h3>
                   )}
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-muted-foreground text-xs">
                     {new Date(cluster.timeWindowStart).toLocaleString()}
                     {' \u2014 '}
                     {new Date(cluster.timeWindowEnd).toLocaleString()}
@@ -186,9 +186,9 @@ export function ClusterReview(props: ClusterReviewProps): React.ReactElement {
                 <div
                   key={assetId}
                   data-testid={`asset-group-${assetId}`}
-                  className="rounded bg-muted/30 p-2"
+                  className="bg-muted/30 rounded p-2"
                 >
-                  <p className="text-xs font-medium text-muted-foreground">
+                  <p className="text-muted-foreground text-xs font-medium">
                     {items[0].originalFilename}
                   </p>
                   <div className="mt-1 space-y-1">
@@ -205,7 +205,7 @@ export function ClusterReview(props: ClusterReviewProps): React.ReactElement {
                           ).toLocaleTimeString()}
                         </span>
                         {item.textPreview && (
-                          <span className="truncate text-foreground">
+                          <span className="text-foreground truncate">
                             {item.textPreview}
                           </span>
                         )}

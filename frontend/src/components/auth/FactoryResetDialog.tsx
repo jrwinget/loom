@@ -86,25 +86,25 @@ export function FactoryResetDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
       data-testid="factory-reset-dialog"
     >
-      <div className="w-full max-w-md space-y-4 rounded-lg border border-border bg-card p-6">
+      <div className="border-border bg-card w-full max-w-md space-y-4 rounded-lg border p-6">
         <h2
           id="factory-reset-title"
-          className="text-lg font-semibold text-destructive"
+          className="text-destructive text-lg font-semibold"
         >
           Reset this Loom install?
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           This is permanent. You should only do this if you cannot sign in and
           have no valid recovery code.
         </p>
-        <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
-          <p className="font-medium text-foreground">What gets deleted:</p>
-          <ul className="ml-4 mt-2 list-disc space-y-1 text-muted-foreground">
+        <div className="border-border bg-muted/40 rounded-md border p-3 text-sm">
+          <p className="text-foreground font-medium">What gets deleted:</p>
+          <ul className="text-muted-foreground mt-2 ml-4 list-disc space-y-1">
             <li>The local database (every case, asset, and audit row)</li>
             <li>Uploaded originals and derived files</li>
             <li>Your chosen data-directory preference</li>
           </ul>
-          <p className="mt-2 text-xs text-muted-foreground">
+          <p className="text-muted-foreground mt-2 text-xs">
             Bootstrap secrets are preserved so the install identity stays
             stable.
           </p>
@@ -112,7 +112,7 @@ export function FactoryResetDialog({
         <form onSubmit={handleConfirm} className="space-y-3" noValidate>
           <label
             htmlFor="factory-reset-confirm"
-            className="block text-sm font-medium text-foreground"
+            className="text-foreground block text-sm font-medium"
           >
             Type <span className="font-mono font-bold">{CONFIRM_WORD}</span> to
             continue
@@ -126,10 +126,10 @@ export function FactoryResetDialog({
             value={confirmation}
             onChange={(e) => setConfirmation(e.target.value)}
             disabled={submitting}
-            className="block w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-foreground"
+            className="border-input bg-background text-foreground block w-full rounded-md border px-3 py-2 font-mono"
           />
           {error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-destructive text-sm">
               {error}
             </p>
           )}
@@ -138,14 +138,14 @@ export function FactoryResetDialog({
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="rounded-md border border-border bg-background px-4 py-2 text-sm text-foreground hover:bg-accent disabled:opacity-50"
+              className="border-border bg-background text-foreground hover:bg-accent rounded-md border px-4 py-2 text-sm disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!isArmed}
-              className="rounded-md bg-destructive px-4 py-2 text-sm text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-md px-4 py-2 text-sm disabled:opacity-50"
             >
               {submitting ? 'Resetting…' : 'Reset Loom'}
             </button>

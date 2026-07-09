@@ -24,13 +24,13 @@ interface ActionItemProps {
 function ActionItem({ action }: ActionItemProps): React.ReactElement {
   return (
     <div className="flex items-start gap-3" data-testid="action-item">
-      <div className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-primary" />
+      <div className="bg-primary mt-1 h-2 w-2 shrink-0 rounded-full" />
       <div>
-        <p className="text-xs font-medium text-foreground">
+        <p className="text-foreground text-xs font-medium">
           {String(action.action ?? 'unknown')}
         </p>
         {typeof action.when === 'string' && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-muted-foreground text-xs">
             {formatDate(String(action.when))}
           </p>
         )}
@@ -49,13 +49,13 @@ function RecordCard({ record }: RecordCardProps): React.ReactElement {
   return (
     <div
       data-testid="provenance-record"
-      className="rounded-md border border-border p-3"
+      className="border-border rounded-md border p-3"
     >
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-semibold text-foreground">
+        <span className="text-foreground text-xs font-semibold">
           {record.claimGenerator}
         </span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground text-xs">
           {formatDate(record.createdAt)}
         </span>
       </div>
@@ -72,7 +72,7 @@ function RecordCard({ record }: RecordCardProps): React.ReactElement {
         data-testid="toggle-manifest"
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="text-xs font-medium text-primary hover:underline"
+        className="text-primary text-xs font-medium hover:underline"
       >
         {expanded ? 'Hide manifest' : 'Show manifest'}
       </button>
@@ -80,7 +80,7 @@ function RecordCard({ record }: RecordCardProps): React.ReactElement {
       {expanded && (
         <pre
           data-testid="manifest-json"
-          className="mt-2 max-h-60 overflow-auto rounded bg-muted p-2 text-xs"
+          className="bg-muted mt-2 max-h-60 overflow-auto rounded p-2 text-xs"
         >
           {JSON.stringify(record.manifestData, null, 2)}
         </pre>
@@ -108,14 +108,14 @@ export function ProvenancePanel({
   if (records.length === 0) {
     return (
       <div data-testid="provenance-empty" className="p-4">
-        <p className="text-sm text-muted-foreground">No provenance data yet</p>
+        <p className="text-muted-foreground text-sm">No provenance data yet</p>
       </div>
     );
   }
 
   return (
     <div data-testid="provenance-panel" className="flex flex-col gap-3 p-4">
-      <h3 className="text-sm font-semibold text-foreground">
+      <h3 className="text-foreground text-sm font-semibold">
         Provenance records
       </h3>
       {records.map((record) => (

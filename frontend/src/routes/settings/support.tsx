@@ -52,22 +52,22 @@ export function SupportPage(): React.ReactElement {
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <h1 className="text-xl font-semibold text-foreground">Support</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <h1 className="text-foreground text-xl font-semibold">Support</h1>
+      <p className="text-muted-foreground mt-1 text-sm">
         Version details, log locations, and a one-click diagnostics export for
         support requests.
       </p>
 
-      <section className="mt-6 rounded border border-border p-4">
-        <h2 className="text-sm font-medium text-foreground">Versions</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+      <section className="border-border mt-6 rounded border p-4">
+        <h2 className="text-foreground text-sm font-medium">Versions</h2>
+        <p className="text-muted-foreground mt-2 text-sm">
           Loom backend: {version ?? 'unavailable'}
         </p>
       </section>
 
-      <section className="mt-4 rounded border border-border p-4">
-        <h2 className="text-sm font-medium text-foreground">Diagnostics</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+      <section className="border-border mt-4 rounded border p-4">
+        <h2 className="text-foreground text-sm font-medium">Diagnostics</h2>
+        <p className="text-muted-foreground mt-2 text-sm">
           The export is a zip containing the desktop shell logs, the backend
           logs (emails and home paths are scrubbed when they are written), and a
           small version manifest. It never includes your evidence, the database,
@@ -79,30 +79,30 @@ export function SupportPage(): React.ReactElement {
             void handleExport();
           }}
           disabled={exporting || !isTauri}
-          className="mt-3 rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 mt-3 rounded px-4 py-2 text-sm font-medium disabled:opacity-50"
         >
           {exporting ? 'Exporting…' : 'Export diagnostics…'}
         </button>
         {!isTauri && (
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-2 text-sm">
             Diagnostics export is available in the desktop app.
           </p>
         )}
         {savedPath && (
-          <p role="status" className="mt-2 text-sm text-muted-foreground">
+          <p role="status" className="text-muted-foreground mt-2 text-sm">
             Saved to {savedPath}
           </p>
         )}
         {error && (
-          <p role="alert" className="mt-2 text-sm text-destructive">
+          <p role="alert" className="text-destructive mt-2 text-sm">
             {error}
           </p>
         )}
       </section>
 
-      <section className="mt-4 rounded border border-border p-4">
-        <h2 className="text-sm font-medium text-foreground">Logs</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+      <section className="border-border mt-4 rounded border p-4">
+        <h2 className="text-foreground text-sm font-medium">Logs</h2>
+        <p className="text-muted-foreground mt-2 text-sm">
           The desktop shell keeps size-capped rotating logs in your
           platform&apos;s application log folder. The backend keeps its own
           scrubbed log at{' '}

@@ -87,7 +87,7 @@ export function UrlIngestForm(props: UrlIngestFormProps): React.ReactElement {
     <div data-testid="url-ingest-form" className="space-y-4">
       <label
         htmlFor="url-ingest-textarea"
-        className="text-sm font-medium text-foreground"
+        className="text-foreground text-sm font-medium"
       >
         URLs (one per line)
       </label>
@@ -97,7 +97,7 @@ export function UrlIngestForm(props: UrlIngestFormProps): React.ReactElement {
         value={input}
         onChange={(e) => setInput(e.target.value)}
         rows={5}
-        className="w-full rounded-md border border-border bg-card p-2 text-sm text-foreground"
+        className="border-border bg-card text-foreground w-full rounded-md border p-2 text-sm"
         placeholder="https://example.com/video.mp4"
         aria-label="URLs to ingest"
       />
@@ -108,7 +108,7 @@ export function UrlIngestForm(props: UrlIngestFormProps): React.ReactElement {
         onClick={() => {
           void handleSubmit();
         }}
-        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
       >
         {isSubmitting ? 'Submitting...' : 'Ingest URLs'}
       </button>
@@ -119,10 +119,10 @@ export function UrlIngestForm(props: UrlIngestFormProps): React.ReactElement {
             <div
               key={e.id}
               data-testid={`url-entry-${e.id}`}
-              className="flex items-center gap-3 rounded-md border border-border bg-card p-3"
+              className="border-border bg-card flex items-center gap-3 rounded-md border p-3"
             >
               <p
-                className="min-w-0 flex-1 truncate text-sm text-foreground"
+                className="text-foreground min-w-0 flex-1 truncate text-sm"
                 data-testid="url-entry-url"
               >
                 {e.url}

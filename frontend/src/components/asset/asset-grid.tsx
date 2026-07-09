@@ -59,11 +59,11 @@ function SkeletonCard(): React.ReactElement {
   return (
     <div
       data-testid="skeleton-card"
-      className="flex animate-pulse flex-col rounded-lg border border-border bg-card p-4"
+      className="border-border bg-card flex animate-pulse flex-col rounded-lg border p-4"
     >
-      <div className="mb-3 flex h-24 items-center justify-center rounded bg-muted" />
-      <div className="h-4 w-3/4 rounded bg-muted" />
-      <div className="mt-2 h-3 w-1/2 rounded bg-muted" />
+      <div className="bg-muted mb-3 flex h-24 items-center justify-center rounded" />
+      <div className="bg-muted h-4 w-3/4 rounded" />
+      <div className="bg-muted mt-2 h-3 w-1/2 rounded" />
     </div>
   );
 }
@@ -113,9 +113,9 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
     return (
       <div
         data-testid="asset-grid-empty"
-        className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border"
+        className="border-border flex h-48 items-center justify-center rounded-lg border border-dashed"
       >
-        <p className="text-sm text-muted-foreground">No assets uploaded yet</p>
+        <p className="text-muted-foreground text-sm">No assets uploaded yet</p>
       </div>
     );
   }
@@ -125,7 +125,7 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
       {/* controls row */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         {/* sort */}
-        <label htmlFor="asset-sort" className="text-xs text-muted-foreground">
+        <label htmlFor="asset-sort" className="text-muted-foreground text-xs">
           Sort by
         </label>
         <select
@@ -133,7 +133,7 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
           data-testid="sort-select"
           value={sortField}
           onChange={(e) => setSortField(e.target.value as SortField)}
-          className="rounded border border-border bg-card px-2 py-1 text-xs text-foreground"
+          className="border-border bg-card text-foreground rounded border px-2 py-1 text-xs"
         >
           <option value="createdAt">Upload date</option>
           <option value="originalFilename">Filename</option>
@@ -141,7 +141,7 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
         </select>
 
         {/* filter */}
-        <label htmlFor="asset-filter" className="text-xs text-muted-foreground">
+        <label htmlFor="asset-filter" className="text-muted-foreground text-xs">
           Filter
         </label>
         <select
@@ -149,7 +149,7 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
           data-testid="filter-select"
           value={filterType}
           onChange={(e) => setFilterType(e.target.value as MediaType | 'all')}
-          className="rounded border border-border bg-card px-2 py-1 text-xs text-foreground"
+          className="border-border bg-card text-foreground rounded border px-2 py-1 text-xs"
         >
           <option value="all">All types</option>
           {allMediaTypes.map((t) => (
@@ -168,16 +168,16 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
             type="button"
             data-testid={`asset-card-${asset.id}`}
             onClick={() => onSelect(asset)}
-            className="flex flex-col rounded-lg border border-border bg-card p-4 text-left shadow-sm transition-colors hover:bg-accent/50"
+            className="border-border bg-card hover:bg-accent/50 flex flex-col rounded-lg border p-4 text-left shadow-xs transition-colors"
           >
             {/* thumbnail placeholder */}
-            <div className="mb-3 flex h-24 items-center justify-center rounded bg-muted text-2xl font-bold text-muted-foreground">
+            <div className="bg-muted text-muted-foreground mb-3 flex h-24 items-center justify-center rounded text-2xl font-bold">
               {mediaTypeIcons[asset.mediaType]}
             </div>
 
             {/* filename */}
             <p
-              className="truncate text-sm font-medium text-foreground"
+              className="text-foreground truncate text-sm font-medium"
               data-testid="asset-filename"
             >
               {asset.originalFilename}
@@ -196,7 +196,7 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
               </span>
 
               {/* file size */}
-              <span className="text-xs text-muted-foreground">
+              <span className="text-muted-foreground text-xs">
                 {formatBytes(asset.fileSizeBytes)}
               </span>
 
@@ -218,7 +218,7 @@ export function AssetGrid(props: AssetGridProps): React.ReactElement {
               to={`/cases/${asset.caseId}` + `/review/${asset.id}`}
               data-testid={`review-link-${asset.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="mt-2 inline-flex items-center rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary hover:bg-primary/20"
+              className="bg-primary/10 text-primary hover:bg-primary/20 mt-2 inline-flex items-center rounded px-2 py-0.5 text-xs font-medium"
             >
               Review
             </Link>

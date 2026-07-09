@@ -50,9 +50,9 @@ export function CaseMap(props: CaseMapProps): React.ReactElement {
     return (
       <div
         data-testid="map-empty"
-        className="flex h-full items-center justify-center rounded-lg border border-dashed border-border"
+        className="border-border flex h-full items-center justify-center rounded-lg border border-dashed"
       >
-        <p className="text-sm text-muted-foreground">No geotagged assets</p>
+        <p className="text-muted-foreground text-sm">No geotagged assets</p>
       </div>
     );
   }
