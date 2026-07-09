@@ -727,6 +727,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases/{case_id}/assets/{asset_id}/enhancements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Enhancements
+         * @description list the asset's enhancement derivatives (viewer+).
+         */
+        get: operations["list_enhancements_api_v1_cases__case_id__assets__asset_id__enhancements_get"];
+        put?: never;
+        /**
+         * Create Enhancement
+         * @description dispatch a deterministic enhancement run (editor+).
+         *
+         *     returns 202 with the workflow id to poll. each run produces a new
+         *     derivative, so the id carries a uuid suffix to stay unique.
+         */
+        post: operations["create_enhancement_api_v1_cases__case_id__assets__asset_id__enhancements_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/assets/{asset_id}/enhancements/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest Enhancement
+         * @description suggest starting parameters from a measured sample (viewer+).
+         *
+         *     analyses only the leading seconds of the video, so it is safe to
+         *     run synchronously. the reasons explain which threshold fired for
+         *     each non-neutral suggestion.
+         */
+        get: operations["suggest_enhancement_api_v1_cases__case_id__assets__asset_id__enhancements_suggest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{case_id}/assets/{asset_id}/integrity-report": {
         parameters: {
             query?: never;
@@ -1018,6 +1069,30 @@ export interface paths {
          * @description verify integrity of a single asset's stored file.
          */
         post: operations["verify_single_asset_api_v1_cases__case_id__assets__asset_id__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/assets/{asset_id}/waveform": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Asset Waveform
+         * @description return the real amplitude peaks for an audio asset (viewer+).
+         *
+         *     404 when no peaks derivative exists yet — the asset is still
+         *     processing, or ffmpeg was absent at ingest. the player renders an
+         *     honest "unavailable" state on that 404 rather than a fake shape.
+         */
+        get: operations["get_asset_waveform_api_v1_cases__case_id__assets__asset_id__waveform_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2150,6 +2225,26 @@ export interface paths {
          * @description get delivery log for a webhook.
          */
         get: operations["list_deliveries_endpoint_api_v1_plugins__plugin_id__webhooks__webhook_id__deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Global Search Endpoint
+         * @description search across the caller's accessible cases for the palette.
+         */
+        get: operations["global_search_endpoint_api_v1_search_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3299,6 +3394,100 @@ export interface components {
             /** Version */
             version?: string | null;
         };
+        /**
+         * EnhancementCreatedResponse
+         * @description 202 body for a dispatched enhancement run.
+         */
+        EnhancementCreatedResponse: {
+            params: components["schemas"]["EnhancementParamsSchema"];
+            /** Status */
+            status: string;
+            /** Workflow Id */
+            workflow_id: string;
+        };
+        /**
+         * EnhancementDerivativeResponse
+         * @description one produced enhancement derivative with its provenance.
+         */
+        EnhancementDerivativeResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Download Url */
+            download_url: string;
+            /** Generation Params */
+            generation_params: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /** EnhancementListResponse */
+        EnhancementListResponse: {
+            /** Enhancements */
+            enhancements: components["schemas"]["EnhancementDerivativeResponse"][];
+        };
+        /**
+         * EnhancementParamsSchema
+         * @description deterministic ffmpeg filter parameters; defaults are neutral.
+         */
+        EnhancementParamsSchema: {
+            /**
+             * Brightness
+             * @default 0
+             */
+            brightness: number;
+            /**
+             * Contrast
+             * @default 1
+             */
+            contrast: number;
+            /**
+             * Deinterlace
+             * @default false
+             */
+            deinterlace: boolean;
+            /**
+             * Denoise
+             * @default 0
+             */
+            denoise: number;
+            /**
+             * Gamma
+             * @default 1
+             */
+            gamma: number;
+            /**
+             * Saturation
+             * @default 1
+             */
+            saturation: number;
+            /**
+             * Scale Factor
+             * @default 1
+             * @enum {integer}
+             */
+            scale_factor: 1 | 2 | 4;
+            /**
+             * Sharpen
+             * @default 0
+             */
+            sharpen: number;
+        };
+        /**
+         * EnhancementSuggestResponse
+         * @description suggested starting parameters plus their human rationale.
+         */
+        EnhancementSuggestResponse: {
+            params: components["schemas"]["EnhancementParamsSchema"];
+            /** Reasons */
+            reasons: string[];
+        };
         /** EventClusterResponse */
         EventClusterResponse: {
             /**
@@ -3595,6 +3784,24 @@ export interface components {
             status: string;
             /** Title */
             title: string;
+        };
+        /** GlobalSearchResponse */
+        GlobalSearchResponse: {
+            /** Results */
+            results: components["schemas"]["GlobalSearchResult"][];
+        };
+        /** GlobalSearchResult */
+        GlobalSearchResult: {
+            /** Case Id */
+            case_id: string;
+            /** Id */
+            id: string;
+            /** Snippet */
+            snippet?: string | null;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -4707,6 +4914,11 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** WaveformResponse */
+        WaveformResponse: {
+            /** Peaks */
+            peaks: number[];
         };
         /** WebhookCreate */
         WebhookCreate: {
@@ -6121,6 +6333,106 @@ export interface operations {
             };
         };
     };
+    list_enhancements_api_v1_cases__case_id__assets__asset_id__enhancements_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnhancementListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_enhancement_api_v1_cases__case_id__assets__asset_id__enhancements_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnhancementParamsSchema"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnhancementCreatedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_enhancement_api_v1_cases__case_id__assets__asset_id__enhancements_suggest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnhancementSuggestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_integrity_report_api_v1_cases__case_id__assets__asset_id__integrity_report_get: {
         parameters: {
             query?: never;
@@ -6616,6 +6928,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IntegrityResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_asset_waveform_api_v1_cases__case_id__assets__asset_id__waveform_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaveformResponse"];
                 };
             };
             /** @description Validation Error */
@@ -8770,6 +9114,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookDeliveryListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    global_search_endpoint_api_v1_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlobalSearchResponse"];
                 };
             };
             /** @description Validation Error */

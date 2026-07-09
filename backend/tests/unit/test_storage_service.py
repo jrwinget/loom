@@ -91,6 +91,34 @@ class TestPresignedUrls:
         assert url == "https://minio/download"
         client.presigned_get_object.assert_called_once()
 
+    def test_download_url_inline_has_no_response_headers(self) -> None:
+        """without a filename the url stays inline (no disposition)."""
+        storage, client = _make_storage()
+        client.presigned_get_object.return_value = "https://minio/download"
+        storage.get_presigned_download_url(ORIGINALS_BUCKET, "key.mp4")
+        _, kwargs = client.presigned_get_object.call_args
+        assert kwargs.get("response_headers") is None
+
+    def test_download_url_signs_content_disposition(self) -> None:
+        """a filename signs response-content-disposition into the url.
+
+        minio signs sigv4 over the exact query string, so the
+        disposition must be part of the presign, not appended after.
+        """
+        storage, client = _make_storage()
+        client.presigned_get_object.return_value = "https://minio/download"
+        storage.get_presigned_download_url(
+            ORIGINALS_BUCKET,
+            "key.mp4",
+            download_filename="my report.mp4",
+        )
+        _, kwargs = client.presigned_get_object.call_args
+        assert kwargs["response_headers"] == {
+            "response-content-disposition": (
+                'attachment; filename="my report.mp4"'
+            )
+        }
+
     def test_custom_expiry(self) -> None:
         """custom expiry passed to minio."""
         from datetime import timedelta

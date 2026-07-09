@@ -176,11 +176,11 @@ describe('AssetDetail', () => {
     renderDetail();
     const link = screen.getByTestId('download-button');
     expect(link).toBeInTheDocument();
-    // asset bytes are served cross-origin, so download is forced via an
-    // attachment disposition rather than the (ignored) download attr.
+    // the server signs the attachment disposition into the url, so the
+    // anchor links to it verbatim (no client-side query-param append).
     expect(link).toHaveAttribute(
       'href',
-      'https://example.com/download/test.mp4?disposition=attachment',
+      'https://example.com/download/test.mp4',
     );
     expect(link).toHaveAttribute('download', 'protest-footage.mp4');
   });

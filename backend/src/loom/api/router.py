@@ -13,9 +13,11 @@ from loom.api.v1.correlations import router as correlations_router
 from loom.api.v1.custody import router as custody_router
 from loom.api.v1.duplicates import router as duplicates_router
 from loom.api.v1.engines import router as engines_router
+from loom.api.v1.enhancements import router as enhancements_router
 from loom.api.v1.exports import router as exports_router
 from loom.api.v1.first_run import router as first_run_router
 from loom.api.v1.geo import router as geo_router
+from loom.api.v1.global_search import router as global_search_router
 from loom.api.v1.health import router as health_router
 from loom.api.v1.imports import router as imports_router
 from loom.api.v1.integrity import router as integrity_router
@@ -50,6 +52,7 @@ api_router.include_router(exports_router)
 api_router.include_router(geo_router)
 api_router.include_router(ocr_router)
 api_router.include_router(scenes_router)
+api_router.include_router(enhancements_router)
 api_router.include_router(search_router)
 api_router.include_router(transcripts_router)
 api_router.include_router(duplicates_router)
@@ -62,6 +65,7 @@ api_router.include_router(storage_router)
 api_router.include_router(settings_router)
 api_router.include_router(engines_router)
 api_router.include_router(imports_router)
+api_router.include_router(global_search_router)
 api_router.include_router(custody_router)
 api_router.include_router(integrity_router)
 api_router.include_router(plugins_router)

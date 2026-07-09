@@ -13,6 +13,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from loom.workflows.enhancement_activities import enhance_asset
 from loom.workflows.export_activities import build_export
 from loom.workflows.import_activities import import_bundle
 from loom.workflows.ingest_activities import (
@@ -205,6 +206,14 @@ EXPORT = WorkflowSpec(
     (Step(build_export, _first, timeout_s=3600, max_attempts=2),),
 )
 
+# a single attempt: each run writes a new derivative (unique storage
+# key), so a retry would duplicate output, and a deterministic ffmpeg
+# failure would only repeat
+ENHANCEMENT = WorkflowSpec(
+    "enhancement",
+    (Step(enhance_asset, _first_two, timeout_s=3600, max_attempts=1),),
+)
+
 # a single attempt: recreation moves originals into WORM, so a retry
 # would collide on storage keys — the operator purges the partial
 # case and re-imports instead
@@ -222,6 +231,7 @@ SPECS: dict[str, WorkflowSpec] = {
         TRANSCRIPTION,
         SCENE_DETECTION,
         EXPORT,
+        ENHANCEMENT,
         BUNDLE_IMPORT,
     )
 }

@@ -9,6 +9,8 @@ from loom.workflows.correlation_activities import (
     correlate_case_assets,
 )
 from loom.workflows.correlation_workflow import CorrelationWorkflow
+from loom.workflows.enhancement_activities import enhance_asset
+from loom.workflows.enhancement_workflow import EnhancementWorkflow
 from loom.workflows.export_activities import build_export
 from loom.workflows.export_workflow import ExportWorkflow
 from loom.workflows.import_activities import import_bundle
@@ -68,6 +70,7 @@ async def main() -> None:  # pragma: no cover
         workflows=[
             IngestWorkflow,
             ExportWorkflow,
+            EnhancementWorkflow,
             TranscriptionWorkflow,
             OcrWorkflow,
             SceneDetectionWorkflow,
@@ -82,6 +85,7 @@ async def main() -> None:  # pragma: no cover
             record_derivatives_custody,
             mark_asset_complete,
             build_export,
+            enhance_asset,
             import_bundle,
             extract_audio,
             transcribe_asset,

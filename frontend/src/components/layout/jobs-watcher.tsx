@@ -20,6 +20,10 @@ function invalidationKeys(job: TrackedJob): readonly (readonly string[])[] {
       return job.assetId ? [['ocr', job.caseId, job.assetId] as const] : [];
     case 'export':
       return [queryKeys.exports.byCase(job.caseId)];
+    case 'enhancement':
+      return job.assetId
+        ? [queryKeys.enhancements.byAsset(job.caseId, job.assetId)]
+        : [];
     case 'url_ingest':
     case 'ingest':
       return [queryKeys.assets.byCase(job.caseId)];

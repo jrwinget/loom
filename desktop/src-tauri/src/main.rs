@@ -17,6 +17,8 @@
     windows_subsystem = "windows"
 )]
 
+mod redact;
+
 use std::panic;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -370,12 +372,15 @@ fn spawn_backend(
             match event {
                 // route backend output through `log` so it lands in
                 // the shell's rotating log files, not just the tty.
+                // redact before anything hits the rotating log files
+                // (and thus the diagnostics zip): raw sidecar output
+                // bypasses the backend's own structlog redaction.
                 CommandEvent::Stdout(line) => {
-                    let text = String::from_utf8_lossy(&line);
+                    let text = redact::redact(&String::from_utf8_lossy(&line));
                     log::info!(target: "sidecar", "{text}");
                 }
                 CommandEvent::Stderr(line) => {
-                    let text = String::from_utf8_lossy(&line).to_string();
+                    let text = redact::redact(&String::from_utf8_lossy(&line));
                     log::info!(target: "sidecar", "{text}");
                     if let Some(slot) = last_stderr.as_ref() {
                         if let Ok(mut guard) = slot.lock() {
@@ -384,7 +389,8 @@ fn spawn_backend(
                     }
                 }
                 CommandEvent::Terminated(payload) => {
-                    log::warn!(target: "sidecar", "terminated: {payload:?}");
+                    let text = redact::redact(&format!("{payload:?}"));
+                    log::warn!(target: "sidecar", "terminated: {text}");
                     if let Some(state) =
                         app_handle.try_state::<SidecarProcess>()
                     {

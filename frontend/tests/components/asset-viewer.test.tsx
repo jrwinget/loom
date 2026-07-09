@@ -111,10 +111,7 @@ describe('AssetViewer', () => {
       />,
     );
     expect(await screen.findByText(/render this PDF/)).toBeInTheDocument();
-    expect(screen.getByText('Download file')).toHaveAttribute(
-      'href',
-      `${SRC}&disposition=attachment`,
-    );
+    expect(screen.getByText('Download file')).toHaveAttribute('href', SRC);
   });
 
   it('falls back to an attachment download for non-pdf documents', () => {
@@ -125,10 +122,7 @@ describe('AssetViewer', () => {
       />,
     );
     expect(screen.getByText('Preview not available')).toBeInTheDocument();
-    expect(screen.getByText('Download file')).toHaveAttribute(
-      'href',
-      `${SRC}&disposition=attachment`,
-    );
+    expect(screen.getByText('Download file')).toHaveAttribute('href', SRC);
   });
 
   it('plays a video directly from the served src', () => {
@@ -150,10 +144,7 @@ describe('AssetViewer', () => {
     );
     fireEvent.error(screen.getByTestId('video-element'));
     expect(screen.getByText(/play in this app/)).toBeInTheDocument();
-    expect(screen.getByText('Download file')).toHaveAttribute(
-      'href',
-      `${SRC}&disposition=attachment`,
-    );
+    expect(screen.getByText('Download file')).toHaveAttribute('href', SRC);
   });
 
   it('computes the frame counter from the extracted frame rate', () => {

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { CommandPalette } from '@/components/layout/command-palette';
 import { Header } from '@/components/layout/header';
 import { JobsWatcher } from '@/components/layout/jobs-watcher';
 import { OfflineBanner } from '@/components/layout/offline-banner';
@@ -27,6 +28,7 @@ export function Shell(): React.ReactElement {
       </a>
       <Sidebar />
       <JobsWatcher />
+      <CommandPalette />
       <div className="flex flex-1 flex-col overflow-hidden">
         <OfflineBanner />
         <UpdateBanner />

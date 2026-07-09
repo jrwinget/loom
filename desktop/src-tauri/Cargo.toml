@@ -1,6 +1,6 @@
 [package]
 name = "loom-desktop"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 description = "Tauri v2 desktop shell for the Loom evidence OS"
 license = "AGPL-3.0-or-later"
@@ -21,6 +21,9 @@ tauri-plugin-process = "2"
 # RotationStrategy::KeepSome (size-capped file retention).
 tauri-plugin-log = "2.8"
 log = "0.4"
+# redact emails + home paths from sidecar output before it reaches
+# the rotating log files (and thus the diagnostics zip).
+regex = "1"
 # diagnostics zip assembly for the export_diagnostics command.
 zip = "4"
 serde = { version = "1", features = ["derive"] }

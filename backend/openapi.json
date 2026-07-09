@@ -2327,6 +2327,169 @@
         "title": "EngineCapability",
         "type": "object"
       },
+      "EnhancementCreatedResponse": {
+        "description": "202 body for a dispatched enhancement run.",
+        "properties": {
+          "params": {
+            "$ref": "#/components/schemas/EnhancementParamsSchema"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "workflow_id": {
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "status",
+          "params"
+        ],
+        "title": "EnhancementCreatedResponse",
+        "type": "object"
+      },
+      "EnhancementDerivativeResponse": {
+        "description": "one produced enhancement derivative with its provenance.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "download_url": {
+            "title": "Download Url",
+            "type": "string"
+          },
+          "generation_params": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generation Params"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "generation_params",
+          "created_at",
+          "download_url"
+        ],
+        "title": "EnhancementDerivativeResponse",
+        "type": "object"
+      },
+      "EnhancementListResponse": {
+        "properties": {
+          "enhancements": {
+            "items": {
+              "$ref": "#/components/schemas/EnhancementDerivativeResponse"
+            },
+            "title": "Enhancements",
+            "type": "array"
+          }
+        },
+        "required": [
+          "enhancements"
+        ],
+        "title": "EnhancementListResponse",
+        "type": "object"
+      },
+      "EnhancementParamsSchema": {
+        "description": "deterministic ffmpeg filter parameters; defaults are neutral.",
+        "properties": {
+          "brightness": {
+            "default": 0.0,
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Brightness",
+            "type": "number"
+          },
+          "contrast": {
+            "default": 1.0,
+            "maximum": 4.0,
+            "minimum": 0.0,
+            "title": "Contrast",
+            "type": "number"
+          },
+          "deinterlace": {
+            "default": false,
+            "title": "Deinterlace",
+            "type": "boolean"
+          },
+          "denoise": {
+            "default": 0,
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Denoise",
+            "type": "integer"
+          },
+          "gamma": {
+            "default": 1.0,
+            "maximum": 10.0,
+            "minimum": 0.1,
+            "title": "Gamma",
+            "type": "number"
+          },
+          "saturation": {
+            "default": 1.0,
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Saturation",
+            "type": "number"
+          },
+          "scale_factor": {
+            "default": 1,
+            "enum": [
+              1,
+              2,
+              4
+            ],
+            "title": "Scale Factor",
+            "type": "integer"
+          },
+          "sharpen": {
+            "default": 0.0,
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "title": "Sharpen",
+            "type": "number"
+          }
+        },
+        "title": "EnhancementParamsSchema",
+        "type": "object"
+      },
+      "EnhancementSuggestResponse": {
+        "description": "suggested starting parameters plus their human rationale.",
+        "properties": {
+          "params": {
+            "$ref": "#/components/schemas/EnhancementParamsSchema"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "params",
+          "reasons"
+        ],
+        "title": "EnhancementSuggestResponse",
+        "type": "object"
+      },
       "EventClusterResponse": {
         "properties": {
           "case_id": {
@@ -3120,6 +3283,61 @@
           "event_time_start"
         ],
         "title": "GeoEventResponse",
+        "type": "object"
+      },
+      "GlobalSearchResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/GlobalSearchResult"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "GlobalSearchResponse",
+        "type": "object"
+      },
+      "GlobalSearchResult": {
+        "properties": {
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "snippet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snippet"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "case_id",
+          "title"
+        ],
+        "title": "GlobalSearchResult",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -5799,6 +6017,22 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "WaveformResponse": {
+        "properties": {
+          "peaks": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Peaks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "peaks"
+        ],
+        "title": "WaveformResponse",
+        "type": "object"
+      },
       "WebhookCreate": {
         "properties": {
           "events": {
@@ -6259,7 +6493,7 @@
   "info": {
     "description": "Evidence operating system",
     "title": "Loom",
-    "version": "0.2.2"
+    "version": "0.2.3"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -8201,6 +8435,170 @@
         ]
       }
     },
+    "/api/v1/cases/{case_id}/assets/{asset_id}/enhancements": {
+      "get": {
+        "description": "list the asset's enhancement derivatives (viewer+).",
+        "operationId": "list_enhancements_api_v1_cases__case_id__assets__asset_id__enhancements_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnhancementListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Enhancements",
+        "tags": [
+          "enhancements"
+        ]
+      },
+      "post": {
+        "description": "dispatch a deterministic enhancement run (editor+).\n\nreturns 202 with the workflow id to poll. each run produces a new\nderivative, so the id carries a uuid suffix to stay unique.",
+        "operationId": "create_enhancement_api_v1_cases__case_id__assets__asset_id__enhancements_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnhancementParamsSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnhancementCreatedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Enhancement",
+        "tags": [
+          "enhancements"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/assets/{asset_id}/enhancements/suggest": {
+      "get": {
+        "description": "suggest starting parameters from a measured sample (viewer+).\n\nanalyses only the leading seconds of the video, so it is safe to\nrun synchronously. the reasons explain which threshold fired for\neach non-neutral suggestion.",
+        "operationId": "suggest_enhancement_api_v1_cases__case_id__assets__asset_id__enhancements_suggest_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnhancementSuggestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suggest Enhancement",
+        "tags": [
+          "enhancements"
+        ]
+      }
+    },
     "/api/v1/cases/{case_id}/assets/{asset_id}/integrity-report": {
       "get": {
         "description": "generate a court-ready integrity report for an asset.",
@@ -9164,6 +9562,58 @@
         "summary": "Verify Single Asset",
         "tags": [
           "integrity"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/assets/{asset_id}/waveform": {
+      "get": {
+        "description": "return the real amplitude peaks for an audio asset (viewer+).\n\n404 when no peaks derivative exists yet \u2014 the asset is still\nprocessing, or ffmpeg was absent at ingest. the player renders an\nhonest \"unavailable\" state on that 404 rather than a fake shape.",
+        "operationId": "get_asset_waveform_api_v1_cases__case_id__assets__asset_id__waveform_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaveformResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Asset Waveform",
+        "tags": [
+          "assets"
         ]
       }
     },
@@ -12844,6 +13294,62 @@
         "summary": "List Deliveries Endpoint",
         "tags": [
           "plugins"
+        ]
+      }
+    },
+    "/api/v1/search": {
+      "get": {
+        "description": "search across the caller's accessible cases for the palette.",
+        "operationId": "global_search_endpoint_api_v1_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GlobalSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Global Search Endpoint",
+        "tags": [
+          "search"
         ]
       }
     },
