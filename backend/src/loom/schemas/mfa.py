@@ -24,5 +24,9 @@ class MfaChallengeResponse(BaseModel):
     token_type: str = "bearer"  # noqa: S105
 
 
-class MfaDisableRequest(BaseModel):
+class MfaRecoveryCodesRequest(BaseModel):
     code: str
+
+
+class MfaDisableRequest(BaseModel):
+    password: str

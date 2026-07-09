@@ -22,6 +22,7 @@ from loom.schemas.mfa import (
     MfaChallengeRequest,
     MfaChallengeResponse,
     MfaDisableRequest,
+    MfaRecoveryCodesRequest,
     MfaSetupResponse,
     MfaVerifyRequest,
     MfaVerifyResponse,
@@ -30,6 +31,7 @@ from loom.security.auth import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    verify_password,
 )
 from loom.security.rate_limit import limiter
 from loom.security.rbac import (
@@ -243,6 +245,51 @@ async def mfa_challenge(
     )
 
 
+@router.post("/recovery-codes", response_model=MfaVerifyResponse)
+@limiter.limit("5/minute")
+async def mfa_regenerate_recovery_codes(
+    request: Request,
+    body: MfaRecoveryCodesRequest,
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_authenticated
+    ),
+    session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
+        get_db_session
+    ),
+) -> MfaVerifyResponse:
+    """replace recovery codes after proving authenticator possession."""
+    db: AsyncSession = session  # type: ignore[assignment]
+    user_id = get_current_user_id(token_payload)
+    user = await _get_user(db, user_id)
+
+    if not user.mfa_enabled or not user.mfa_secret:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="mfa is not enabled",
+        )
+
+    # only a live totp proves possession of the authenticator; a
+    # recovery code is rejected here so a leaked one cannot mint a
+    # fresh set and lock the owner out.
+    totp = pyotp.TOTP(user.mfa_secret)
+    if not totp.verify(body.code, valid_window=1):
+        await _audit(db, user_id, "mfa_recovery_codes_regenerate_failed")
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid totp code",
+        )
+
+    # replace entirely: every previously-issued code stops working.
+    plaintext_codes = _generate_recovery_codes()
+    user.recovery_codes = ",".join(_hash_code(c) for c in plaintext_codes)
+
+    await _audit(db, user_id, "mfa_recovery_codes_regenerated")
+    await db.commit()
+
+    return MfaVerifyResponse(recovery_codes=plaintext_codes)
+
+
 @router.delete(
     "",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -256,7 +303,12 @@ async def mfa_disable(
         get_db_session
     ),
 ) -> None:
-    """disable mfa (requires current totp code)."""
+    """disable mfa; requires the account password.
+
+    the password re-check is the point of this endpoint: a stolen
+    session token alone must not be able to strip the second factor,
+    so a valid access token is necessary but not sufficient.
+    """
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
     user = await _get_user(db, user_id)
@@ -267,13 +319,12 @@ async def mfa_disable(
             detail="mfa is not enabled",
         )
 
-    totp = pyotp.TOTP(user.mfa_secret)
-    if not totp.verify(body.code, valid_window=1):
+    if not verify_password(body.password, user.password_hash):
         await _audit(db, user_id, "mfa_disable_failed")
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid totp code",
+            detail="invalid password",
         )
 
     user.mfa_enabled = False

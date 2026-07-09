@@ -3370,6 +3370,19 @@
       },
       "MfaDisableRequest": {
         "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "MfaDisableRequest",
+        "type": "object"
+      },
+      "MfaRecoveryCodesRequest": {
+        "properties": {
           "code": {
             "title": "Code",
             "type": "string"
@@ -3378,7 +3391,7 @@
         "required": [
           "code"
         ],
-        "title": "MfaDisableRequest",
+        "title": "MfaRecoveryCodesRequest",
         "type": "object"
       },
       "MfaRequiredResponse": {
@@ -6525,7 +6538,7 @@
     },
     "/api/v1/auth/mfa": {
       "delete": {
-        "description": "disable mfa (requires current totp code).",
+        "description": "disable mfa; requires the account password.\n\nthe password re-check is the point of this endpoint: a stolen\nsession token alone must not be able to strip the second factor,\nso a valid access token is necessary but not sufficient.",
         "operationId": "mfa_disable_api_v1_auth_mfa_delete",
         "requestBody": {
           "content": {
@@ -6595,6 +6608,48 @@
           }
         },
         "summary": "Mfa Challenge",
+        "tags": [
+          "mfa"
+        ]
+      }
+    },
+    "/api/v1/auth/mfa/recovery-codes": {
+      "post": {
+        "description": "replace recovery codes after proving authenticator possession.",
+        "operationId": "mfa_regenerate_recovery_codes_api_v1_auth_mfa_recovery_codes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaRecoveryCodesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaVerifyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mfa Regenerate Recovery Codes",
         "tags": [
           "mfa"
         ]
