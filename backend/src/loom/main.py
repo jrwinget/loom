@@ -1,7 +1,10 @@
 import logging
+import logging.handlers
+import sys
 import uuid
-from collections.abc import AsyncIterator, MutableMapping
+from collections.abc import AsyncIterator, Callable, MutableMapping
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 import structlog
@@ -13,14 +16,16 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from structlog.typing import Processor
 
 from loom import __version__
 from loom.api.router import api_router
-from loom.config import get_settings
+from loom.config import Settings, get_settings
 from loom.observability import setup_db_telemetry, setup_telemetry
 from loom.security.audit import AuditMiddleware
 from loom.security.csrf import CSRFMiddleware
 from loom.security.rate_limit import limiter
+from loom.services.log_redaction import redact_sensitive
 from loom.services.storage_backends import build_storage_backend
 
 
@@ -43,23 +48,93 @@ def _add_otel_context(
     return event_dict
 
 
-def _configure_logging(log_level: str) -> None:
-    """configure structlog for json output."""
+# rotation caps for the lite-profile backend log file. sized so the
+# full set stays around 30 mb — small enough for a diagnostics zip,
+# large enough to cover days of field use.
+_LOG_FILE_MAX_BYTES = 5 * 1024 * 1024
+_LOG_FILE_BACKUPS = 5
+
+
+class _TeeLogger:
+    """print-style logger that also appends lines to a rotating file.
+
+    stdout stays authoritative — the desktop shell drains it into
+    its own log — while the handler gives the lite profile a local
+    file that survives shell restarts (issue #285).
+    """
+
+    def __init__(self, handler: logging.Handler) -> None:
+        self._handler = handler
+
+    def msg(self, message: str) -> None:
+        sys.stdout.write(message + "\n")
+        sys.stdout.flush()
+        self._handler.handle(logging.makeLogRecord({"msg": message}))
+
+    log = debug = info = warn = warning = msg
+    error = err = critical = exception = fatal = failure = msg
+
+
+def _lite_logger_factory(
+    data_dir: Path,
+) -> Callable[..., _TeeLogger] | None:
+    """tee-to-file logger factory, or None when the dir is unusable.
+
+    log files must never block startup: an unwritable data dir
+    degrades to stdout-only logging instead of raising.
+    """
+    try:
+        # "logs" matches storage_relocation._LOGS_DIRNAME and the
+        # diagnostics allowlist in desktop/src-tauri/src/main.rs.
+        logs_dir = data_dir / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        handler = logging.handlers.RotatingFileHandler(
+            logs_dir / "backend.jsonl",
+            maxBytes=_LOG_FILE_MAX_BYTES,
+            backupCount=_LOG_FILE_BACKUPS,
+            encoding="utf-8",
+            delay=True,
+        )
+    except OSError:
+        return None
+    tee = _TeeLogger(handler)
+
+    def factory(*_args: object) -> _TeeLogger:
+        return tee
+
+    return factory
+
+
+def _configure_logging(settings: Settings) -> None:
+    """configure structlog for json output.
+
+    server profile: json lines to stdout, unchanged. lite profile:
+    the same lines are scrubbed of emails and home paths, then teed
+    into a rotating <data_dir>/logs/backend.jsonl so the desktop
+    shell can bundle them into diagnostics exports (issue #285).
+    """
+    processors: list[Processor] = [
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        _add_otel_context,
+        structlog.processors.StackInfoRenderer(),
+        structlog.dev.set_exc_info,
+        structlog.processors.TimeStamper(fmt="iso", utc=True),
+    ]
+    logger_factory: Callable[..., Any] = structlog.PrintLoggerFactory()
+    if settings.is_lite:
+        processors.append(redact_sensitive)
+        file_factory = _lite_logger_factory(settings.resolved_data_dir())
+        if file_factory is not None:
+            logger_factory = file_factory
+    processors.append(structlog.processors.JSONRenderer())
     structlog.configure(
-        processors=[
-            structlog.contextvars.merge_contextvars,
-            structlog.processors.add_log_level,
-            _add_otel_context,
-            structlog.processors.StackInfoRenderer(),
-            structlog.dev.set_exc_info,
-            structlog.processors.TimeStamper(fmt="iso", utc=True),
-            structlog.processors.JSONRenderer(),
-        ],
+        processors=processors,
         wrapper_class=structlog.make_filtering_bound_logger(
-            logging.getLevelName(log_level.upper())
+            logging.getLevelName(settings.log_level.upper())
         ),
         context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(),
+        logger_factory=logger_factory,
         cache_logger_on_first_use=True,
     )
 
@@ -144,7 +219,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     """application factory."""
     settings = get_settings()
-    _configure_logging(settings.log_level)
+    _configure_logging(settings)
 
     application = FastAPI(
         title="Loom",

@@ -22,6 +22,7 @@ const SETTINGS_PAGES: Record<string, string> = {
   plugins: 'Plugins',
   security: 'Security',
   storage: 'Storage',
+  support: 'Support',
 };
 
 function buildCrumbs(pathname: string, caseName: string | undefined): Crumb[] {

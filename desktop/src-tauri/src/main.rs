@@ -9,6 +9,9 @@
 //      signal, panic, sidecar-death).
 //   5. expose ipc commands for the storage ux flow: pick_directory,
 //      disk_usage, persist_data_directory, restart_backend.
+//   6. persist rotating shell logs (tauri-plugin-log) that also
+//      capture sidecar output, and export a diagnostics zip on
+//      request (export_diagnostics).
 #![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
@@ -27,6 +30,7 @@ use serde::{Deserialize, Serialize};
 use sysinfo::Disks;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_store::StoreExt;
@@ -332,13 +336,15 @@ fn spawn_backend(
 
         while let Some(event) = rx.recv().await {
             match event {
+                // route backend output through `log` so it lands in
+                // the shell's rotating log files, not just the tty.
                 CommandEvent::Stdout(line) => {
                     let text = String::from_utf8_lossy(&line);
-                    eprintln!("[loom-backend] {text}");
+                    log::info!(target: "sidecar", "{text}");
                 }
                 CommandEvent::Stderr(line) => {
                     let text = String::from_utf8_lossy(&line).to_string();
-                    eprintln!("[loom-backend] {text}");
+                    log::info!(target: "sidecar", "{text}");
                     if let Some(slot) = last_stderr.as_ref() {
                         if let Ok(mut guard) = slot.lock() {
                             *guard = Some(text);
@@ -346,7 +352,7 @@ fn spawn_backend(
                     }
                 }
                 CommandEvent::Terminated(payload) => {
-                    eprintln!("[loom-backend] terminated: {payload:?}");
+                    log::warn!(target: "sidecar", "terminated: {payload:?}");
                     if let Some(state) =
                         app_handle.try_state::<SidecarProcess>()
                     {
@@ -585,6 +591,11 @@ fn install_panic_hook(app_handle: AppHandle) {
     let default = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
         eprintln!("[loom] tauri shell panicked; killing sidecar");
+        // best-effort crash file in the log dir so a later
+        // diagnostics export can carry the panic even when the
+        // terminal output is long gone. io errors are ignored:
+        // we're already crashing.
+        write_crash_file(&app_handle, info);
         // skip the graceful path here: we're already crashing and
         // blocking the panic handler for an http roundtrip courts
         // double-faults. fall straight to the hard kill; the python
@@ -595,6 +606,26 @@ fn install_panic_hook(app_handle: AppHandle) {
         }
         default(info);
     }));
+}
+
+fn unix_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+fn write_crash_file(app: &AppHandle, info: &panic::PanicHookInfo<'_>) {
+    let Ok(dir) = app.path().app_log_dir() else {
+        return;
+    };
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let path = dir.join(format!("crash-{}.txt", unix_now()));
+    // PanicHookInfo's Display carries both the payload and the
+    // panic location.
+    let _ = std::fs::write(&path, format!("{info}\n"));
 }
 
 // ipc command: open a native folder picker. returns the chosen path
@@ -841,6 +872,120 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
     app.restart()
 }
 
+// ipc command: bundle the shell log dir, the backend's lite log dir
+// and a version manifest into a user-chosen zip for support requests.
+// returns the saved path, or None when the user cancels the dialog.
+//
+// the allowlist inside build_diagnostics_zip is load-bearing: the
+// export must never include the database, buckets/ evidence or
+// secrets.json. backend log lines are already redacted at write time
+// by the sidecar's log pipeline, so no re-redaction happens here.
+#[tauri::command]
+async fn export_diagnostics(
+    app: AppHandle,
+) -> Result<Option<String>, String> {
+    // the dialog plugin's ``save_file`` uses a callback; wrap it in a
+    // oneshot so the async command can await the user's choice.
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .file()
+        .set_file_name("loom-diagnostics.zip")
+        .add_filter("zip archive", &["zip"])
+        .save_file(move |path| {
+            let _ = tx.send(path);
+        });
+    let picked = rx
+        .await
+        .map_err(|e| format!("save dialog channel closed: {e}"))?;
+    let Some(picked) = picked else {
+        return Ok(None);
+    };
+    let dest = picked.into_path().map_err(|e| e.to_string())?;
+
+    let shell_logs = app.path().app_log_dir().ok();
+    let backend_logs = load_config(&app)?.resolve_data_dir().join("logs");
+    let version = app.package_info().version.to_string();
+
+    // zip assembly is blocking file io; keep it off the async runtime.
+    let zip_dest = dest.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        build_diagnostics_zip(&zip_dest, shell_logs, &backend_logs, &version)
+    })
+    .await
+    .map_err(|e| format!("diagnostics task failed: {e}"))??;
+
+    Ok(Some(dest.display().to_string()))
+}
+
+fn build_diagnostics_zip(
+    dest: &Path,
+    shell_logs: Option<PathBuf>,
+    backend_logs: &Path,
+    version: &str,
+) -> Result<(), String> {
+    use std::io::Write;
+
+    let file = std::fs::File::create(dest)
+        .map_err(|e| format!("cannot create {}: {e}", dest.display()))?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+
+    // strict allowlist — exactly these three entries, nothing else:
+    //   1. shell log dir (tauri-plugin-log files + crash files)
+    //   2. backend lite log dir (redacted jsonl)
+    //   3. a generated manifest.txt
+    if let Some(dir) = shell_logs {
+        add_dir_files(&mut zip, &dir, "shell-logs", dest, options)?;
+    }
+    add_dir_files(&mut zip, backend_logs, "backend-logs", dest, options)?;
+
+    zip.start_file("manifest.txt", options)
+        .map_err(|e| e.to_string())?;
+    let manifest = format!(
+        "loom-desktop {version}\nos: {} {}\nexported-unix: {}\n",
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        unix_now(),
+    );
+    zip.write_all(manifest.as_bytes())
+        .map_err(|e| e.to_string())?;
+    zip.finish().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// adds the plain files of ``dir`` under ``prefix/`` in the zip. never
+// recurses: the allowlist is exactly "log files in this directory".
+// ``skip`` excludes the zip being written, in case the user saves it
+// into one of the log directories.
+fn add_dir_files(
+    zip: &mut zip::ZipWriter<std::fs::File>,
+    dir: &Path,
+    prefix: &str,
+    skip: &Path,
+    options: zip::write::SimpleFileOptions,
+) -> Result<(), String> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        // a missing dir just means nothing was logged yet.
+        Err(_) => return Ok(()),
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() || path == skip {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        zip.start_file(format!("{prefix}/{name}"), options)
+            .map_err(|e| e.to_string())?;
+        let mut src = std::fs::File::open(&path)
+            .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+        std::io::copy(&mut src, zip).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -849,6 +994,21 @@ fn main() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        // rotating shell logs in the platform log dir plus stdout for
+        // `tauri dev`. sidecar output reaches these files through the
+        // drain in spawn_backend. size-capped: 5 mb per file, newest
+        // five files kept.
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .targets([
+                    Target::new(TargetKind::Stdout),
+                    Target::new(TargetKind::LogDir { file_name: None }),
+                ])
+                .level(log::LevelFilter::Info)
+                .max_file_size(5 * 1024 * 1024)
+                .rotation_strategy(RotationStrategy::KeepSome(5))
+                .build(),
+        )
         .manage(SidecarProcess(Mutex::new(None)))
         .manage(LastBackendStderr::default())
         .manage(BootReady::default())
@@ -861,6 +1021,7 @@ fn main() {
             factory_reset,
             check_for_update,
             install_update,
+            export_diagnostics,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

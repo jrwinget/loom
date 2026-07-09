@@ -25,6 +25,7 @@ import { AiSettingsPage } from '@/routes/settings/ai';
 import { PluginsSettingsPage } from '@/routes/settings/plugins';
 import { SecuritySettingsPage } from '@/routes/settings/security';
 import { StorageSettingsPage } from '@/routes/settings/storage';
+import { SupportPage } from '@/routes/settings/support';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -91,6 +92,7 @@ export function App(): React.ReactElement {
                       element={<StorageSettingsPage />}
                     />
                     <Route path="settings/ai" element={<AiSettingsPage />} />
+                    <Route path="settings/support" element={<SupportPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Route>
                 </Route>
