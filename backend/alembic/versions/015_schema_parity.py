@@ -87,6 +87,14 @@ _MISSING_INDEXES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 
 
 def upgrade() -> None:
+    # lite databases are materialised from the current models via
+    # create_all and already match them; this revision reconciles
+    # historical postgres-only drift with postgres-only ddl (ALTER
+    # INDEX ... RENAME), so it must not run on sqlite when the lite
+    # upgrade path replays pending revisions
+    if op.get_bind().dialect.name != "postgresql":
+        return
+
     for _table, old, new in _RENAMES:
         op.execute(f"ALTER INDEX {old} RENAME TO {new}")
 
@@ -129,6 +137,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # mirror of the upgrade guard — nothing was applied on sqlite
+    if op.get_bind().dialect.name != "postgresql":
+        return
+
     for col in ("created_at", "updated_at"):
         op.alter_column(
             "correlation_candidates",
