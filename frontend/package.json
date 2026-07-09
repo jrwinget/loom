@@ -75,7 +75,6 @@
     "overrides": {
       "brace-expansion@<1.1.13": "1.1.13",
       "brace-expansion@>=2.0.0 <2.0.3": "2.0.3",
-      "esbuild@<0.25.0": "0.25.0",
       "js-yaml@<4.2.0": "4.2.0"
     }
   }
