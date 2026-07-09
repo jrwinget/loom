@@ -2723,7 +2723,7 @@
             "title": "Event Ids"
           },
           "format": {
-            "pattern": "^(zip|pdf_report|json_manifest|court_bundle)$",
+            "pattern": "^(zip|pdf_report|json_manifest|court_bundle|portable_bundle)$",
             "title": "Format",
             "type": "string"
           },

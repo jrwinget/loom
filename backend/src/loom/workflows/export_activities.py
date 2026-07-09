@@ -56,6 +56,8 @@ async def build_export(export_id: str) -> str:
                     await _build_json_manifest(session, export, case_id)
                 elif fmt == "court_bundle":
                     await _build_court_bundle(session, export, case_id)
+                elif fmt == "portable_bundle":
+                    await _build_portable_bundle(session, export, case_id)
                 else:
                     await _build_zip_bundle(session, export, case_id)
 
@@ -153,6 +155,52 @@ async def _build_zip_bundle(
     except Exception:
         logger.warning("could not upload zip, storing manifest only")
         export.manifest = manifest
+
+
+async def _build_portable_bundle(
+    session: Any,
+    export: Any,
+    case_id: str,
+) -> None:
+    """build a portable bundle (full rows + originals + manifest +
+    signature) for import into another Loom, then move it into
+    storage. the zip is built in the data-dir temp area so the move
+    into the bucket is an atomic rename on the lite filesystem.
+    """
+    import asyncio
+
+    from loom.config import get_settings
+    from loom.services.portable_bundle import build_portable_bundle
+    from loom.services.storage_backends import DERIVATIVES_BUCKET
+    from loom.services.streaming_upload import upload_tmp_dir
+
+    settings = get_settings()
+    storage = get_storage_backend()
+    tmp_path = upload_tmp_dir() / f"portable-{export.id}.zip"
+
+    try:
+        bundle_sha = await build_portable_bundle(
+            session,
+            case_id,
+            storage,
+            tmp_path,
+            signing_key_pem=getattr(settings, "bundle_signing_key", None),
+        )
+        output_key = f"exports/{export.id}/portable_bundle.zip"
+        await asyncio.get_running_loop().run_in_executor(
+            None,
+            storage.upload_file_move,
+            DERIVATIVES_BUCKET,
+            output_key,
+            str(tmp_path),
+            "application/zip",
+        )
+        export.storage_key = output_key
+        export.sha256_hash = bundle_sha
+    finally:
+        # upload_file_move consumes the temp file on success; clean up
+        # the leftover if the build raised before the move
+        tmp_path.unlink(missing_ok=True)
 
 
 async def _build_court_bundle(
