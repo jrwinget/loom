@@ -43,6 +43,9 @@ from loom.services.storage_backends import (
     ORIGINALS_BUCKET,
     StorageBackend,
 )
+from loom.services.storage_backends.base import (
+    attachment_content_disposition,
+)
 from loom.services.storage_backends.local import LocalStorageBackend
 from loom.services.storage_relocation import (
     RELOCATION_REGISTRY,
@@ -312,7 +315,9 @@ async def stream_object(
     headers = {"Accept-Ranges": "bytes"}
     if disposition == "attachment":
         filename = key.rsplit("/", 1)[-1]
-        headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        headers["Content-Disposition"] = attachment_content_disposition(
+            filename
+        )
 
     byte_range = _parse_range(request.headers.get("range", ""), size)
     if byte_range is not None:

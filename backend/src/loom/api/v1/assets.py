@@ -660,12 +660,15 @@ async def get_download_url(
         )
 
     loop = asyncio.get_running_loop()
+    # sign an attachment disposition into the url so the browser saves
+    # the file; the same url still previews inline in media elements.
     url = await loop.run_in_executor(
         None,
         storage.get_presigned_download_url,
         ORIGINALS_BUCKET,
         asset.storage_key,
         900,
+        asset.original_filename,
     )
 
     return PresignedUrlResponse(url=url, key=asset.storage_key)

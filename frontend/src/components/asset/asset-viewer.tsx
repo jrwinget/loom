@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
 import { loadPdf, type LoadedPdf } from '@/lib/pdf';
-import { attachmentHref } from '@/lib/utils';
 import type { Asset } from '@/types/asset';
 
 interface AssetViewerProps {
@@ -398,7 +397,7 @@ function DownloadFallback(props: {
     <div className="border-border bg-muted flex h-48 flex-col items-center justify-center rounded border">
       <p className="text-muted-foreground text-sm">{props.message}</p>
       <a
-        href={attachmentHref(props.src)}
+        href={props.src}
         download={props.filename}
         className="text-primary mt-2 text-sm font-medium hover:underline"
       >
@@ -538,7 +537,7 @@ function PdfViewer(props: {
           +
         </button>
         <a
-          href={attachmentHref(src)}
+          href={src}
           download={filename}
           className="text-primary ml-2 text-xs font-medium hover:underline"
         >

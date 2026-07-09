@@ -134,6 +134,29 @@ async def test_uploaded_pdf_is_servable_over_http(
 
 
 @pytest.mark.asyncio
+async def test_download_url_carries_signed_attachment_disposition(
+    lite_client: httpx.AsyncClient,
+) -> None:
+    headers = await _auth(lite_client)
+    case_id, asset_id = await _upload_pdf(lite_client, headers)
+    du = await lite_client.get(
+        f"/api/v1/cases/{case_id}/assets/{asset_id}/download-url",
+        headers=headers,
+    )
+    url = du.json()["url"]
+    # disposition is part of the url the server hands out, not appended
+    # client-side — so the same shape works for minio presigned urls.
+    assert "disposition=attachment" in url
+
+    served = await lite_client.get(_local_path(url))
+    assert served.status_code == 200, served.text
+    assert (
+        served.headers.get("content-disposition")
+        == 'attachment; filename="evidence.pdf"'
+    )
+
+
+@pytest.mark.asyncio
 async def test_range_request_returns_206(
     lite_client: httpx.AsyncClient,
 ) -> None:
@@ -162,6 +185,10 @@ async def test_tampered_signature_is_rejected(
         headers=headers,
     )
     path = _local_path(du.json()["url"])
-    tampered = path[:-1] + ("0" if path[-1] != "0" else "1")
+    # flip a char inside the sig param specifically — other query params
+    # (e.g. disposition) are not covered by the loopback signature.
+    marker = "sig="
+    idx = path.index(marker) + len(marker)
+    tampered = path[:idx] + ("0" if path[idx] != "0" else "1") + path[idx + 1 :]
     resp = await lite_client.get(tampered)
     assert resp.status_code == 403

@@ -11,6 +11,7 @@ from loom.services.storage_backends.base import (
     DERIVATIVES_BUCKET,
     ORIGINALS_BUCKET,
     StorageBackend,
+    attachment_content_disposition,
 )
 
 
@@ -137,12 +138,25 @@ class StorageService(StorageBackend):
         bucket: str,
         key: str,
         expires: int = 900,
+        download_filename: str | None = None,
     ) -> str:
-        """generate a presigned url for downloading."""
+        """generate a presigned url for downloading.
+
+        minio signs sigv4 over the exact query string, so the
+        content-disposition must be signed in via response_headers
+        rather than appended afterward (see #322)."""
+        response_headers = None
+        if download_filename is not None:
+            response_headers = {
+                "response-content-disposition": (
+                    attachment_content_disposition(download_filename)
+                )
+            }
         return self._client.presigned_get_object(
             bucket,
             key,
             expires=timedelta(seconds=expires),
+            response_headers=response_headers,
         )
 
     def object_exists(self, bucket: str, key: str) -> bool:
