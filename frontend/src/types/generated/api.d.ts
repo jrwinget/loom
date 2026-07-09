@@ -357,7 +357,16 @@ export interface paths {
         get: operations["get_case_endpoint_api_v1_cases__case_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Purge Case Endpoint
+         * @description permanently destroy a case and its evidence (owner only).
+         *
+         *     the case must be closed or archived first (an explicit lifecycle
+         *     step guards against destroying live work), the exact title must be
+         *     confirmed, and a reason is required. an append-only audit tombstone
+         *     is written before anything is deleted.
+         */
+        delete: operations["purge_case_endpoint_api_v1_cases__case_id__delete"];
         options?: never;
         head?: never;
         /**
@@ -2772,6 +2781,13 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /** CasePurgeRequest */
+        CasePurgeRequest: {
+            /** Confirm Title */
+            confirm_title: string;
+            /** Reason */
+            reason: string;
         };
         /** CaseResponse */
         CaseResponse: {
@@ -5335,6 +5351,39 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CaseResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    purge_case_endpoint_api_v1_cases__case_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CasePurgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

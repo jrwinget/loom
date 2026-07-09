@@ -1,5 +1,6 @@
 import * as Tabs from '@radix-ui/react-tabs';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { CaseDangerZone } from '@/components/case/case-danger-zone';
 import { QueryError } from '@/components/layout/query-error';
 import { useCase, useCaseMembers } from '@/hooks/use-case';
 import { useCaseAudit } from '@/hooks/use-audit';
@@ -23,6 +24,7 @@ function describeAuditEntry(entry: AuditEntry): string {
 
 export function CaseDetailPage(): React.ReactElement {
   const { caseId } = useParams<{ caseId: string }>();
+  const navigate = useNavigate();
   const safeId = caseId ?? '';
   const { data: caseData, isLoading, isError, refetch } = useCase(safeId);
   const { data: members } = useCaseMembers(safeId);
@@ -142,6 +144,11 @@ export function CaseDetailPage(): React.ReactElement {
               </ul>
             )}
           </div>
+
+          <CaseDangerZone
+            caseData={caseData}
+            onPurged={() => void navigate('/cases')}
+          />
         </Tabs.Content>
 
         {!isLite && (
