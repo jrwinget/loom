@@ -86,6 +86,44 @@ export function useUpdateCase(): ReturnType<
   });
 }
 
+export function usePurgeCase(): ReturnType<
+  typeof useMutation<
+    void,
+    Error,
+    { id: string; confirmTitle: string; reason: string }
+  >
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    // the confirmation title and reason are sent snake_case because the
+    // request body is passed to the backend verbatim (see api-client).
+    mutationFn: ({ id, confirmTitle, reason }) =>
+      apiClient.delete<void>(`/cases/${id}`, {
+        confirm_title: confirmTitle,
+        reason,
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.removeQueries({
+        queryKey: queryKeys.cases.detail(variables.id),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.cases.all,
+      });
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Case destroyed',
+      });
+    },
+    onError: (error: Error) => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: error.message || 'Failed to destroy case',
+      });
+    },
+  });
+}
+
 export function useCaseMembers(
   caseId: string,
 ): ReturnType<typeof useQuery<CaseMember[]>> {

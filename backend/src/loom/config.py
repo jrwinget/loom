@@ -75,6 +75,13 @@ class Settings(BaseSettings):
     # signatures on court exports. leave unset to skip signing.
     bundle_signing_key: str | None = None
 
+    # trusted Ed25519 public keys (PEM) for verifying imported
+    # portable bundles. a bundle signed by a key here imports as
+    # "verified"; one signed by an unknown key still imports but is
+    # recorded as unverified. set as a json list in the env (pem
+    # newlines survive as \n).
+    bundle_verify_public_keys: list[str] = []
+
     # observability
     otel_enabled: bool = False
     otel_service_name: str = "loom-api"

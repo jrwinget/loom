@@ -141,7 +141,11 @@ export interface paths {
         post?: never;
         /**
          * Mfa Disable
-         * @description disable mfa (requires current totp code).
+         * @description disable mfa; requires the account password.
+         *
+         *     the password re-check is the point of this endpoint: a stolen
+         *     session token alone must not be able to strip the second factor,
+         *     so a valid access token is necessary but not sufficient.
          */
         delete: operations["mfa_disable_api_v1_auth_mfa_delete"];
         options?: never;
@@ -163,6 +167,26 @@ export interface paths {
          * @description complete mfa challenge with totp or recovery code.
          */
         post: operations["mfa_challenge_api_v1_auth_mfa_challenge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/recovery-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mfa Regenerate Recovery Codes
+         * @description replace recovery codes after proving authenticator possession.
+         */
+        post: operations["mfa_regenerate_recovery_codes_api_v1_auth_mfa_recovery_codes_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -357,7 +381,16 @@ export interface paths {
         get: operations["get_case_endpoint_api_v1_cases__case_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Purge Case Endpoint
+         * @description permanently destroy a case and its evidence (owner only).
+         *
+         *     the case must be closed or archived first (an explicit lifecycle
+         *     step guards against destroying live work), the exact title must be
+         *     confirmed, and a reason is required. an append-only audit tombstone
+         *     is written before anything is deleted.
+         */
+        delete: operations["purge_case_endpoint_api_v1_cases__case_id__delete"];
         options?: never;
         head?: never;
         /**
@@ -1890,6 +1923,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/imports/bundle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Bundle
+         * @description accept a portable bundle, verify it, and start the import.
+         *
+         *     returns the new case id, the import workflow id to poll, and the
+         *     signature verification status the operator should be shown.
+         */
+        post: operations["import_bundle_api_v1_imports_bundle_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations": {
         parameters: {
             query?: never;
@@ -2772,6 +2828,13 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /** CasePurgeRequest */
+        CasePurgeRequest: {
+            /** Confirm Title */
+            confirm_title: string;
+            /** Reason */
+            reason: string;
         };
         /** CaseResponse */
         CaseResponse: {
@@ -3667,6 +3730,11 @@ export interface components {
         };
         /** MfaDisableRequest */
         MfaDisableRequest: {
+            /** Password */
+            password: string;
+        };
+        /** MfaRecoveryCodesRequest */
+        MfaRecoveryCodesRequest: {
             /** Code */
             code: string;
         };
@@ -5046,6 +5114,39 @@ export interface operations {
             };
         };
     };
+    mfa_regenerate_recovery_codes_api_v1_auth_mfa_recovery_codes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaRecoveryCodesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaVerifyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     mfa_setup_api_v1_auth_mfa_setup_post: {
         parameters: {
             query?: never;
@@ -5335,6 +5436,39 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CaseResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    purge_case_endpoint_api_v1_cases__case_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CasePurgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -8070,6 +8204,28 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    import_bundle_api_v1_imports_bundle_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

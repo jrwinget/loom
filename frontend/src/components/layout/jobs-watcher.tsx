@@ -23,6 +23,9 @@ function invalidationKeys(job: TrackedJob): readonly (readonly string[])[] {
     case 'url_ingest':
     case 'ingest':
       return [queryKeys.assets.byCase(job.caseId)];
+    case 'bundle_import':
+      // the whole case tree fills in as the import runs
+      return [queryKeys.assets.byCase(job.caseId), queryKeys.cases.all];
   }
 }
 

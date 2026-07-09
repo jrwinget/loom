@@ -33,6 +33,7 @@ def _make_user(
     mfa_enabled: bool = False,
     mfa_secret: str | None = None,
     recovery_codes: str | None = None,
+    password_hash: str | None = None,
 ) -> MagicMock:
     user = MagicMock()
     user.id = "00000000-0000-0000-0000-000000000001"
@@ -43,6 +44,7 @@ def _make_user(
     user.mfa_enabled = mfa_enabled
     user.mfa_secret = mfa_secret
     user.recovery_codes = recovery_codes
+    user.password_hash = password_hash
     return user
 
 
@@ -233,24 +235,22 @@ async def test_mfa_challenge_with_recovery_code():
 
 
 @pytest.mark.asyncio
-async def test_mfa_disable_success():
+async def test_mfa_disable_requires_correct_password():
     from loom.api.v1.mfa import mfa_disable
     from loom.schemas.mfa import MfaDisableRequest
-
-    secret = pyotp.random_base32()
-    totp = pyotp.TOTP(secret)
-    code = totp.now()
+    from loom.security.auth import hash_password
 
     user = _make_user(
         mfa_enabled=True,
-        mfa_secret=secret,
+        mfa_secret=pyotp.random_base32(),
         recovery_codes="hash1,hash2",
+        password_hash=hash_password("correct horse battery"),
     )
     db = _mock_db_with_user(user)
     payload = {"sub": str(user.id), "role": "analyst"}
 
     await mfa_disable(
-        body=MfaDisableRequest(code=code),
+        body=MfaDisableRequest(password="correct horse battery"),
         token_payload=payload,
         session=db,
     )
@@ -258,25 +258,166 @@ async def test_mfa_disable_success():
     assert user.mfa_enabled is False
     assert user.mfa_secret is None
     assert user.recovery_codes is None
+    actions = [c.args[0].action for c in db.add.call_args_list]
+    assert "mfa_disabled" in actions
 
 
 @pytest.mark.asyncio
-async def test_mfa_disable_rejects_bad_code():
+async def test_mfa_disable_rejects_bad_password():
     from loom.api.v1.mfa import mfa_disable
     from loom.schemas.mfa import MfaDisableRequest
+    from loom.security.auth import hash_password
 
-    secret = pyotp.random_base32()
-    user = _make_user(mfa_enabled=True, mfa_secret=secret)
+    user = _make_user(
+        mfa_enabled=True,
+        mfa_secret=pyotp.random_base32(),
+        password_hash=hash_password("correct horse battery"),
+    )
     db = _mock_db_with_user(user)
     payload = {"sub": str(user.id), "role": "analyst"}
 
     with pytest.raises(HTTPException) as exc_info:
         await mfa_disable(
-            body=MfaDisableRequest(code="000000"),
+            body=MfaDisableRequest(password="wrong password"),
             token_payload=payload,
             session=db,
         )
     assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+    # a wrong password must leave the second factor intact.
+    assert user.mfa_enabled is True
+
+
+@pytest.mark.asyncio
+async def test_mfa_regenerate_requires_valid_totp():
+    from loom.api.v1.mfa import mfa_regenerate_recovery_codes
+    from loom.schemas.mfa import MfaRecoveryCodesRequest
+
+    secret = pyotp.random_base32()
+    code = pyotp.TOTP(secret).now()
+
+    user = _make_user(
+        mfa_enabled=True,
+        mfa_secret=secret,
+        recovery_codes="oldhash1,oldhash2",
+    )
+    db = _mock_db_with_user(user)
+    payload = {"sub": str(user.id), "role": "analyst"}
+
+    result = await mfa_regenerate_recovery_codes(
+        request=_mock_request(),
+        body=MfaRecoveryCodesRequest(code=code),
+        token_payload=payload,
+        session=db,
+    )
+
+    assert len(result.recovery_codes) == 10
+    actions = [c.args[0].action for c in db.add.call_args_list]
+    assert "mfa_recovery_codes_regenerated" in actions
+
+
+@pytest.mark.asyncio
+async def test_mfa_regenerate_replaces_old_codes():
+    from loom.api.v1.mfa import mfa_regenerate_recovery_codes
+    from loom.schemas.mfa import MfaRecoveryCodesRequest
+
+    secret = pyotp.random_base32()
+    code = pyotp.TOTP(secret).now()
+    old = "abcd1234"
+    old_hash = hashlib.sha256(old.encode()).hexdigest()
+
+    user = _make_user(
+        mfa_enabled=True,
+        mfa_secret=secret,
+        recovery_codes=old_hash,
+    )
+    db = _mock_db_with_user(user)
+    payload = {"sub": str(user.id), "role": "analyst"}
+
+    result = await mfa_regenerate_recovery_codes(
+        request=_mock_request(),
+        body=MfaRecoveryCodesRequest(code=code),
+        token_payload=payload,
+        session=db,
+    )
+
+    stored = (user.recovery_codes or "").split(",")
+    # the previous code is gone; the returned codes are what's stored.
+    assert old_hash not in stored
+    for plain in result.recovery_codes:
+        assert hashlib.sha256(plain.encode()).hexdigest() in stored
+
+
+@pytest.mark.asyncio
+async def test_mfa_regenerate_rejects_bad_totp():
+    from loom.api.v1.mfa import mfa_regenerate_recovery_codes
+    from loom.schemas.mfa import MfaRecoveryCodesRequest
+
+    user = _make_user(
+        mfa_enabled=True,
+        mfa_secret=pyotp.random_base32(),
+        recovery_codes="oldhash1",
+    )
+    db = _mock_db_with_user(user)
+    payload = {"sub": str(user.id), "role": "analyst"}
+
+    with pytest.raises(HTTPException) as exc_info:
+        await mfa_regenerate_recovery_codes(
+            request=_mock_request(),
+            body=MfaRecoveryCodesRequest(code="000000"),
+            token_payload=payload,
+            session=db,
+        )
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+    # a failed proof must not mint new codes.
+    assert user.recovery_codes == "oldhash1"
+
+
+@pytest.mark.asyncio
+async def test_mfa_regenerate_rejects_recovery_code():
+    from loom.api.v1.mfa import mfa_regenerate_recovery_codes
+    from loom.schemas.mfa import MfaRecoveryCodesRequest
+
+    secret = pyotp.random_base32()
+    recovery = "abcd1234"
+    hashed = hashlib.sha256(recovery.encode()).hexdigest()
+
+    user = _make_user(
+        mfa_enabled=True,
+        mfa_secret=secret,
+        recovery_codes=hashed,
+    )
+    db = _mock_db_with_user(user)
+    payload = {"sub": str(user.id), "role": "analyst"}
+
+    # a recovery code must not stand in for a live totp here.
+    with pytest.raises(HTTPException) as exc_info:
+        await mfa_regenerate_recovery_codes(
+            request=_mock_request(),
+            body=MfaRecoveryCodesRequest(code=recovery),
+            token_payload=payload,
+            session=db,
+        )
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+    assert user.recovery_codes == hashed
+
+
+@pytest.mark.asyncio
+async def test_mfa_regenerate_requires_enrollment():
+    from loom.api.v1.mfa import mfa_regenerate_recovery_codes
+    from loom.schemas.mfa import MfaRecoveryCodesRequest
+
+    user = _make_user(mfa_enabled=False)
+    db = _mock_db_with_user(user)
+    payload = {"sub": str(user.id), "role": "analyst"}
+
+    with pytest.raises(HTTPException) as exc_info:
+        await mfa_regenerate_recovery_codes(
+            request=_mock_request(),
+            body=MfaRecoveryCodesRequest(code="000000"),
+            token_payload=payload,
+            session=db,
+        )
+    assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
 
 
 @pytest.mark.asyncio

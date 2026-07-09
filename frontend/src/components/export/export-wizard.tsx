@@ -9,7 +9,8 @@ interface ExportWizardProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type ExportFormat = 'zip' | 'pdf_report' | 'json_manifest' | 'court_bundle';
+type ExportFormat =
+  'zip' | 'pdf_report' | 'json_manifest' | 'court_bundle' | 'portable_bundle';
 
 const FORMAT_OPTIONS: {
   value: ExportFormat;
@@ -28,6 +29,14 @@ const FORMAT_OPTIONS: {
     description:
       'Cover page, timeline report, exhibit index, chain-of-custody ' +
       'appendix, and MANIFEST.sha256.',
+  },
+  {
+    value: 'portable_bundle',
+    label: 'Portable bundle (for another Loom)',
+    description:
+      'The whole case — evidence, timeline, annotations, and the ' +
+      'full custody trail — signed and hash-verified, to import ' +
+      'into another Loom install.',
   },
 ];
 

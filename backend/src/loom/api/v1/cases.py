@@ -5,13 +5,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from loom.dependencies import get_db_session
+from loom.dependencies import get_db_session, get_storage_backend
 from loom.models.user import User
 from loom.schemas.case import (
     CaseCreate,
     CaseListResponse,
     CaseMemberCreate,
     CaseMemberResponse,
+    CasePurgeRequest,
     CaseResponse,
     CaseUpdate,
 )
@@ -23,9 +24,11 @@ from loom.services.case import (
     get_case,
     list_cases,
     list_members,
+    purge_case,
     remove_member,
     update_case,
 )
+from loom.services.storage_backends import StorageBackend
 
 router = APIRouter(prefix="/cases", tags=["cases"])
 
@@ -170,6 +173,64 @@ async def update_case_endpoint(
         created_at=case.created_at,
         updated_at=case.updated_at,
     )
+
+
+@router.delete(
+    "/{case_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def purge_case_endpoint(
+    case_id: str,
+    body: CasePurgeRequest,
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_authenticated
+    ),
+    session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
+        get_db_session
+    ),
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
+    ),
+) -> None:
+    """permanently destroy a case and its evidence (owner only).
+
+    the case must be closed or archived first (an explicit lifecycle
+    step guards against destroying live work), the exact title must be
+    confirmed, and a reason is required. an append-only audit tombstone
+    is written before anything is deleted.
+    """
+    db: AsyncSession = session  # type: ignore[assignment]
+    user_id = get_current_user_id(token_payload)
+
+    has_access = await check_case_access(
+        db, case_id, user_id, required_role="owner"
+    )
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="insufficient case access",
+        )
+
+    case = await get_case(db, case_id)
+    if not case:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="case not found",
+        )
+
+    if case.status not in ("closed", "archived"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="case must be closed or archived before it can be purged",
+        )
+
+    if body.confirm_title != case.name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="confirm_title does not match the case title",
+        )
+
+    await purge_case(db, case, body.reason.strip(), user_id, storage)
 
 
 @router.post(
