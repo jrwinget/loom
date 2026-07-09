@@ -81,11 +81,15 @@ beforeEach(() => {
     if (path === '/settings/ai/providers') {
       return Promise.resolve({ providers: PROVIDERS }) as never;
     }
+    if (path === '/settings/engines') {
+      return Promise.resolve({ engines: {}, models: [] }) as never;
+    }
     return Promise.resolve({
       transcriptionEngine: 'local',
       provider: '',
       apiBaseUrl: 'https://api.openai.com/v1',
       transcriptionModel: 'whisper-1',
+      whisperModel: 'base',
       apiKeySet: false,
     }) as never;
   });

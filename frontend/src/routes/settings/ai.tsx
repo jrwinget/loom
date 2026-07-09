@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 
+import { EnginesPanel } from '@/components/settings/engines-panel';
 import {
   useAiProviders,
   useAiSettings,
@@ -27,6 +28,7 @@ function AiSettingsForm(props: {
   const [provider, setProvider] = useState(initial.provider);
   const [model, setModel] = useState(initial.transcriptionModel);
   const [baseUrl, setBaseUrl] = useState(initial.apiBaseUrl);
+  const [whisperModel, setWhisperModel] = useState(initial.whisperModel);
   const [apiKey, setApiKey] = useState('');
 
   const cloud = engine === 'cloud';
@@ -64,6 +66,7 @@ function AiSettingsForm(props: {
   const handleSave = (e: React.FormEvent): void => {
     e.preventDefault();
     const patch: AiSettingsUpdate = { transcription_engine: engine };
+    if (!cloud) patch.whisper_model = whisperModel;
     if (cloud) {
       patch.provider = provider;
       patch.transcription_model = model;
@@ -96,9 +99,24 @@ function AiSettingsForm(props: {
           <span>
             <span className="font-medium text-foreground">On-device</span>
             <span className="block text-muted-foreground">
-              Runs locally; nothing leaves this machine. Requires the local
-              model to be installed.
+              Runs locally; nothing leaves this machine. Requires a downloaded
+              speech model (see below).
             </span>
+            {!cloud && (
+              <label className="mt-2 block text-sm">
+                <span className="text-muted-foreground">Speech model</span>
+                <select
+                  data-testid="whisper-model-select"
+                  value={whisperModel}
+                  onChange={(e) => setWhisperModel(e.target.value)}
+                  className="ml-2 rounded border border-border bg-background px-2 py-1"
+                >
+                  <option value="tiny">tiny (fastest)</option>
+                  <option value="base">base (balanced)</option>
+                  <option value="small">small (most accurate)</option>
+                </select>
+              </label>
+            )}
           </span>
         </label>
         <label className="flex items-start gap-2 text-sm">
@@ -266,6 +284,7 @@ export function AiSettingsPage(): React.ReactElement {
       ) : (
         <AiSettingsForm initial={settings.data} providers={providers.data} />
       )}
+      <EnginesPanel />
     </div>
   );
 }
