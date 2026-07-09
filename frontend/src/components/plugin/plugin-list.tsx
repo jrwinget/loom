@@ -10,15 +10,18 @@ const PLUGIN_TYPES = ['webhook', 'activity', 'integration'] as const;
 
 function TypeBadge({ type }: { type: string }): React.ReactElement {
   const colors: Record<string, string> = {
-    webhook: 'bg-blue-100 text-blue-800',
-    activity: 'bg-green-100 text-green-800',
-    integration: 'bg-purple-100 text-purple-800',
+    webhook: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    activity:
+      'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    integration:
+      'bg-purple-100 text-purple-800 ' +
+      'dark:bg-purple-900 dark:text-purple-200',
   };
 
   return (
     <span
       data-testid={`type-badge-${type}`}
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colors[type] ?? 'bg-gray-100 text-gray-800'}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colors[type] ?? 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'}`}
     >
       {type}
     </span>
@@ -193,8 +196,10 @@ function PluginCard({ plugin, onSelect }: PluginCardProps): React.ReactElement {
           onClick={handleToggle}
           className={`rounded-full px-3 py-1 text-xs font-medium ${
             plugin.isEnabled
-              ? 'bg-green-100 text-green-800'
-              : 'bg-gray-100 text-gray-500'
+              ? 'bg-green-100 text-green-800 ' +
+                'dark:bg-green-900 dark:text-green-200'
+              : 'bg-gray-100 text-gray-500 ' +
+                'dark:bg-gray-900 dark:text-gray-400'
           }`}
           aria-label={plugin.isEnabled ? 'Disable plugin' : 'Enable plugin'}
         >
