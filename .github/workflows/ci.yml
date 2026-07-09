@@ -180,6 +180,55 @@ jobs:
           path: frontend/coverage/
           retention-days: 14
 
+  contract-typegen:
+    name: Contract Typegen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Restore uv cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('backend/uv.lock') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --all-extras
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Regenerate schema and types
+        run: |
+          cd backend && uv run python -m loom.scripts.export_openapi --out openapi.json
+          cd ../frontend && pnpm generate:api
+
+      # a backend schema change must land with regenerated types, or
+      # the field/envelope contract silently drifts again
+      - name: Fail on drift
+        run: git diff --exit-code -- backend/openapi.json frontend/src/types/generated
+
   test-migrations:
     name: Test Migrations
     runs-on: ubuntu-latest
