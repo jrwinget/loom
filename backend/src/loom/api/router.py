@@ -12,6 +12,7 @@ from loom.api.v1.conflicts import router as conflicts_router
 from loom.api.v1.correlations import router as correlations_router
 from loom.api.v1.custody import router as custody_router
 from loom.api.v1.duplicates import router as duplicates_router
+from loom.api.v1.engines import router as engines_router
 from loom.api.v1.exports import router as exports_router
 from loom.api.v1.first_run import router as first_run_router
 from loom.api.v1.geo import router as geo_router
@@ -58,6 +59,7 @@ api_router.include_router(organizations_router)
 api_router.include_router(shared_evidence_router)
 api_router.include_router(storage_router)
 api_router.include_router(settings_router)
+api_router.include_router(engines_router)
 api_router.include_router(custody_router)
 api_router.include_router(integrity_router)
 api_router.include_router(plugins_router)
