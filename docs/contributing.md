@@ -135,6 +135,11 @@ scripts/bump-version.sh 0.2.0
 CI repeats the sync check as the required `Verify Versions`
 job, so a drifted version can't merge even without the hooks.
 
+After a bump, run `make typegen`: the exported OpenAPI schema
+embeds the app version, so the checked-in `backend/openapi.json`
+drifts (and the Contract Typegen CI job fails) until it is
+regenerated.
+
 ## Dependency updates
 
 Dependabot runs weekly (Monday) against **`dev`** for the
