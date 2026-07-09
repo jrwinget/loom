@@ -1,9 +1,19 @@
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MfaChallenge } from '@/components/auth/MfaChallenge';
 import { useAuthStore } from '@/stores/auth-store';
+
+// the component navigates on success, so it needs a router in scope
+function renderChallenge(): void {
+  render(
+    <MemoryRouter>
+      <MfaChallenge />
+    </MemoryRouter>,
+  );
+}
 
 // keep the real ApiClientError so instanceof checks in the component
 // see the same class the mocked client rejects with
@@ -34,7 +44,7 @@ describe('MfaChallenge', () => {
   });
 
   it('renders the code input and submit button', () => {
-    render(<MfaChallenge />);
+    renderChallenge();
 
     expect(
       screen.getByRole('heading', { name: 'Two-Factor Authentication' }),
@@ -44,7 +54,7 @@ describe('MfaChallenge', () => {
   });
 
   it('disables the submit button while the code field is empty', () => {
-    render(<MfaChallenge />);
+    renderChallenge();
 
     expect(screen.getByRole('button', { name: 'Verify' })).toBeDisabled();
   });
@@ -62,7 +72,7 @@ describe('MfaChallenge', () => {
     });
     const user = userEvent.setup();
 
-    render(<MfaChallenge />);
+    renderChallenge();
     await user.type(screen.getByLabelText('Code'), '123456');
     await user.click(screen.getByRole('button', { name: 'Verify' }));
 
@@ -87,7 +97,7 @@ describe('MfaChallenge', () => {
     );
     const user = userEvent.setup();
 
-    render(<MfaChallenge />);
+    renderChallenge();
     await user.type(screen.getByLabelText('Code'), '123456');
     await user.click(screen.getByRole('button', { name: 'Verify' }));
 
@@ -109,7 +119,7 @@ describe('MfaChallenge', () => {
     );
     const user = userEvent.setup();
 
-    render(<MfaChallenge />);
+    renderChallenge();
     await user.type(screen.getByLabelText('Code'), '000000');
     await user.click(screen.getByRole('button', { name: 'Verify' }));
 
@@ -126,7 +136,7 @@ describe('MfaChallenge', () => {
     );
     const user = userEvent.setup();
 
-    render(<MfaChallenge />);
+    renderChallenge();
     await user.type(screen.getByLabelText('Code'), '000000');
     await user.click(screen.getByRole('button', { name: 'Verify' }));
 
@@ -139,7 +149,7 @@ describe('MfaChallenge', () => {
     mockedPost.mockRejectedValueOnce(new TypeError('Load failed'));
     const user = userEvent.setup();
 
-    render(<MfaChallenge />);
+    renderChallenge();
     await user.type(screen.getByLabelText('Code'), '123456');
     await user.click(screen.getByRole('button', { name: 'Verify' }));
 
@@ -156,7 +166,7 @@ describe('MfaChallenge', () => {
     mockedGet.mockRejectedValueOnce(new ApiClientError(500, 'boom'));
     const user = userEvent.setup();
 
-    render(<MfaChallenge />);
+    renderChallenge();
     await user.type(screen.getByLabelText('Code'), '123456');
     await user.click(screen.getByRole('button', { name: 'Verify' }));
 
@@ -179,7 +189,7 @@ describe('MfaChallenge', () => {
     });
     const user = userEvent.setup();
 
-    render(<MfaChallenge />);
+    renderChallenge();
     const input = screen.getByLabelText('Code');
     await user.type(input, '123456{Enter}');
 
@@ -194,7 +204,7 @@ describe('MfaChallenge', () => {
   it('clears the mfa challenge when "Back to login" is clicked', async () => {
     const user = userEvent.setup();
 
-    render(<MfaChallenge />);
+    renderChallenge();
     await user.click(screen.getByRole('button', { name: 'Back to login' }));
 
     expect(useAuthStore.getState().mfaChallengeToken).toBeNull();
