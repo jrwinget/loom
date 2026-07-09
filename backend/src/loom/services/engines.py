@@ -20,6 +20,10 @@ REMEDY_WHISPER = (
     "on-device transcription is not installed — use cloud "
     "transcription (Settings → AI) or install the ai extra"
 )
+REMEDY_WHISPER_MODEL = (
+    "no speech model is downloaded — download one in Settings → AI "
+    "(a one-time download), or use cloud transcription"
+)
 REMEDY_TESSERACT = (
     "OCR is not installed — install the ai extra and the tesseract binary"
 )
@@ -75,12 +79,32 @@ def _probe_binary(binary: str, remedy: str) -> EngineStatus:
 def probe_engines() -> dict[str, EngineStatus]:
     """inventory the processing engines this install can actually run."""
     return {
-        "transcription_local": _probe_import("faster_whisper", REMEDY_WHISPER),
+        "transcription_local": _probe_transcription(),
         "ocr": _probe_ocr(),
         "scene_detection": _probe_import("scenedetect", REMEDY_SCENEDETECT),
         "media_pipeline": _probe_binary("ffmpeg", REMEDY_FFMPEG),
         "diarization": _probe_import("pyannote.audio", REMEDY_DIARIZATION),
     }
+
+
+def _probe_transcription() -> EngineStatus:
+    """the engine import alone is not runnable — weights are separate.
+
+    distinguishing "engine absent" from "engine present, model not
+    downloaded" matters because the operator's next action differs:
+    the first needs a reinstall, the second one click in settings.
+    """
+    status = _probe_import("faster_whisper", REMEDY_WHISPER)
+    if status.status != "available":
+        return status
+
+    # lazy: the registry imports settings, and this module must stay
+    # importable from anywhere without config side effects
+    from loom.services.model_registry import installed_models
+
+    if not installed_models():
+        return EngineStatus(status="missing", remedy=REMEDY_WHISPER_MODEL)
+    return status
 
 
 def _probe_ocr() -> EngineStatus:

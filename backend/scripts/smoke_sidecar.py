@@ -3,7 +3,7 @@
 usage: ``python smoke_sidecar.py <path-to-binary>``
 
 spawns the binary with the lite-profile env (no minio, no temporal)
-and asserts four contracts:
+and asserts five contracts:
 
   1. ``GET /api/v1/health`` returns 200 within 60s — guards the
      v0.1.0/v0.1.1 "sidecar never binds a socket" regression,
@@ -21,7 +21,10 @@ and asserts four contracts:
      lookup rejected the just-created admin and ``/auth/me`` 500'd on
      ``User.id == <jwt sub string>`` under the sqlite uuid binding.
      this is the create-admin-then-sign-back-in flow that surfaced as
-     "invalid email or password" after a desktop restart.
+     "invalid email or password" after a desktop restart,
+  5. ``GET /api/v1/capabilities`` reports the bundled local engines
+     — guards the ai-lite pyinstaller collect: a regression there
+     builds fine and then reports every engine missing at runtime.
 
 the 60s health budget matches ``HEALTH_TIMEOUT`` in ``desktop/
 src-tauri/src/main.rs``. a sidecar that has not bound a socket
@@ -350,15 +353,27 @@ def _check_capabilities() -> tuple[bool, str]:
     if cap_status != 200:
         return False, f"/capabilities -> {cap_status}, expected 200"
     engines = body.get("engines") or {}
-    required = ("transcription_local", "scene_detection")
-    missing = [
-        name
-        for name in required
-        if (engines.get(name) or {}).get("status") != "available"
-    ]
-    if missing:
-        return False, f"engines missing from bundle: {missing} ({engines!r})"
-    return True, "bundled engines available: " + ", ".join(required)
+
+    scene = engines.get("scene_detection") or {}
+    if scene.get("status") != "available":
+        return False, f"scene_detection missing from bundle: {engines!r}"
+
+    # a fresh sidecar has no whisper weights, so transcription_local
+    # legitimately reports missing — but its remedy must be the
+    # download-a-model one. the not-installed remedy means the engine
+    # import itself failed, i.e. the bundle collect regressed.
+    trans = engines.get("transcription_local") or {}
+    if trans.get("status") != "available":
+        remedy = str(trans.get("remedy") or "")
+        if "model" not in remedy:
+            return False, (
+                f"transcription engine absent from bundle: {trans!r}"
+            )
+    return True, (
+        "bundled engines: scene_detection available; "
+        f"transcription_local {trans.get('status')} "
+        f"({trans.get('remedy') or 'ready'})"
+    )
 
 
 def _terminate(proc: subprocess.Popen[bytes]) -> None:
