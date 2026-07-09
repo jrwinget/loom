@@ -23,6 +23,7 @@ from loom.services.ai_providers import (
     requires_api_key,
     validate_selection,
 )
+from loom.services.model_registry import WHISPER_MODELS
 
 _AI_KEY = "ai"
 _ALLOWED_ENGINES = ("local", "cloud")
@@ -34,6 +35,7 @@ _EDITABLE_FIELDS = (
     "api_base_url",
     "api_key",
     "transcription_model",
+    "whisper_model",
 )
 
 
@@ -46,6 +48,9 @@ class AiConfig:
     api_base_url: str = _DEFAULT_BASE_URL
     api_key: str = ""
     transcription_model: str = _DEFAULT_MODEL
+    # which pinned whisper model local transcription loads; must be
+    # downloaded via the model manager before a transcribe succeeds
+    whisper_model: str = "base"
 
     @property
     def cloud_transcription_enabled(self) -> bool:
@@ -101,6 +106,7 @@ async def load_ai_config(session: AsyncSession) -> AiConfig:
         transcription_model=str(
             data.get("transcription_model", _DEFAULT_MODEL)
         ),
+        whisper_model=str(data.get("whisper_model", "base")),
     )
 
 
@@ -124,6 +130,9 @@ async def save_ai_config(
         raise ValueError(
             f"transcription_engine must be one of {_ALLOWED_ENGINES}"
         )
+    if updated.whisper_model not in WHISPER_MODELS:
+        known = ", ".join(sorted(WHISPER_MODELS))
+        raise ValueError(f"whisper_model must be one of: {known}")
     if updated.transcription_engine == "cloud":
         # an empty provider (a pre-providers config) is treated as a
         # custom OpenAI-compatible endpoint so it keeps working.
@@ -147,6 +156,7 @@ async def save_ai_config(
         "api_base_url": updated.api_base_url,
         "api_key": updated.api_key,
         "transcription_model": updated.transcription_model,
+        "whisper_model": updated.whisper_model,
     }
     row = await session.scalar(
         select(AppSetting).where(AppSetting.key == _AI_KEY)

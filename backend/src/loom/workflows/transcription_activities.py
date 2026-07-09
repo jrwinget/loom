@@ -119,9 +119,8 @@ async def transcribe_asset(
 ) -> list[dict[str, Any]]:
     """run transcription service on extracted audio.
 
-    delegates to transcription service which gracefully
-    degrades if faster-whisper is not installed. idempotent:
-    re-running produces the same segments.
+    fails loudly when the engine or configured model is missing.
+    idempotent: re-running produces the same segments.
     """
     start = time.monotonic()
     try:
@@ -131,7 +130,12 @@ async def transcribe_asset(
             audio_path,
         )
 
-        segments = transcribe_audio(audio_path)
+        # honor the configured whisper model — hardcoding "base"
+        # would fail the whole sequence on an install that only
+        # downloaded a different size
+        async with get_db_session() as session:
+            config = await load_ai_config(session)
+        segments = transcribe_audio(audio_path, model_size=config.whisper_model)
 
         logger.info(
             "transcribed %d segments for asset %s",
@@ -280,7 +284,9 @@ async def store_transcript(asset_id: str) -> None:
                     audio_path = _extract_local_audio(asset, src, tmp_dir)
                     if audio_path is None:
                         return
-                    segments = transcribe_audio(audio_path)
+                    segments = transcribe_audio(
+                        audio_path, model_size=config.whisper_model
+                    )
                     diarization = diarize_audio(audio_path)
                     if diarization:
                         segments = align_transcript_with_speakers(

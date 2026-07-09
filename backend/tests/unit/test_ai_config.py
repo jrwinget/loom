@@ -196,3 +196,16 @@ def test_validate_endpoint_allow_local_still_rejects_bad_scheme() -> None:
         validate_endpoint("ftp://localhost/v1", allow_local=True)
     with pytest.raises(ValueError):
         validate_endpoint("not-a-url", allow_local=True)
+
+
+async def test_whisper_model_round_trip(session: AsyncSession) -> None:
+    await save_ai_config(session, {"whisper_model": "small"})
+    config = await load_ai_config(session)
+    assert config.whisper_model == "small"
+
+
+async def test_whisper_model_rejects_unknown(session: AsyncSession) -> None:
+    # local transcription resolves through the pinned registry, so a
+    # name outside the catalog could never load
+    with pytest.raises(ValueError, match="whisper_model"):
+        await save_ai_config(session, {"whisper_model": "gigantic"})
