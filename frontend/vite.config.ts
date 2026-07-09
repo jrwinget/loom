@@ -7,6 +7,11 @@ import { defineConfig } from 'vite';
 // so vite serves them in dev and emits them to dist/ on build. the loader
 // points at <base>/pdfjs/{cmaps,standard_fonts}/ — see lib/pdf.ts.
 
+// react core + router share one long-lived vendor chunk (scheduler is
+// react-dom's runtime dependency, so it belongs with it).
+const vendorModules =
+  /node_modules\/(react|react-dom|react-router(-dom)?|scheduler)\//;
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -29,12 +34,17 @@ export default defineConfig({
     // stack traces while end users with browser dev tools cannot
     // recover full source from the deployed build.
     sourcemap: 'hidden',
-    rollupOptions: {
+    // vite 8 (rolldown) drops the object form of manualChunks; these
+    // codeSplitting groups reproduce the previous vendor/query/state
+    // chunks by matching module paths instead of package names.
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          query: ['@tanstack/react-query'],
-          state: ['zustand'],
+        codeSplitting: {
+          groups: [
+            { name: 'vendor', test: vendorModules },
+            { name: 'query', test: /node_modules\/@tanstack\// },
+            { name: 'state', test: /node_modules\/zustand\// },
+          ],
         },
       },
     },
