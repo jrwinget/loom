@@ -145,7 +145,7 @@ class StorageService(StorageBackend):
         minio signs sigv4 over the exact query string, so the
         content-disposition must be signed in via response_headers
         rather than appended afterward (see #322)."""
-        response_headers = None
+        response_headers: dict[str, str | list[str] | tuple[str]] | None = None
         if download_filename is not None:
             response_headers = {
                 "response-content-disposition": (
