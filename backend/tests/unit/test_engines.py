@@ -72,6 +72,17 @@ class TestProbeEngines:
             result = probe_engines()
         assert result["transcription_local"].status == "available"
 
+    def test_absent_parent_package_reports_missing_not_error(self) -> None:
+        # find_spec("pyannote.audio") raises ModuleNotFoundError when
+        # pyannote itself is absent (every desktop bundle); the probe
+        # must treat that as missing, not let /capabilities 500
+        with patch(
+            "loom.services.engines.importlib.util.find_spec",
+            side_effect=ModuleNotFoundError("No module named 'pyannote'"),
+        ):
+            result = probe_engines()
+        assert result["diarization"].status == "missing"
+
     def test_missing_binary_reports_missing(self) -> None:
         with patch(
             "loom.services.engines.shutil.which",

@@ -52,7 +52,15 @@ class EngineStatus:
 
 
 def _probe_import(module: str, remedy: str) -> EngineStatus:
-    if importlib.util.find_spec(module) is not None:
+    # find_spec imports the parent package of a dotted name first and
+    # RAISES when that parent is absent entirely (pyannote.audio on
+    # any install without the ai extra) — a missing engine, not an
+    # error, so the capabilities endpoint must not 500 on it
+    try:
+        found = importlib.util.find_spec(module) is not None
+    except ModuleNotFoundError:
+        found = False
+    if found:
         return EngineStatus(status="available")
     return EngineStatus(status="missing", remedy=remedy)
 
@@ -109,8 +117,9 @@ def _probe_transcription() -> EngineStatus:
 
 def _probe_ocr() -> EngineStatus:
     # pytesseract is a thin wrapper; the binary does the work
-    if importlib.util.find_spec("pytesseract") is None:
-        return EngineStatus(status="missing", remedy=REMEDY_TESSERACT)
+    wrapper = _probe_import("pytesseract", REMEDY_TESSERACT)
+    if wrapper.status != "available":
+        return wrapper
     if shutil.which("tesseract") is None:
         return EngineStatus(status="missing", remedy=REMEDY_TESSERACT)
     return EngineStatus(status="available")
