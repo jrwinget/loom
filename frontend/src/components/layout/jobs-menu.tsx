@@ -6,6 +6,7 @@ const KIND_LABELS: Record<TrackedJob['kind'], string> = {
   scene_detection: 'Scene detection',
   ocr: 'OCR',
   export: 'Export',
+  enhancement: 'Enhancement',
   url_ingest: 'URL ingest',
   ingest: 'Processing',
   bundle_import: 'Bundle import',

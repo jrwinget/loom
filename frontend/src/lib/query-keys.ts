@@ -38,6 +38,10 @@ export const queryKeys = {
     byAsset: (caseId: string, assetId: string) =>
       ['scenes', caseId, assetId] as const,
   },
+  enhancements: {
+    byAsset: (caseId: string, assetId: string) =>
+      ['enhancements', caseId, assetId] as const,
+  },
   search: {
     results: (caseId: string, query: string, types?: string[]) =>
       ['search', caseId, query, types] as const,

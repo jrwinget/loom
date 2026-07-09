@@ -13,6 +13,7 @@ import shutil
 import subprocess
 from dataclasses import asdict, dataclass
 
+from loom.services.engines import REMEDY_FFMPEG, EngineUnavailableError
 from loom.services.proxy import _FFMPEG, _run_ffmpeg
 
 MODEL_NAME = "ffmpeg-deterministic-filter"
@@ -217,15 +218,14 @@ def analyze_video(
 
     runs ffmpeg with signalstats + idet over the first
     ``sample_seconds`` and parses the per-frame metadata from
-    stderr. raises RuntimeError when ffmpeg is unavailable and
-    ValueError when no frames could be measured.
+    stderr. raises EngineUnavailableError when ffmpeg is
+    unavailable and ValueError when no frames could be measured.
     """
     if _FFMPEG is None:
-        msg = (
-            "ffmpeg is not installed or not on PATH; "
-            "clarity-assist analysis is unavailable"
-        )
-        raise RuntimeError(msg)
+        # same typed failure enhance_video/enhance_image surface via
+        # _run_ffmpeg, so a missing binary is reported uniformly with
+        # an actionable remedy rather than a bare RuntimeError
+        raise EngineUnavailableError("media_pipeline", REMEDY_FFMPEG)
 
     result = subprocess.run(  # noqa: S603
         [

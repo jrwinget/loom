@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from loom.services.engines import EngineUnavailableError
 from loom.services.enhancement import (
     MODEL_NAME,
     EnhancementParams,
@@ -236,5 +237,7 @@ class TestAnalyzeVideo:
 
     @patch("loom.services.enhancement._FFMPEG", None)
     def test_missing_ffmpeg_raises(self) -> None:
-        with pytest.raises(RuntimeError, match="ffmpeg"):
+        with pytest.raises(EngineUnavailableError) as exc:
             analyze_video("/fake/in.mp4")
+        assert exc.value.engine == "media_pipeline"
+        assert "ffmpeg" in exc.value.remedy

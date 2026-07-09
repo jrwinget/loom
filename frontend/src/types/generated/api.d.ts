@@ -727,6 +727,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases/{case_id}/assets/{asset_id}/enhancements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Enhancements
+         * @description list the asset's enhancement derivatives (viewer+).
+         */
+        get: operations["list_enhancements_api_v1_cases__case_id__assets__asset_id__enhancements_get"];
+        put?: never;
+        /**
+         * Create Enhancement
+         * @description dispatch a deterministic enhancement run (editor+).
+         *
+         *     returns 202 with the workflow id to poll. each run produces a new
+         *     derivative, so the id carries a uuid suffix to stay unique.
+         */
+        post: operations["create_enhancement_api_v1_cases__case_id__assets__asset_id__enhancements_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/assets/{asset_id}/enhancements/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest Enhancement
+         * @description suggest starting parameters from a measured sample (viewer+).
+         *
+         *     analyses only the leading seconds of the video, so it is safe to
+         *     run synchronously. the reasons explain which threshold fired for
+         *     each non-neutral suggestion.
+         */
+        get: operations["suggest_enhancement_api_v1_cases__case_id__assets__asset_id__enhancements_suggest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{case_id}/assets/{asset_id}/integrity-report": {
         parameters: {
             query?: never;
@@ -3342,6 +3393,100 @@ export interface components {
             status: string;
             /** Version */
             version?: string | null;
+        };
+        /**
+         * EnhancementCreatedResponse
+         * @description 202 body for a dispatched enhancement run.
+         */
+        EnhancementCreatedResponse: {
+            params: components["schemas"]["EnhancementParamsSchema"];
+            /** Status */
+            status: string;
+            /** Workflow Id */
+            workflow_id: string;
+        };
+        /**
+         * EnhancementDerivativeResponse
+         * @description one produced enhancement derivative with its provenance.
+         */
+        EnhancementDerivativeResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Download Url */
+            download_url: string;
+            /** Generation Params */
+            generation_params: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /** EnhancementListResponse */
+        EnhancementListResponse: {
+            /** Enhancements */
+            enhancements: components["schemas"]["EnhancementDerivativeResponse"][];
+        };
+        /**
+         * EnhancementParamsSchema
+         * @description deterministic ffmpeg filter parameters; defaults are neutral.
+         */
+        EnhancementParamsSchema: {
+            /**
+             * Brightness
+             * @default 0
+             */
+            brightness: number;
+            /**
+             * Contrast
+             * @default 1
+             */
+            contrast: number;
+            /**
+             * Deinterlace
+             * @default false
+             */
+            deinterlace: boolean;
+            /**
+             * Denoise
+             * @default 0
+             */
+            denoise: number;
+            /**
+             * Gamma
+             * @default 1
+             */
+            gamma: number;
+            /**
+             * Saturation
+             * @default 1
+             */
+            saturation: number;
+            /**
+             * Scale Factor
+             * @default 1
+             * @enum {integer}
+             */
+            scale_factor: 1 | 2 | 4;
+            /**
+             * Sharpen
+             * @default 0
+             */
+            sharpen: number;
+        };
+        /**
+         * EnhancementSuggestResponse
+         * @description suggested starting parameters plus their human rationale.
+         */
+        EnhancementSuggestResponse: {
+            params: components["schemas"]["EnhancementParamsSchema"];
+            /** Reasons */
+            reasons: string[];
         };
         /** EventClusterResponse */
         EventClusterResponse: {
@@ -6175,6 +6320,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PresignedUrlResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_enhancements_api_v1_cases__case_id__assets__asset_id__enhancements_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnhancementListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_enhancement_api_v1_cases__case_id__assets__asset_id__enhancements_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnhancementParamsSchema"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnhancementCreatedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_enhancement_api_v1_cases__case_id__assets__asset_id__enhancements_suggest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnhancementSuggestResponse"];
                 };
             };
             /** @description Validation Error */
