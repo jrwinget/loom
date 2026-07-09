@@ -6,7 +6,8 @@ export type JobKind =
   | 'ocr'
   | 'export'
   | 'url_ingest'
-  | 'ingest';
+  | 'ingest'
+  | 'bundle_import';
 
 export type JobStatus = 'running' | 'completed' | 'failed' | 'cancelled';
 

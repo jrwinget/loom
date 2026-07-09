@@ -8,6 +8,7 @@ const KIND_LABELS: Record<TrackedJob['kind'], string> = {
   export: 'Export',
   url_ingest: 'URL ingest',
   ingest: 'Processing',
+  bundle_import: 'Bundle import',
 };
 
 function JobProgress(props: { job: TrackedJob }): React.ReactElement {
