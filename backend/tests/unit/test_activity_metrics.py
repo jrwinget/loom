@@ -219,15 +219,30 @@ class TestTranscriptionActivityMetrics:
     """verify transcription activities observe the histogram."""
 
     @patch("loom.workflows.transcription_activities.ingest_workflow_duration")
+    @patch(
+        "loom.workflows.transcription_activities.load_ai_config",
+        new_callable=AsyncMock,
+    )
+    @patch("loom.workflows.transcription_activities.get_db_session")
     @patch("loom.workflows.transcription_activities.transcribe_audio")
     async def test_transcribe_observes_metric(
         self,
         mock_transcribe: MagicMock,
+        mock_session: MagicMock,
+        mock_config: AsyncMock,
         mock_metric: MagicMock,
     ) -> None:
+        from loom.services.ai_config import AiConfig
         from loom.workflows.transcription_activities import (
             transcribe_asset,
         )
+
+        # the activity reads the configured whisper model first
+        mock_session.return_value.__aenter__ = AsyncMock(
+            return_value=MagicMock()
+        )
+        mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_config.return_value = AiConfig()
 
         mock_transcribe.return_value = [{"start": 0, "end": 1, "text": "hello"}]
 

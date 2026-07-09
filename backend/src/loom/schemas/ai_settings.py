@@ -9,6 +9,7 @@ class AiSettingsResponse(BaseModel):
     provider: str
     api_base_url: str
     transcription_model: str
+    whisper_model: str
     api_key_set: bool
 
 
@@ -21,6 +22,7 @@ class AiSettingsUpdate(BaseModel):
     api_base_url: str | None = None
     transcription_model: str | None = None
     api_key: str | None = None
+    whisper_model: str | None = None
 
 
 class AiProviderModel(BaseModel):
