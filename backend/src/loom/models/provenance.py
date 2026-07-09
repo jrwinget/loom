@@ -13,12 +13,14 @@ class ProvenanceRecord(UUIDMixin, Base):
     __tablename__ = "provenance_records"
 
     asset_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("assets.id", ondelete="CASCADE"),
+        # SET NULL, not CASCADE: a provenance record outlives its
+        # asset so the c2pa trail survives deletions
+        ForeignKey("assets.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
     export_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("export_bundles.id", ondelete="CASCADE"),
+        ForeignKey("export_bundles.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )

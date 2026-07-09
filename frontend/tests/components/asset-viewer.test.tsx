@@ -21,6 +21,7 @@ function makeAsset(over: {
   mediaType: MediaType;
   mimeType: string;
   originalFilename?: string;
+  metadataExtracted?: Record<string, unknown> | null;
 }): Asset {
   return {
     id: 'asset-1',
@@ -29,6 +30,7 @@ function makeAsset(over: {
     storageKey: 'k',
     mediaType: over.mediaType,
     mimeType: over.mimeType,
+    metadataExtracted: over.metadataExtracted ?? null,
     fileSizeBytes: 10,
     sha256Hash: 'abc',
     uploadStatus: 'complete',
@@ -152,5 +154,54 @@ describe('AssetViewer', () => {
       'href',
       `${SRC}&disposition=attachment`,
     );
+  });
+
+  it('computes the frame counter from the extracted frame rate', () => {
+    render(
+      <AssetViewer
+        asset={makeAsset({
+          mediaType: 'video',
+          mimeType: 'video/mp4',
+          metadataExtracted: { frameRate: 25 },
+        })}
+        src={SRC}
+      />,
+    );
+    const video = screen.getByTestId('video-element') as HTMLVideoElement;
+    video.currentTime = 2;
+    fireEvent.timeUpdate(video);
+    expect(screen.getByTestId('timestamp-display')).toHaveTextContent(
+      'Frame 50',
+    );
+  });
+
+  it('hides the frame counter when no frame rate was extracted', () => {
+    render(
+      <AssetViewer
+        asset={makeAsset({ mediaType: 'video', mimeType: 'video/mp4' })}
+        src={SRC}
+      />,
+    );
+    expect(screen.getByTestId('timestamp-display')).not.toHaveTextContent(
+      'Frame',
+    );
+  });
+
+  it('reports playback time through onTimeUpdate and the forwarded ref', () => {
+    const onTimeUpdate = vi.fn();
+    const videoRef = { current: null as HTMLVideoElement | null };
+    render(
+      <AssetViewer
+        asset={makeAsset({ mediaType: 'video', mimeType: 'video/mp4' })}
+        src={SRC}
+        videoRef={videoRef}
+        onTimeUpdate={onTimeUpdate}
+      />,
+    );
+    const video = screen.getByTestId('video-element') as HTMLVideoElement;
+    expect(videoRef.current).toBe(video);
+    video.currentTime = 3.5;
+    fireEvent.timeUpdate(video);
+    expect(onTimeUpdate).toHaveBeenCalledWith(3.5);
   });
 });

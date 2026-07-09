@@ -63,7 +63,7 @@ class Annotation(UUIDMixin, TimestampMixin, Base):
         nullable=True,
     )
     created_by: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
     )
     deleted_at: Mapped[datetime | None] = mapped_column(

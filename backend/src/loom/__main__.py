@@ -26,6 +26,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import uvicorn
+from alembic import command
+from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -207,6 +209,59 @@ def _stamp_alembic_head(settings: loom.config.Settings) -> None:
         engine.dispose()
 
 
+def _current_lite_revision(
+    settings: loom.config.Settings,
+) -> str | None:
+    """return the stamped alembic revision, or None on a fresh db."""
+    sync_url = settings.database_url.replace("sqlite+aiosqlite", "sqlite")
+    engine = create_engine(sync_url)
+    try:
+        with engine.connect() as conn:
+            table = conn.execute(
+                text(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='table' AND name='alembic_version'"
+                )
+            ).first()
+            if table is None:
+                return None
+            row = conn.execute(
+                text("SELECT version_num FROM alembic_version")
+            ).first()
+            return row[0] if row is not None else None
+    finally:
+        engine.dispose()
+
+
+def _upgrade_lite_schema() -> None:
+    """replay pending migrations against the lite sqlite db.
+
+    runs on a dedicated thread because alembic's env.py drives the
+    async engine with ``asyncio.run``, which refuses to start inside
+    an already-running event loop (the same conflict that keeps
+    ``_stamp_alembic_head`` off ``command.stamp``). a fresh thread
+    never has a running loop, so the call is safe from any context.
+    the Config is built without alembic.ini to keep env.py's
+    fileConfig from clobbering the process logging setup.
+    """
+    _, alembic_dir = _resolve_alembic_paths()
+    cfg = Config()
+    cfg.set_main_option("script_location", str(alembic_dir))
+    failure: list[BaseException] = []
+
+    def _run() -> None:
+        try:
+            command.upgrade(cfg, "head")
+        except BaseException as exc:
+            failure.append(exc)
+
+    worker = threading.Thread(target=_run, name="loom-lite-migrate")
+    worker.start()
+    worker.join()
+    if failure:
+        raise failure[0]
+
+
 def bootstrap_schema_if_lite() -> None:
     """materialise the lite-profile sqlite schema on first launch.
 
@@ -238,6 +293,18 @@ def bootstrap_schema_if_lite() -> None:
     db_path = _sqlite_db_path(settings.database_url)
     if db_path is not None:
         db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    stamped = _current_lite_revision(settings)
+    head = _alembic_head_revision()
+    if stamped is not None and stamped != head:
+        # an install created on an older release: create_all skips
+        # existing tables, so schema changes only arrive by replaying
+        # the pending migrations (which must stay sqlite-compatible
+        # from 014 onward — plain add_column or batch_alter_table,
+        # postgres-only reconciliation behind a dialect guard).
+        logger.info("upgrading lite schema from %s to %s", stamped, head)
+        _upgrade_lite_schema()
+        return
 
     logger.info("bootstrapping lite schema at %s", settings.database_url)
     asyncio.run(_bootstrap_sqlite_schema(settings.database_url))

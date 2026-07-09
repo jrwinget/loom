@@ -138,6 +138,48 @@ def test_bootstrap_is_idempotent_on_existing_install(
     assert rows == (1,)
 
 
+def test_bootstrap_upgrades_stale_lite_schema(
+    _lite_settings: Settings,
+) -> None:
+    """a db created on an older release must be migrated forward.
+
+    the bootstrap used to be create_all + stamp only: existing
+    tables were skipped and nothing ever ran ``alembic upgrade``, so
+    an install created before migration 014 never gained
+    ``assets.processing_error`` and every write to it raised "no
+    such column" after the app upgraded. simulate that install by
+    dropping the column and winding alembic_version back, then boot.
+    """
+    db_path = _db_file(_lite_settings.database_url)
+    get_settings.cache_clear()
+    with patch("loom.config.get_settings", return_value=_lite_settings):
+        bootstrap_schema_if_lite()
+
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute("ALTER TABLE assets DROP COLUMN processing_error")
+            conn.execute("UPDATE alembic_version SET version_num = '013'")
+            conn.commit()
+        finally:
+            conn.close()
+
+        bootstrap_schema_if_lite()
+
+    conn = sqlite3.connect(db_path)
+    try:
+        cols = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(assets)").fetchall()
+        }
+        rev = conn.execute(
+            "SELECT version_num FROM alembic_version"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert "processing_error" in cols, "migration 014 did not replay"
+    assert rev not in (None, "013"), f"still stamped at {rev}"
+
+
 def test_bootstrap_is_noop_on_server_profile(tmp_path: Path) -> None:
     """server profile must not touch the database.
 

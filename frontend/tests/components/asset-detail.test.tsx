@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
-import { type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { AssetDetail } from '@/components/asset/asset-detail';
 import type { Asset } from '@/types/asset';
@@ -184,5 +183,23 @@ describe('AssetDetail', () => {
       'https://example.com/download/test.mp4?disposition=attachment',
     );
     expect(link).toHaveAttribute('download', 'protest-footage.mp4');
+  });
+
+  it('surfaces the failure reason when processing failed', () => {
+    renderDetail({
+      ...mockAsset,
+      processingStatus: 'failed',
+      processingError:
+        'on-device transcription is not installed — use cloud ' +
+        'transcription (Settings → AI) or install the ai extra',
+    });
+    expect(screen.getByTestId('processing-error')).toHaveTextContent(
+      'on-device transcription is not installed',
+    );
+  });
+
+  it('shows no failure text for a healthy asset', () => {
+    renderDetail();
+    expect(screen.queryByTestId('processing-error')).not.toBeInTheDocument();
   });
 });

@@ -13,14 +13,17 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-vi.mock('@/lib/api-client', () => ({
+// keep the real ApiClientError so instanceof checks in the components
+// see the same class the mocked client rejects with
+vi.mock('@/lib/api-client', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   apiClient: {
     post: vi.fn(),
     get: vi.fn(),
   },
 }));
 
-import { apiClient } from '@/lib/api-client';
+import { ApiClientError, apiClient } from '@/lib/api-client';
 
 const mockedPost = vi.mocked(apiClient.post);
 const mockedGet = vi.mocked(apiClient.get);
@@ -68,9 +71,7 @@ describe('LoginPage MFA flow', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Two-Factor Authentication'),
-      ).toBeInTheDocument();
+      expect(screen.getByText('Two-Factor Authentication')).toBeInTheDocument();
     });
   });
 
@@ -90,9 +91,7 @@ describe('LoginPage MFA flow', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Two-Factor Authentication'),
-      ).toBeInTheDocument();
+      expect(screen.getByText('Two-Factor Authentication')).toBeInTheDocument();
     });
 
     // second call: mfa challenge returns tokens
@@ -115,6 +114,10 @@ describe('LoginPage MFA flow', () => {
       expect(state.token).toBe('jwt-token');
       expect(state.mfaChallengeToken).toBeNull();
     });
+    // the challenge path must leave the login page like the
+    // password-only path does — clearing the challenge alone just
+    // re-renders the sign-in form under the authenticated user
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
   });
 
   it('shows error on failed MFA code', async () => {
@@ -132,21 +135,17 @@ describe('LoginPage MFA flow', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Two-Factor Authentication'),
-      ).toBeInTheDocument();
+      expect(screen.getByText('Two-Factor Authentication')).toBeInTheDocument();
     });
 
     // mfa challenge fails
-    mockedPost.mockRejectedValueOnce(new Error('invalid code'));
+    mockedPost.mockRejectedValueOnce(new ApiClientError(401, 'invalid code'));
 
     await user.type(screen.getByLabelText('Code'), '000000');
     await user.click(screen.getByRole('button', { name: 'Verify' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        'Invalid code',
-      );
+      expect(screen.getByRole('alert')).toHaveTextContent('invalid code');
     });
   });
 
@@ -165,19 +164,13 @@ describe('LoginPage MFA flow', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Two-Factor Authentication'),
-      ).toBeInTheDocument();
+      expect(screen.getByText('Two-Factor Authentication')).toBeInTheDocument();
     });
 
-    await user.click(
-      screen.getByRole('button', { name: 'Back to login' }),
-    );
+    await user.click(screen.getByRole('button', { name: 'Back to login' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Sign in to Loom'),
-      ).toBeInTheDocument();
+      expect(screen.getByText('Sign in to Loom')).toBeInTheDocument();
     });
   });
 });

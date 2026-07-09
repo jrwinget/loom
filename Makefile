@@ -49,6 +49,10 @@ format: ## auto-format all code
 migrate: ## run database migrations
 	cd backend && uv run alembic upgrade head
 
+typegen: ## regenerate frontend api types from the backend openapi schema
+	cd backend && uv run python -m loom.scripts.export_openapi --out openapi.json
+	cd frontend && pnpm generate:api
+
 build: ## build docker images
 	docker build -t loom-backend:latest backend/
 	docker build -t loom-worker:latest -f backend/Dockerfile.worker backend/

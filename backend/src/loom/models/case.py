@@ -36,7 +36,7 @@ class Case(UUIDMixin, TimestampMixin, Base):
         default="active",
     )
     created_by: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
     )
 
@@ -59,7 +59,7 @@ class CaseMembership(UUIDMixin, Base):
         default="viewer",
     )
     granted_by: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
     )
     granted_at: Mapped[datetime] = mapped_column(

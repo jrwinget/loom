@@ -125,7 +125,10 @@ function AiSettingsForm(props: {
         <div className="space-y-4 rounded border border-border p-4">
           <p
             role="note"
-            className="rounded bg-yellow-100 px-3 py-2 text-xs text-yellow-900"
+            className={
+              'rounded bg-yellow-100 px-3 py-2 text-xs text-yellow-900 ' +
+              'dark:bg-yellow-900 dark:text-yellow-100'
+            }
           >
             Evidence audio will be sent to this provider for processing. Each
             cloud transcription is recorded in the asset&apos;s chain of

@@ -1,7 +1,7 @@
 {
   "name": "loom-frontend",
   "private": true,
-  "version": "0.1.17",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "copy-pdfjs-assets": "node scripts/copy-pdfjs-assets.mjs",
@@ -11,6 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "generate:api": "openapi-typescript ../backend/openapi.json -o src/types/generated/api.d.ts",
     "lint": "eslint --max-warnings=0 'src/**/*.{ts,tsx}'",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write 'src/**/*.{ts,tsx,css}'",
@@ -57,10 +59,13 @@
     "jest-axe": "^10.0.0",
     "jsdom": "^29.1.1",
     "msw": "^2.14.6",
+    "openapi-typescript": "^7.13.0",
+    "otpauth": "^9.5.1",
     "postcss": "^8.5.15",
     "prettier": "^3.8.4",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^3.4.0",
+    "type-fest": "^5.8.0",
     "typescript": "^6.0.3",
     "vite": "^6.4.3",
     "vitest": "^4.1.9"

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Header } from '@/components/layout/header';
+import { JobsWatcher } from '@/components/layout/jobs-watcher';
 import { OfflineBanner } from '@/components/layout/offline-banner';
 import { Sidebar } from '@/components/layout/sidebar';
 
@@ -24,6 +25,7 @@ export function Shell(): React.ReactElement {
         Skip to main content
       </a>
       <Sidebar />
+      <JobsWatcher />
       <div className="flex flex-1 flex-col overflow-hidden">
         <OfflineBanner />
         <Header />

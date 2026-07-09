@@ -12,9 +12,9 @@ interface ClusterReviewProps {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  proposed: 'bg-blue-100 text-blue-800',
-  accepted: 'bg-green-100 text-green-800',
-  rejected: 'bg-gray-100 text-gray-800',
+  proposed: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  accepted: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  rejected: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
 };
 
 // group items by asset id for display

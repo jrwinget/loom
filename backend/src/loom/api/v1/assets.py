@@ -56,6 +56,10 @@ from loom.services.ingest import (
     validate_file_type,
 )
 from loom.services.storage_backends import ORIGINALS_BUCKET, StorageBackend
+from loom.services.streaming_upload import (
+    UploadTooLargeError,
+    stream_to_tempfile,
+)
 from loom.services.url_ingest import (
     ExtractionError,
     select_extractor,
@@ -69,7 +73,31 @@ router = APIRouter(
     tags=["assets"],
 )
 
-_MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100mb
+
+def _upload_limit() -> int:
+    """configured upload ceiling in bytes; 0 disables the cap."""
+    return get_settings().max_upload_size_bytes
+
+
+def _reject_oversize_content_length(request: Request) -> None:
+    """413 before reading anything when the declared length is over cap."""
+    limit = _upload_limit()
+    if limit <= 0:
+        return
+    declared = request.headers.get("content-length")
+    if declared is None:
+        return
+    try:
+        if int(declared) > limit:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"file exceeds the {limit} byte upload limit",
+            )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="invalid Content-Length header",
+        ) from None
 
 
 async def _check_access(
@@ -109,19 +137,25 @@ async def upload_asset(
         get_storage_backend
     ),
 ) -> AssetUploadResponse:
-    """upload a file (<=100mb) to a case."""
+    """upload a small file to a case (multipart, memory-buffered).
+
+    bounded by the configured cap; multi-gb evidence goes through the
+    streaming route below, which never buffers the body.
+    """
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id, "editor")
+    _reject_oversize_content_length(request)
 
     active_uploads.inc()
     try:
         # read file bytes
         data = await file.read()
-        if len(data) > _MAX_UPLOAD_SIZE:
+        limit = _upload_limit()
+        if limit > 0 and len(data) > limit:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="file exceeds 100mb limit",
+                detail=f"file exceeds the {limit} byte upload limit",
             )
 
         filename = file.filename or "unnamed"
@@ -180,6 +214,132 @@ async def upload_asset(
             data,
             mime_type,
         )
+
+        await db.commit()
+        await db.refresh(asset)
+
+        await _start_ingest(asset.id)
+    finally:
+        active_uploads.dec()
+
+    return AssetUploadResponse(
+        id=asset.id,
+        original_filename=asset.original_filename,
+        media_type=asset.media_type,
+        sha256_hash=asset.sha256_hash,
+        upload_status=asset.upload_status,
+        processing_status=asset.processing_status,
+    )
+
+
+@router.post(
+    "/upload-stream",
+    response_model=AssetUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+# higher than the multipart route: bulk folder ingest of field footage
+# is a normal desktop workflow
+@user_limiter.limit("60/minute")
+async def upload_asset_stream(
+    case_id: str,
+    filename: str,
+    request: Request,
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_authenticated
+    ),
+    session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
+        get_db_session
+    ),
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
+    ),
+) -> AssetUploadResponse:
+    """stream a raw-body upload of any configured size into a case.
+
+    bypasses the multipart parser so multi-gb evidence footage never
+    lands in memory: chunks are hashed and written to a temp file next
+    to the buckets, then moved into WORM storage. Content-Length is
+    required and prechecked so an oversize body is rejected before any
+    bytes are read.
+    """
+    db: AsyncSession = session  # type: ignore[assignment]
+    user_id = get_current_user_id(token_payload)
+    await _check_access(db, case_id, user_id, "editor")
+
+    if "content-length" not in request.headers:
+        raise HTTPException(
+            status_code=status.HTTP_411_LENGTH_REQUIRED,
+            detail="Content-Length is required for streamed uploads",
+        )
+    _reject_oversize_content_length(request)
+
+    active_uploads.inc()
+    try:
+        try:
+            streamed = await stream_to_tempfile(request, _upload_limit())
+        except UploadTooLargeError as err:
+            # the header lied; the partial temp file is already gone
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=str(err),
+            ) from err
+
+        try:
+            try:
+                mime_type, media_type = validate_file_type(
+                    streamed.head, filename
+                )
+            except ValueError as err:
+                raise HTTPException(
+                    status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                    detail=str(err),
+                ) from err
+
+            ip_address = request.client.host if request.client else None
+
+            async with db.begin_nested():
+                asset = await create_asset_record(
+                    db,
+                    case_id,
+                    filename,
+                    "",  # placeholder key, updated below
+                    media_type,
+                    mime_type,
+                    streamed.size,
+                    streamed.sha256,
+                    streamed.sha512,
+                    user_id,
+                )
+
+                storage_key = generate_storage_key(
+                    case_id,
+                    str(asset.id),
+                    filename,
+                )
+                asset.storage_key = storage_key
+                await db.flush()
+
+                await record_upload_custody(
+                    db,
+                    str(asset.id),
+                    user_id,
+                    ip_address,
+                )
+
+            # consume the temp file into storage (sync call via
+            # executor; local = atomic rename, minio = fput_object)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                None,
+                storage.upload_file_move,
+                ORIGINALS_BUCKET,
+                storage_key,
+                str(streamed.path),
+                mime_type,
+            )
+        except BaseException:
+            streamed.path.unlink(missing_ok=True)
+            raise
 
         await db.commit()
         await db.refresh(asset)
