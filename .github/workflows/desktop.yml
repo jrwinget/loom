@@ -396,6 +396,16 @@ jobs:
       # the codecs via its declared `depends` (see tauri.conf.json), and
       # macOS/Windows webviews carry H.264/AAC natively; the in-app
       # download fallback covers any remaining codec gap on all targets.
+      # bundled host binaries (ffmpeg, tesseract): pinned by url +
+      # sha256 in desktop/binaries.lock.json and verified before they
+      # enter the bundle. macos is a no-op by design — the engines
+      # probe homebrew there and fail loudly with a remedy.
+      - name: Fetch pinned host binaries
+        shell: bash
+        run: >-
+          python scripts/fetch-desktop-binaries.py
+          --platform ${{ matrix.platform }}
+
       # TAURI_SIGNING_* signs the UPDATER artifacts (minisign): the
       # in-app updater verifies downloads against the pubkey pinned
       # in tauri.conf.json. independent of the os code-signing steps

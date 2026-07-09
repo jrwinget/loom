@@ -272,6 +272,21 @@ fn purge_lite_data(data_dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
+// resolve the bundled host-binaries resource dir (ffmpeg, tesseract
+// on linux/windows). returns None when absent — macos bundles none
+// by design, and a dev tree only has it after running
+// scripts/fetch-desktop-binaries.py — in which case the sidecar env
+// is left alone and the engine probes fall back to their remedies.
+fn bundled_binaries_dir(app: &AppHandle) -> Option<PathBuf> {
+    let dir = app.path().resource_dir().ok()?.join("binaries");
+    // the placeholder README ships alone on platforms with no
+    // entries; require an actual binary before touching PATH
+    let has_binary = ["ffmpeg", "ffmpeg.exe"]
+        .iter()
+        .any(|name| dir.join(name).is_file());
+    if has_binary { Some(dir) } else { None }
+}
+
 fn spawn_backend(
     app: &AppHandle,
     config: &LoomConfig,
@@ -281,7 +296,7 @@ fn spawn_backend(
     let db_path = data_dir.join("loom.db");
     let db_url = format!("sqlite+aiosqlite:///{}", db_path.display());
 
-    let sidecar = app
+    let mut sidecar = app
         .shell()
         .sidecar("loom-backend")
         .map_err(|e| format!("failed to locate sidecar: {e}"))?
@@ -298,6 +313,23 @@ fn spawn_backend(
         // does not admit memory exhaustion.
         .env("LOOM_MAX_UPLOAD_SIZE_BYTES", "0")
         .env("LOOM_SHUTDOWN_TOKEN", secrets.shutdown_token.clone());
+
+    // prepend the bundled binaries to PATH so the python side's
+    // shutil.which() finds them with zero backend changes; tessdata
+    // rides along for the bundled tesseract.
+    if let Some(bin_dir) = bundled_binaries_dir(app) {
+        let sep = if cfg!(windows) { ";" } else { ":" };
+        let current = std::env::var("PATH").unwrap_or_default();
+        sidecar = sidecar.env(
+            "PATH",
+            format!("{}{}{}", bin_dir.display(), sep, current),
+        );
+        let tessdata = bin_dir.join("tessdata");
+        if tessdata.is_dir() {
+            sidecar = sidecar
+                .env("TESSDATA_PREFIX", tessdata.display().to_string());
+        }
+    }
 
     let (mut rx, child) = sidecar
         .spawn()

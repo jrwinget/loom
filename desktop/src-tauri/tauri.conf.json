@@ -47,6 +47,7 @@
     "shortDescription": "Evidence operating system for legal observers",
     "longDescription": "Loom combines video, photos, and statements into defensible event timelines for civil-liberties legal observers.",
     "externalBin": ["../../backend/dist/loom-backend"],
+    "resources": ["binaries/**/*"],
     "macOS": {
       "minimumSystemVersion": "11.0"
     },
