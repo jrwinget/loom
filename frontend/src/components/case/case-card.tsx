@@ -43,12 +43,12 @@ export function CaseCard(props: CaseCardProps): React.ReactElement {
     <button
       type="button"
       data-testid={`case-card-${id}`}
-      className="flex w-full flex-col rounded-lg border border-border bg-card p-4 text-left shadow-sm transition-colors hover:bg-accent/50"
+      className="border-border bg-card hover:bg-accent/50 flex w-full flex-col rounded-lg border p-4 text-left shadow-xs transition-colors"
       onClick={() => navigate(`/cases/${id}`)}
     >
       {/* header row */}
       <div className="flex items-start justify-between">
-        <h3 className="text-sm font-semibold text-foreground">{name}</h3>
+        <h3 className="text-foreground text-sm font-semibold">{name}</h3>
         <span
           data-testid="status-badge"
           className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}
@@ -58,10 +58,10 @@ export function CaseCard(props: CaseCardProps): React.ReactElement {
       </div>
 
       {/* description */}
-      <p className="mt-1 text-xs text-muted-foreground">{truncated}</p>
+      <p className="text-muted-foreground mt-1 text-xs">{truncated}</p>
 
       {/* stats row */}
-      <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+      <div className="text-muted-foreground mt-3 flex items-center gap-4 text-xs">
         <span>{assetCount} assets</span>
         <span>{eventCount} events</span>
         <span className="ml-auto">{formatDate(createdAt)}</span>

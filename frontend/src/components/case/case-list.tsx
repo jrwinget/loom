@@ -10,11 +10,11 @@ function Skeleton(): React.ReactElement {
   return (
     <div
       data-testid="case-skeleton"
-      className="animate-pulse rounded-lg border border-border bg-muted/40 p-4"
+      className="border-border bg-muted/40 animate-pulse rounded-lg border p-4"
     >
-      <div className="h-4 w-2/3 rounded bg-muted" />
-      <div className="mt-2 h-3 w-full rounded bg-muted" />
-      <div className="mt-3 h-3 w-1/3 rounded bg-muted" />
+      <div className="bg-muted h-4 w-2/3 rounded" />
+      <div className="bg-muted mt-2 h-3 w-full rounded" />
+      <div className="bg-muted mt-3 h-3 w-1/3 rounded" />
     </div>
   );
 }
@@ -42,8 +42,8 @@ export function CaseList(props: CaseListProps): React.ReactElement {
         data-testid="empty-state"
         className="flex flex-col items-center justify-center py-16 text-center"
       >
-        <p className="text-lg font-medium text-foreground">No cases yet</p>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-foreground text-lg font-medium">No cases yet</p>
+        <p className="text-muted-foreground mt-1 text-sm">
           Create your first case to get started.
         </p>
       </div>

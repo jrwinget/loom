@@ -20,7 +20,7 @@ export function SharedEvidencePanel({
           <div
             key={i}
             data-testid="shared-skeleton"
-            className="h-16 animate-pulse rounded-lg bg-muted"
+            className="bg-muted h-16 animate-pulse rounded-lg"
           />
         ))}
       </div>
@@ -30,13 +30,13 @@ export function SharedEvidencePanel({
   return (
     <div className="space-y-6">
       <section>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <h3 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
           Incoming Shared Evidence
         </h3>
         {incoming.length === 0 ? (
           <p
             data-testid="no-incoming"
-            className="text-sm text-muted-foreground"
+            className="text-muted-foreground text-sm"
           >
             No evidence shared to this case
           </p>
@@ -46,13 +46,13 @@ export function SharedEvidencePanel({
               <li
                 key={item.id}
                 data-testid="shared-item"
-                className="flex items-center justify-between rounded-md border border-border bg-card p-3"
+                className="border-border bg-card flex items-center justify-between rounded-md border p-3"
               >
                 <div>
-                  <span className="text-sm font-medium text-foreground">
+                  <span className="text-foreground text-sm font-medium">
                     {item.originalFilename ?? 'Unknown file'}
                   </span>
-                  <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                  <span className="bg-muted text-muted-foreground ml-2 rounded px-1.5 py-0.5 text-xs">
                     {item.accessLevel}
                   </span>
                 </div>
@@ -63,13 +63,13 @@ export function SharedEvidencePanel({
       </section>
 
       <section>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <h3 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
           Outgoing Shared Evidence
         </h3>
         {outgoing.length === 0 ? (
           <p
             data-testid="no-outgoing"
-            className="text-sm text-muted-foreground"
+            className="text-muted-foreground text-sm"
           >
             No evidence shared from this case
           </p>
@@ -79,20 +79,20 @@ export function SharedEvidencePanel({
               <li
                 key={item.id}
                 data-testid="shared-item"
-                className="flex items-center justify-between rounded-md border border-border bg-card p-3"
+                className="border-border bg-card flex items-center justify-between rounded-md border p-3"
               >
                 <div>
-                  <span className="text-sm font-medium text-foreground">
+                  <span className="text-foreground text-sm font-medium">
                     {item.originalFilename ?? 'Unknown file'}
                   </span>
-                  <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                  <span className="bg-muted text-muted-foreground ml-2 rounded px-1.5 py-0.5 text-xs">
                     {item.accessLevel}
                   </span>
                 </div>
                 <button
                   data-testid="revoke-btn"
                   onClick={() => onRevoke(item.id)}
-                  className="rounded-md px-3 py-1 text-xs text-destructive hover:bg-destructive/10"
+                  className="text-destructive hover:bg-destructive/10 rounded-md px-3 py-1 text-xs"
                 >
                   Revoke
                 </button>

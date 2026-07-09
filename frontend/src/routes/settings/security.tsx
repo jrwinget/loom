@@ -55,8 +55,8 @@ export function SecuritySettingsPage(): React.ReactElement {
   if (step === 'done') {
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-foreground">MFA Enabled</h2>
-        <p className="text-sm text-muted-foreground">
+        <h2 className="text-foreground text-xl font-bold">MFA Enabled</h2>
+        <p className="text-muted-foreground text-sm">
           Save these recovery codes in a secure location. Each can be used once.
         </p>
         <ul
@@ -74,10 +74,10 @@ export function SecuritySettingsPage(): React.ReactElement {
   if (step === 'setup') {
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-foreground">
+        <h2 className="text-foreground text-xl font-bold">
           Setup Authenticator
         </h2>
-        <p className="break-all text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm break-all">
           Add this URI to your authenticator app: <code>{uri}</code>
         </p>
         <form onSubmit={handleVerify} className="space-y-4">
@@ -87,17 +87,17 @@ export function SecuritySettingsPage(): React.ReactElement {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="Enter code from app"
-            className="block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground"
+            className="border-input bg-background text-foreground block w-full rounded-md border px-3 py-2"
             required
           />
           {error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-destructive text-sm">
               {error}
             </p>
           )}
           <button
             type="submit"
-            className="rounded-md bg-primary px-4 py-2 text-primary-foreground"
+            className="bg-primary text-primary-foreground rounded-md px-4 py-2"
           >
             Verify
           </button>
@@ -108,18 +108,18 @@ export function SecuritySettingsPage(): React.ReactElement {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-foreground">Security Settings</h2>
-      <p className="text-sm text-muted-foreground">
+      <h2 className="text-foreground text-xl font-bold">Security Settings</h2>
+      <p className="text-muted-foreground text-sm">
         Protect your account with two-factor authentication.
       </p>
       {error && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-destructive text-sm">
           {error}
         </p>
       )}
       <button
         onClick={handleSetup}
-        className="rounded-md bg-primary px-4 py-2 text-primary-foreground"
+        className="bg-primary text-primary-foreground rounded-md px-4 py-2"
       >
         Enable MFA
       </button>

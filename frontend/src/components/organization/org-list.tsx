@@ -31,7 +31,7 @@ export function OrgList({
           <div
             key={i}
             data-testid="org-skeleton"
-            className="h-20 animate-pulse rounded-lg bg-muted"
+            className="bg-muted h-20 animate-pulse rounded-lg"
           />
         ))}
       </div>
@@ -41,11 +41,11 @@ export function OrgList({
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-foreground">Organizations</h2>
+        <h2 className="text-foreground text-xl font-semibold">Organizations</h2>
         <button
           data-testid="create-org-btn"
           onClick={() => setShowDialog(true)}
-          className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm"
         >
           Create Organization
         </button>
@@ -64,19 +64,19 @@ export function OrgList({
             <div
               key={org.id}
               data-testid="org-card"
-              className="rounded-lg border border-border bg-card p-4"
+              className="border-border bg-card rounded-lg border p-4"
             >
               <div className="flex items-center justify-between">
-                <h3 className="font-medium text-foreground">{org.name}</h3>
+                <h3 className="text-foreground font-medium">{org.name}</h3>
                 <span
                   data-testid="member-count-badge"
-                  className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                  className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs"
                 >
                   {org.memberCount} members
                 </span>
               </div>
               {org.description && (
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="text-muted-foreground mt-1 text-sm">
                   {org.description}
                 </p>
               )}
@@ -92,13 +92,13 @@ export function OrgList({
         >
           <form
             onSubmit={handleSubmit}
-            className="w-full max-w-md rounded-lg bg-card p-6"
+            className="bg-card w-full max-w-md rounded-lg p-6"
           >
             <h3 className="mb-4 text-lg font-semibold">Create Organization</h3>
             <div className="mb-4">
               <label
                 htmlFor="org-name"
-                className="mb-1 block text-sm text-muted-foreground"
+                className="text-muted-foreground mb-1 block text-sm"
               >
                 Name
               </label>
@@ -108,14 +108,14 @@ export function OrgList({
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
                 required
               />
             </div>
             <div className="mb-4">
               <label
                 htmlFor="org-description"
-                className="mb-1 block text-sm text-muted-foreground"
+                className="text-muted-foreground mb-1 block text-sm"
               >
                 Description
               </label>
@@ -124,7 +124,7 @@ export function OrgList({
                 data-testid="org-description-input"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm"
                 rows={3}
               />
             </div>
@@ -132,14 +132,14 @@ export function OrgList({
               <button
                 type="button"
                 onClick={() => setShowDialog(false)}
-                className="rounded-md px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
+                className="text-muted-foreground hover:bg-muted rounded-md px-4 py-2 text-sm"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 data-testid="org-submit-btn"
-                className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm"
               >
                 Create
               </button>

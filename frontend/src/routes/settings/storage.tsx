@@ -20,7 +20,7 @@ function UsageRow(props: { label: string; bytes: number }): React.ReactElement {
   return (
     <div className="flex items-center justify-between text-sm">
       <span className="text-muted-foreground">{props.label}</span>
-      <span className="font-mono text-foreground">
+      <span className="text-foreground font-mono">
         {formatBytes(props.bytes)}
       </span>
     </div>
@@ -35,11 +35,11 @@ function UsageCard(props: {
   const usedBytes = Math.max(usage.totalBytes - usage.freeBytes, 0);
 
   return (
-    <div className="space-y-4 rounded-lg border border-border bg-card p-6">
+    <div className="border-border bg-card space-y-4 rounded-lg border p-6">
       <div>
-        <p className="text-sm text-muted-foreground">Data directory</p>
+        <p className="text-muted-foreground text-sm">Data directory</p>
         <p
-          className="break-all font-mono text-sm text-foreground"
+          className="text-foreground font-mono text-sm break-all"
           data-testid="current-data-dir"
         >
           {usage.dataDir}
@@ -49,7 +49,7 @@ function UsageCard(props: {
       {usage.onSystemDrive && (
         <p
           role="alert"
-          className="border-warning/50 bg-warning/10 rounded-md border p-2 text-xs text-foreground"
+          className="border-warning/50 bg-warning/10 text-foreground rounded-md border p-2 text-xs"
         >
           Data is on the system drive — consider moving to a dedicated drive for
           large case files.
@@ -65,14 +65,14 @@ function UsageCard(props: {
         <UsageRow label="Free on drive" bytes={usage.freeBytes} />
       </div>
 
-      <div className="flex items-center justify-between border-t border-border pt-4 text-sm">
+      <div className="border-border flex items-center justify-between border-t pt-4 text-sm">
         <span className="text-muted-foreground">
           {usage.assetCount.toLocaleString()} assets
         </span>
         <button
           type="button"
           onClick={onOpenMove}
-          className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-2 text-sm"
         >
           Move data directory…
         </button>
@@ -209,18 +209,18 @@ function MoveDialog(props: {
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 space-y-4 rounded-lg border border-border bg-card p-6 shadow-lg">
-          <Dialog.Title className="text-lg font-semibold text-foreground">
+        <Dialog.Content className="border-border bg-card fixed top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 space-y-4 rounded-lg border p-6 shadow-lg">
+          <Dialog.Title className="text-foreground text-lg font-semibold">
             Move data directory
           </Dialog.Title>
-          <Dialog.Description className="text-sm text-muted-foreground">
+          <Dialog.Description className="text-muted-foreground text-sm">
             Pick a new directory. Loom will copy originals, derivatives, and the
             database over, verify hashes, then restart.
           </Dialog.Description>
 
           <div className="space-y-2 text-sm">
             <p className="text-muted-foreground">Current</p>
-            <p className="break-all rounded-md border border-border bg-muted/40 p-2 font-mono text-foreground">
+            <p className="border-border bg-muted/40 text-foreground rounded-md border p-2 font-mono break-all">
               {currentPath}
             </p>
           </div>
@@ -229,7 +229,7 @@ function MoveDialog(props: {
             <p className="text-muted-foreground">Target</p>
             <div className="flex items-center gap-2">
               <p
-                className="flex-1 break-all rounded-md border border-border bg-muted/40 p-2 font-mono text-foreground"
+                className="border-border bg-muted/40 text-foreground flex-1 rounded-md border p-2 font-mono break-all"
                 data-testid="move-target-path"
               >
                 {target ?? '(none selected)'}
@@ -238,7 +238,7 @@ function MoveDialog(props: {
                 type="button"
                 onClick={handlePick}
                 disabled={check.isPending || inProgress}
-                className="rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground hover:bg-accent disabled:opacity-50"
+                className="border-border bg-background text-foreground hover:bg-accent rounded-md border px-3 py-2 text-xs disabled:opacity-50"
               >
                 {check.isPending ? 'Checking…' : 'Pick…'}
               </button>
@@ -246,7 +246,7 @@ function MoveDialog(props: {
           </div>
 
           {pickError && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-destructive text-sm">
               {pickError}
             </p>
           )}
@@ -254,7 +254,7 @@ function MoveDialog(props: {
           {checkResult && (
             <div
               data-testid="move-check-result"
-              className="space-y-1 rounded-md border border-border bg-muted/40 p-3 text-xs"
+              className="border-border bg-muted/40 space-y-1 rounded-md border p-3 text-xs"
             >
               <p>
                 Writable:{' '}
@@ -297,14 +297,14 @@ function MoveDialog(props: {
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-label="Storage move progress"
-                className="h-2 w-full overflow-hidden rounded-full bg-muted"
+                className="bg-muted h-2 w-full overflow-hidden rounded-full"
               >
                 <div
-                  className="h-full bg-primary transition-all"
+                  className="bg-primary h-full transition-all"
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 {job.data.assetsCopied} / {job.data.assetsTotal} assets,{' '}
                 {formatBytes(job.data.bytesCopied)} /{' '}
                 {formatBytes(job.data.bytesTotal)}
@@ -317,7 +317,7 @@ function MoveDialog(props: {
               <button
                 type="button"
                 disabled={inProgress}
-                className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent disabled:opacity-50"
+                className="text-muted-foreground hover:bg-accent rounded-md px-3 py-2 text-sm disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -326,7 +326,7 @@ function MoveDialog(props: {
               type="button"
               disabled={!canConfirm}
               onClick={handleConfirm}
-              className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-2 text-sm disabled:opacity-50"
             >
               {inProgress
                 ? 'Moving…'
@@ -350,8 +350,8 @@ export function StorageSettingsPage(): React.ReactElement {
   if (!isLite) {
     return (
       <div className="mx-auto max-w-2xl p-6">
-        <h1 className="text-2xl font-bold text-foreground">Storage</h1>
-        <p className="mt-2 text-muted-foreground">
+        <h1 className="text-foreground text-2xl font-bold">Storage</h1>
+        <p className="text-muted-foreground mt-2">
           Storage management is only available on desktop (Lite) installs.
         </p>
       </div>
@@ -361,8 +361,8 @@ export function StorageSettingsPage(): React.ReactElement {
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Storage</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-foreground text-2xl font-bold">Storage</h1>
+        <p className="text-muted-foreground text-sm">
           Manage where Loom stores originals, derivatives, and its database.
         </p>
       </div>

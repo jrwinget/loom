@@ -29,8 +29,8 @@ export function UpdateBanner(): React.ReactElement | null {
       role="status"
       data-testid="update-banner"
       className={
-        'flex items-center gap-3 border-b border-border ' +
-        'bg-accent px-4 py-2 text-sm text-accent-foreground'
+        'border-border flex items-center gap-3 border-b ' +
+        'bg-accent text-accent-foreground px-4 py-2 text-sm'
       }
     >
       <span className="flex-1">
@@ -47,7 +47,7 @@ export function UpdateBanner(): React.ReactElement | null {
         onClick={handleInstall}
         disabled={installing}
         className={
-          'rounded-md bg-primary px-3 py-1 text-primary-foreground ' +
+          'bg-primary text-primary-foreground rounded-md px-3 py-1 ' +
           'hover:opacity-90 disabled:opacity-50'
         }
       >

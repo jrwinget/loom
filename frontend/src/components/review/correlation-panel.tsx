@@ -107,9 +107,9 @@ function ReasoningPopover(props: {
           if (e.key === 'Escape') setOpen(false);
         }}
         className={cn(
-          'rounded border border-border px-1.5 py-0 text-[10px] font-medium',
+          'border-border rounded border px-1.5 py-0 text-[10px] font-medium',
           'text-muted-foreground hover:border-foreground/40 hover:text-foreground',
-          'focus:outline-none focus:ring-1 focus:ring-primary',
+          'focus:ring-primary focus:ring-1 focus:outline-hidden',
         )}
       >
         Why?
@@ -120,11 +120,11 @@ function ReasoningPopover(props: {
           data-testid={`reasoning-content-${candidateId}`}
           aria-label="Correlation reasoning"
           className={cn(
-            'absolute z-50 mt-1 w-72 rounded border border-border bg-popover p-3',
-            'text-xs text-popover-foreground shadow-md',
+            'border-border bg-popover absolute z-50 mt-1 w-72 rounded border p-3',
+            'text-popover-foreground text-xs shadow-md',
           )}
         >
-          <p className="mb-2 text-[11px] font-semibold text-muted-foreground">
+          <p className="text-muted-foreground mb-2 text-[11px] font-semibold">
             Signal scores
           </p>
           <dl className="space-y-1">
@@ -161,7 +161,7 @@ function CandidateRow(props: {
   return (
     <div
       data-testid={`candidate-${candidate.id}`}
-      className="rounded border border-border p-3"
+      className="border-border rounded border p-3"
     >
       <div className="mb-2 flex items-center gap-2">
         <span
@@ -197,10 +197,10 @@ function CandidateRow(props: {
               data-testid={`member-${m.id}`}
               className="flex items-center gap-2"
             >
-              <span className="flex-1 truncate text-foreground">
+              <span className="text-foreground flex-1 truncate">
                 {m.originalFilename ?? m.assetId}
               </span>
-              <span className="text-xs tabular-nums text-muted-foreground">
+              <span className="text-muted-foreground text-xs tabular-nums">
                 {offset === null ? '—' : formatOffset(offset)}
               </span>
             </li>
@@ -213,7 +213,7 @@ function CandidateRow(props: {
             type="button"
             data-testid={`reject-${candidate.id}`}
             onClick={() => onDecide(candidate.id, 'rejected')}
-            className="rounded border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-accent/30"
+            className="border-border text-muted-foreground hover:bg-accent/30 rounded border px-2 py-1 text-xs"
           >
             Reject
           </button>
@@ -221,7 +221,7 @@ function CandidateRow(props: {
             type="button"
             data-testid={`accept-${candidate.id}`}
             onClick={() => onDecide(candidate.id, 'accepted')}
-            className="rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-2 py-1 text-xs font-medium"
           >
             Accept
           </button>
@@ -240,7 +240,7 @@ export function CorrelationPanel(
     return (
       <div
         data-testid="correlation-panel"
-        className="flex h-32 items-center justify-center text-sm text-muted-foreground"
+        className="text-muted-foreground flex h-32 items-center justify-center text-sm"
       >
         Loading correlations…
       </div>
@@ -251,7 +251,7 @@ export function CorrelationPanel(
     return (
       <div
         data-testid="correlation-panel"
-        className="flex h-32 flex-col items-center justify-center gap-2 text-sm text-muted-foreground"
+        className="text-muted-foreground flex h-32 flex-col items-center justify-center gap-2 text-sm"
       >
         <p>No correlation candidates yet.</p>
         {onScan && (
@@ -260,7 +260,7 @@ export function CorrelationPanel(
             data-testid="scan-empty"
             onClick={onScan}
             disabled={isScanning}
-            className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-3 py-1 text-xs font-medium disabled:opacity-50"
           >
             {isScanning ? 'Scanning…' : 'Run correlation scan'}
           </button>
@@ -278,7 +278,7 @@ export function CorrelationPanel(
             data-testid="scan-existing"
             onClick={onScan}
             disabled={isScanning}
-            className="rounded border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-accent/30 disabled:opacity-50"
+            className="border-border text-muted-foreground hover:bg-accent/30 rounded border px-2 py-1 text-xs disabled:opacity-50"
           >
             {isScanning ? 'Scanning…' : 'Rescan'}
           </button>

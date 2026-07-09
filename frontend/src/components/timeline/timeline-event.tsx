@@ -50,7 +50,7 @@ export const TimelineEventCard = React.memo(function TimelineEventCard(
       type="button"
       data-testid={`timeline-event-${event.id}`}
       data-status={event.status}
-      className={`flex w-full flex-col rounded-lg border p-3 text-left shadow-sm transition-colors ${
+      className={`flex w-full flex-col rounded-lg border p-3 text-left shadow-xs transition-colors ${
         selected
           ? 'border-primary bg-accent/50'
           : 'border-border bg-card hover:bg-accent/30'
@@ -59,7 +59,7 @@ export const TimelineEventCard = React.memo(function TimelineEventCard(
     >
       {/* header */}
       <div className="flex items-start justify-between">
-        <h4 className="text-sm font-semibold text-foreground">{event.title}</h4>
+        <h4 className="text-foreground text-sm font-semibold">{event.title}</h4>
         <div className="flex items-center gap-1.5">
           {event.hasContradictions && (
             <span
@@ -103,23 +103,23 @@ export const TimelineEventCard = React.memo(function TimelineEventCard(
       )}
 
       {/* time range */}
-      <p className="mt-1 text-xs text-muted-foreground">{timeRange}</p>
+      <p className="text-muted-foreground mt-1 text-xs">{timeRange}</p>
 
       {/* precision label */}
-      <span className="mt-0.5 text-xs italic text-muted-foreground">
+      <span className="text-muted-foreground mt-0.5 text-xs italic">
         {event.timePrecision}
       </span>
 
       {/* location if present */}
       {event.locationDescription && (
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-xs">
           {event.locationDescription}{' '}
           <span className="italic">({event.locationConfidence})</span>
         </p>
       )}
 
       {/* evidence count */}
-      <div className="mt-2 text-xs text-muted-foreground">
+      <div className="text-muted-foreground mt-2 text-xs">
         {event.evidenceCount} evidence link
         {event.evidenceCount !== 1 ? 's' : ''}
       </div>

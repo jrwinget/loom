@@ -24,12 +24,12 @@ export function MapPage(): React.ReactElement {
   return (
     <div className="flex h-full flex-col">
       {/* map area: 70% height */}
-      <div className="flex-[7] overflow-hidden p-4">
+      <div className="flex-7 overflow-hidden p-4">
         <CaseMap caseId={safeId} timeStart={timeStart} timeEnd={timeEnd} />
       </div>
 
       {/* time slider: bottom */}
-      <div className="border-t border-border">
+      <div className="border-border border-t">
         <TimeSlider
           min={defaultStart}
           max={defaultEnd}

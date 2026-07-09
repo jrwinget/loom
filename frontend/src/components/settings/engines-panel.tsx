@@ -33,11 +33,11 @@ function EngineRow(props: {
       className="flex items-start justify-between gap-3 py-2"
     >
       <div>
-        <p className="text-sm font-medium text-foreground">
+        <p className="text-foreground text-sm font-medium">
           {ENGINE_LABELS[name] ?? name}
         </p>
         {!available && info.remedy && (
-          <p className="text-xs text-muted-foreground">{info.remedy}</p>
+          <p className="text-muted-foreground text-xs">{info.remedy}</p>
         )}
       </div>
       <span
@@ -72,9 +72,9 @@ function ModelRow(props: { model: ModelInfo }): React.ReactElement {
       className="flex items-center justify-between gap-3 py-2"
     >
       <div className="min-w-0">
-        <p className="text-sm font-medium text-foreground">
+        <p className="text-foreground text-sm font-medium">
           {model.name}
-          <span className="ml-2 text-xs text-muted-foreground">
+          <span className="text-muted-foreground ml-2 text-xs">
             {formatBytes(model.sizeBytes)}
           </span>
         </p>
@@ -98,7 +98,7 @@ function ModelRow(props: { model: ModelInfo }): React.ReactElement {
           data-testid={`model-delete-${model.name}`}
           onClick={() => remove.mutate(model.name)}
           disabled={remove.isPending}
-          className="text-sm text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground text-sm"
         >
           Delete
         </button>
@@ -109,7 +109,7 @@ function ModelRow(props: { model: ModelInfo }): React.ReactElement {
           onClick={() => download.mutate(model.name)}
           disabled={downloading || download.isPending}
           className={
-            'rounded bg-primary px-3 py-1 text-sm ' +
+            'bg-primary rounded px-3 py-1 text-sm ' +
             'text-primary-foreground hover:bg-primary/90 ' +
             'disabled:opacity-50'
           }
@@ -125,11 +125,11 @@ export function EnginesPanel(): React.ReactElement {
   const engines = useEngines();
 
   if (engines.isLoading) {
-    return <p className="mt-6 text-sm text-muted-foreground">Loading…</p>;
+    return <p className="text-muted-foreground mt-6 text-sm">Loading…</p>;
   }
   if (engines.data == null) {
     return (
-      <p role="alert" className="mt-6 text-sm text-muted-foreground">
+      <p role="alert" className="text-muted-foreground mt-6 text-sm">
         Engine status is unavailable right now.
       </p>
     );
@@ -138,23 +138,23 @@ export function EnginesPanel(): React.ReactElement {
   return (
     <section data-testid="engines-panel" className="mt-8 space-y-6">
       <div>
-        <h2 className="text-base font-semibold text-foreground">Engines</h2>
-        <ul className="mt-2 divide-y divide-border">
+        <h2 className="text-foreground text-base font-semibold">Engines</h2>
+        <ul className="divide-border mt-2 divide-y">
           {Object.entries(engines.data.engines).map(([name, info]) => (
             <EngineRow key={name} name={name} info={info} />
           ))}
         </ul>
       </div>
       <div>
-        <h2 className="text-base font-semibold text-foreground">
+        <h2 className="text-foreground text-base font-semibold">
           Speech models
         </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-xs">
           Downloading a model is the only network request on-device
           transcription ever makes, happens only when you click, and is verified
           against a pinned checksum. Models are stored in your data directory.
         </p>
-        <ul className="mt-2 divide-y divide-border">
+        <ul className="divide-border mt-2 divide-y">
           {engines.data.models.map((model) => (
             <ModelRow key={model.name} model={model} />
           ))}

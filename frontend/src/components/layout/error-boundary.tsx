@@ -109,15 +109,15 @@ export function ErrorFallback(props: ErrorFallbackProps): React.ReactElement {
         <h2
           ref={ref}
           tabIndex={-1}
-          className="text-lg font-semibold text-foreground focus:outline-none"
+          className="text-foreground text-lg font-semibold focus:outline-hidden"
         >
           Something went wrong
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-2 text-sm">
           An unexpected error occurred. You can try again or reload the page.
         </p>
         {error?.message && import.meta.env.DEV && (
-          <p className="mt-3 rounded bg-muted px-3 py-2 text-xs text-muted-foreground">
+          <p className="bg-muted text-muted-foreground mt-3 rounded px-3 py-2 text-xs">
             {error.message}
           </p>
         )}
@@ -125,14 +125,14 @@ export function ErrorFallback(props: ErrorFallbackProps): React.ReactElement {
           <button
             type="button"
             onClick={onReset}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium"
           >
             Try Again
           </button>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+            className="border-border text-foreground hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
           >
             Reload Page
           </button>

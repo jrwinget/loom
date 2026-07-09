@@ -149,14 +149,14 @@ function VideoViewer(props: {
 
       {/* timestamp display */}
       <div
-        className="mt-2 flex items-center gap-4 font-mono text-sm text-foreground"
+        className="text-foreground mt-2 flex items-center gap-4 font-mono text-sm"
         data-testid="timestamp-display"
       >
         <span>{formatTime(currentTime)}</span>
         <span className="text-muted-foreground">/</span>
         <span>{formatTime(duration)}</span>
         {frameNumber !== null && (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-muted-foreground text-xs">
             Frame {frameNumber}
           </span>
         )}
@@ -168,18 +168,18 @@ function VideoViewer(props: {
           type="button"
           onClick={togglePlay}
           data-testid="play-pause"
-          className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground"
+          className="bg-primary text-primary-foreground rounded px-3 py-1 text-xs font-medium"
         >
           {playing ? 'Pause' : 'Play'}
         </button>
 
         {inPoint !== null && (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-muted-foreground text-xs">
             In: {formatTime(inPoint)}
           </span>
         )}
         {outPoint !== null && (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-muted-foreground text-xs">
             Out: {formatTime(outPoint)}
           </span>
         )}
@@ -252,7 +252,7 @@ function AudioWaveform(props: {
       width={640}
       height={96}
       data-testid="audio-waveform"
-      className="h-24 w-full cursor-pointer rounded bg-muted"
+      className="bg-muted h-24 w-full cursor-pointer rounded"
       onClick={handleClick}
     />
   );
@@ -312,7 +312,7 @@ function AudioViewer(props: {
       />
 
       <div
-        className="mt-2 font-mono text-sm text-foreground"
+        className="text-foreground mt-2 font-mono text-sm"
         data-testid="timestamp-display"
       >
         {formatTime(currentTime)} / {formatTime(duration)}
@@ -323,8 +323,8 @@ function AudioViewer(props: {
         onClick={togglePlay}
         data-testid="play-pause"
         className={
-          'mt-2 rounded bg-primary px-3 py-1 text-xs ' +
-          'font-medium text-primary-foreground'
+          'bg-primary mt-2 rounded px-3 py-1 text-xs ' +
+          'text-primary-foreground font-medium'
         }
       >
         {playing ? 'Pause' : 'Play'}
@@ -346,7 +346,7 @@ function ImageViewer(props: { src: string; alt: string }): React.ReactElement {
 
   return (
     <div data-testid="image-viewer">
-      <div className="overflow-auto rounded border border-border">
+      <div className="border-border overflow-auto rounded border">
         <img
           src={src}
           alt={alt}
@@ -362,25 +362,25 @@ function ImageViewer(props: { src: string; alt: string }): React.ReactElement {
           type="button"
           onClick={zoomOut}
           aria-label="Zoom out"
-          className="rounded bg-muted px-2 py-1 text-xs text-foreground"
+          className="bg-muted text-foreground rounded px-2 py-1 text-xs"
         >
           -
         </button>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground text-xs">
           {Math.round(zoom * 100)}%
         </span>
         <button
           type="button"
           onClick={zoomIn}
           aria-label="Zoom in"
-          className="rounded bg-muted px-2 py-1 text-xs text-foreground"
+          className="bg-muted text-foreground rounded px-2 py-1 text-xs"
         >
           +
         </button>
         <button
           type="button"
           onClick={resetZoom}
-          className="rounded bg-muted px-2 py-1 text-xs text-foreground"
+          className="bg-muted text-foreground rounded px-2 py-1 text-xs"
         >
           Reset
         </button>
@@ -395,12 +395,12 @@ function DownloadFallback(props: {
   message: string;
 }): React.ReactElement {
   return (
-    <div className="flex h-48 flex-col items-center justify-center rounded border border-border bg-muted">
-      <p className="text-sm text-muted-foreground">{props.message}</p>
+    <div className="border-border bg-muted flex h-48 flex-col items-center justify-center rounded border">
+      <p className="text-muted-foreground text-sm">{props.message}</p>
       <a
         href={attachmentHref(props.src)}
         download={props.filename}
-        className="mt-2 text-sm font-medium text-primary hover:underline"
+        className="text-primary mt-2 text-sm font-medium hover:underline"
       >
         Download file
       </a>
@@ -485,7 +485,7 @@ function PdfViewer(props: {
     <div data-testid="document-viewer">
       <div
         data-testid="pdf-viewer"
-        className="max-h-[600px] overflow-auto rounded border border-border bg-muted"
+        className="border-border bg-muted max-h-[600px] overflow-auto rounded border"
       >
         <canvas
           ref={canvasRef}
@@ -495,52 +495,52 @@ function PdfViewer(props: {
         />
       </div>
       {status === 'loading' && (
-        <p className="mt-2 text-sm text-muted-foreground">Loading PDF…</p>
+        <p className="text-muted-foreground mt-2 text-sm">Loading PDF…</p>
       )}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={prev}
           disabled={page <= 1}
-          className="rounded bg-muted px-2 py-1 text-xs text-foreground disabled:opacity-50"
+          className="bg-muted text-foreground rounded px-2 py-1 text-xs disabled:opacity-50"
         >
           Prev
         </button>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground text-xs">
           Page {page} / {numPages || '…'}
         </span>
         <button
           type="button"
           onClick={next}
           disabled={numPages === 0 || page >= numPages}
-          className="rounded bg-muted px-2 py-1 text-xs text-foreground disabled:opacity-50"
+          className="bg-muted text-foreground rounded px-2 py-1 text-xs disabled:opacity-50"
         >
           Next
         </button>
-        <span className="mx-2 text-muted-foreground">|</span>
+        <span className="text-muted-foreground mx-2">|</span>
         <button
           type="button"
           onClick={zoomOut}
           aria-label="Zoom out"
-          className="rounded bg-muted px-2 py-1 text-xs text-foreground"
+          className="bg-muted text-foreground rounded px-2 py-1 text-xs"
         >
           -
         </button>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground text-xs">
           {Math.round(scale * 100)}%
         </span>
         <button
           type="button"
           onClick={zoomIn}
           aria-label="Zoom in"
-          className="rounded bg-muted px-2 py-1 text-xs text-foreground"
+          className="bg-muted text-foreground rounded px-2 py-1 text-xs"
         >
           +
         </button>
         <a
           href={attachmentHref(src)}
           download={filename}
-          className="ml-2 text-xs font-medium text-primary hover:underline"
+          className="text-primary ml-2 text-xs font-medium hover:underline"
         >
           Download
         </a>

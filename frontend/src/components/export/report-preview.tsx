@@ -14,18 +14,18 @@ export function ReportPreview(props: ReportPreviewProps): React.ReactElement {
   return (
     <div data-testid="report-preview" className="space-y-4">
       {/* case header */}
-      <div className="border-b border-border pb-3">
-        <h2 className="text-xl font-bold text-foreground">{caseName}</h2>
-        <p className="text-xs text-muted-foreground">Evidence Report Preview</p>
+      <div className="border-border border-b pb-3">
+        <h2 className="text-foreground text-xl font-bold">{caseName}</h2>
+        <p className="text-muted-foreground text-xs">Evidence Report Preview</p>
       </div>
 
       {/* event list */}
       {isLoading && (
-        <p className="text-sm text-muted-foreground">Loading preview...</p>
+        <p className="text-muted-foreground text-sm">Loading preview...</p>
       )}
 
       {!isLoading && events.length === 0 && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           No events to include in the report.
         </p>
       )}
@@ -44,12 +44,12 @@ export function ReportPreview(props: ReportPreviewProps): React.ReactElement {
               <div
                 key={event.id}
                 data-testid={`preview-event-${event.id}`}
-                className="rounded border border-border p-3"
+                className="border-border rounded border p-3"
               >
-                <h3 className="text-sm font-semibold text-foreground">
+                <h3 className="text-foreground text-sm font-semibold">
                   {event.title}
                 </h3>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   {supporting} supporting, {contradicting} contradicting
                 </p>
               </div>
@@ -59,7 +59,7 @@ export function ReportPreview(props: ReportPreviewProps): React.ReactElement {
       )}
 
       {/* disclaimer */}
-      <p className="rounded bg-muted p-3 text-xs text-muted-foreground">
+      <p className="bg-muted text-muted-foreground rounded p-3 text-xs">
         This is a preview. Generate PDF for the full report.
       </p>
     </div>

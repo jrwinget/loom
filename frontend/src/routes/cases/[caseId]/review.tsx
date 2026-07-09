@@ -73,7 +73,7 @@ export function ReviewPage(): React.ReactElement {
   if (assetLoading || !asset) {
     return (
       <div aria-busy="true" className="flex h-full items-center justify-center">
-        <p className="text-sm text-muted-foreground">Loading asset...</p>
+        <p className="text-muted-foreground text-sm">Loading asset...</p>
       </div>
     );
   }
@@ -89,7 +89,7 @@ export function ReviewPage(): React.ReactElement {
           onClick={() => startTranscription.mutate()}
           disabled={startTranscription.isPending || !canTranscribe}
           title={canTranscribe ? undefined : transcribeRemedy}
-          className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+          className="bg-primary text-primary-foreground rounded px-3 py-1 text-xs font-medium disabled:opacity-50"
         >
           {startTranscription.isPending ? 'Starting...' : 'Start Transcription'}
         </button>
@@ -101,7 +101,7 @@ export function ReviewPage(): React.ReactElement {
           onClick={() => startSceneDetection.mutate()}
           disabled={startSceneDetection.isPending || !canDetectScenes}
           title={canDetectScenes ? undefined : scenesRemedy}
-          className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+          className="bg-primary text-primary-foreground rounded px-3 py-1 text-xs font-medium disabled:opacity-50"
         >
           {startSceneDetection.isPending
             ? 'Starting...'
