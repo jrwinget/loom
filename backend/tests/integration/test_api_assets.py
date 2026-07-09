@@ -427,6 +427,10 @@ async def test_download_url(
     data = resp.json()
     assert "url" in data
     assert "key" in data
+    # the download url is minted as an attachment: the asset's original
+    # filename is passed so the disposition can be signed into the url.
+    args, _ = mock_storage.get_presigned_download_url.call_args
+    assert args[-1] == asset.original_filename
 
 
 async def test_upload_missing_file_returns_422(
