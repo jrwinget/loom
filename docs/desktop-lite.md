@@ -285,8 +285,10 @@ at 5 MB, the newest five are kept):
   Linux `~/.local/share/io.loom.desktop/logs`, macOS
   `~/Library/Logs/io.loom.desktop`, Windows
   `%LOCALAPPDATA%\io.loom.desktop\logs`. Everything the backend
-  prints is mirrored here, and a shell crash leaves a
-  `crash-<timestamp>.txt` file alongside.
+  prints is mirrored here — including raw stderr (tracebacks,
+  crashes) that bypasses the backend's own log pipeline, which is
+  scrubbed of emails and home paths by the shell before it is
+  written. A shell crash leaves a `crash-<timestamp>.txt` alongside.
 - **Backend log** — `<data dir>/logs/backend.jsonl`. Lines are
   scrubbed before they hit disk: email addresses become
   `<redacted-email>` and home-directory paths collapse to `~`.
