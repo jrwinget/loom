@@ -31,6 +31,13 @@ class Asset(UUIDMixin, TimestampMixin, Base):
             "case_id",
             "deleted_at",
         ),
+        # clustering's compute_absolute_times filters assets by
+        # (case_id, capture_time IS NOT NULL) as its first query
+        Index(
+            "ix_assets_case_capture_time",
+            "case_id",
+            "capture_time",
+        ),
         CheckConstraint(
             "upload_status IN ('pending', 'uploading', 'complete', 'failed')",
             name="ck_assets_upload_status",

@@ -14,6 +14,19 @@ ORIGINALS_BUCKET = "loom-originals"
 DERIVATIVES_BUCKET = "loom-derivatives"
 
 
+def attachment_content_disposition(filename: str) -> str:
+    """build the ``Content-Disposition`` value forcing a download.
+
+    the local serve route emits this header directly; the minio
+    backend hands it to ``presigned_get_object`` as a signed
+    ``response-content-disposition`` so it survives sigv4 verification.
+    quotes and newlines are stripped so the quoted filename stays a
+    valid header value.
+    """
+    safe = filename.replace('"', "").replace("\r", "").replace("\n", "")
+    return f'attachment; filename="{safe}"'
+
+
 @runtime_checkable
 class StorageBackend(Protocol):
     """duck-typed contract for object storage.
@@ -74,7 +87,15 @@ class StorageBackend(Protocol):
         bucket: str,
         key: str,
         expires: int = 900,
-    ) -> str: ...
+        download_filename: str | None = None,
+    ) -> str:
+        """presign a download url.
+
+        when ``download_filename`` is set, the response carries a
+        ``Content-Disposition: attachment`` for that name, signed into
+        the url so callers never append an unsigned query param (which
+        breaks minio's sigv4 verification — see #322)."""
+        ...
 
     def object_exists(self, bucket: str, key: str) -> bool: ...
 

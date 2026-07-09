@@ -30,6 +30,10 @@ export const queryKeys = {
     byAsset: (caseId: string, assetId: string) =>
       ['transcripts', caseId, assetId] as const,
   },
+  waveforms: {
+    byAsset: (caseId: string, assetId: string) =>
+      ['waveforms', caseId, assetId] as const,
+  },
   scenes: {
     byAsset: (caseId: string, assetId: string) =>
       ['scenes', caseId, assetId] as const,

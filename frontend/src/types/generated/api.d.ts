@@ -1075,6 +1075,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases/{case_id}/assets/{asset_id}/waveform": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Asset Waveform
+         * @description return the real amplitude peaks for an audio asset (viewer+).
+         *
+         *     404 when no peaks derivative exists yet — the asset is still
+         *     processing, or ffmpeg was absent at ingest. the player renders an
+         *     honest "unavailable" state on that 404 rather than a fake shape.
+         */
+        get: operations["get_asset_waveform_api_v1_cases__case_id__assets__asset_id__waveform_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{case_id}/audit": {
         parameters: {
             query?: never;
@@ -2201,6 +2225,26 @@ export interface paths {
          * @description get delivery log for a webhook.
          */
         get: operations["list_deliveries_endpoint_api_v1_plugins__plugin_id__webhooks__webhook_id__deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Global Search Endpoint
+         * @description search across the caller's accessible cases for the palette.
+         */
+        get: operations["global_search_endpoint_api_v1_search_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3741,6 +3785,24 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** GlobalSearchResponse */
+        GlobalSearchResponse: {
+            /** Results */
+            results: components["schemas"]["GlobalSearchResult"][];
+        };
+        /** GlobalSearchResult */
+        GlobalSearchResult: {
+            /** Case Id */
+            case_id: string;
+            /** Id */
+            id: string;
+            /** Snippet */
+            snippet?: string | null;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -4852,6 +4914,11 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** WaveformResponse */
+        WaveformResponse: {
+            /** Peaks */
+            peaks: number[];
         };
         /** WebhookCreate */
         WebhookCreate: {
@@ -6861,6 +6928,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IntegrityResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_asset_waveform_api_v1_cases__case_id__assets__asset_id__waveform_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaveformResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9015,6 +9114,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookDeliveryListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    global_search_endpoint_api_v1_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlobalSearchResponse"];
                 };
             };
             /** @description Validation Error */

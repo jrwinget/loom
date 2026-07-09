@@ -289,6 +289,18 @@ class TestSignedAssetUrls:
             ORIGINALS_BUCKET, "k.bin", expires=60
         )
         assert "method=GET" in url
+        assert "disposition=" not in url
+
+    def test_download_url_attachment_adds_disposition(
+        self, backend: LocalStorageBackend
+    ) -> None:
+        url = backend.get_presigned_download_url(
+            ORIGINALS_BUCKET, "k.bin", expires=60, download_filename="k.bin"
+        )
+        assert "disposition=attachment" in url
+        # the loopback signature covers only method/bucket/key/expires,
+        # so the extra param must not break verification (unlike minio).
+        assert backend.verify_signature(*_components(url))
 
     def test_verify_round_trip(self, backend: LocalStorageBackend) -> None:
         url = backend.get_presigned_download_url(

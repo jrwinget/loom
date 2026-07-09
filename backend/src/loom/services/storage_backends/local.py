@@ -201,8 +201,18 @@ class LocalStorageBackend:
         bucket: str,
         key: str,
         expires: int = 900,
+        download_filename: str | None = None,
     ) -> str:
-        return self._sign_loopback_url(bucket, key, "GET", expires)
+        # the loopback signature covers only method/bucket/key/expires,
+        # so a disposition query param is safe here (unlike minio); the
+        # serve route derives the filename from the key basename.
+        return self._sign_loopback_url(
+            bucket,
+            key,
+            "GET",
+            expires,
+            as_attachment=download_filename is not None,
+        )
 
     def object_exists(self, bucket: str, key: str) -> bool:
         return self._object_path(bucket, key).is_file()
@@ -253,6 +263,7 @@ class LocalStorageBackend:
         key: str,
         method: str,
         expires: int,
+        as_attachment: bool = False,
     ) -> str:
         """build a signed http url the desktop webview can load.
 
@@ -264,10 +275,12 @@ class LocalStorageBackend:
         expires_at = int(time.time()) + int(expires)
         sig = self._compute_sig(bucket, key, method, expires_at)
         quoted_key = quote(key, safe="/")
+        disposition = "&disposition=attachment" if as_attachment else ""
         return (
             f"{self._public_base_url}/api/v1/storage/object/"
             f"{bucket}/{quoted_key}"
             f"?expires={expires_at}&method={method}&sig={sig}"
+            f"{disposition}"
         )
 
     def _compute_sig(

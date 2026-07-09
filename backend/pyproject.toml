@@ -119,9 +119,10 @@ packages = ["src/loom"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 filterwarnings = ["ignore::DeprecationWarning"]
-addopts = "--strict-markers -ra"
+addopts = "--strict-markers -ra -m 'not perf'"
 markers = [
     "temporal_real: exercise the real _probe_temporal, skipping the autouse mock",
+    "perf: query/latency benchmarks, opt-in via -m perf (excluded by default)",
 ]
 
 [tool.ruff]

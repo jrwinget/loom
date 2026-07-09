@@ -288,3 +288,7 @@ async def test_get_export_detail_complete_has_download_url(
     data = resp.json()
     assert data["download_url"] == signed
     assert data["storage_key"] == "exports/test-export.zip"
+    # bundles are download-only: the disposition filename is the
+    # bundle basename, signed into the url (not appended client-side).
+    args, _ = mock_storage.get_presigned_download_url.call_args
+    assert args[-1] == "test-export.zip"

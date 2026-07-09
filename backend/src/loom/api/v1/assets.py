@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from collections.abc import AsyncIterator
 from typing import Any
@@ -14,6 +15,7 @@ from fastapi import (
     status,
 )
 from minio import Minio
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.config import get_settings
@@ -25,6 +27,7 @@ from loom.dependencies import (
 from loom.metrics import active_uploads
 from loom.models.asset import Asset
 from loom.models.chain_of_custody import ChainOfCustodyEntry
+from loom.models.derivative import Derivative
 from loom.schemas.asset import (
     AssetListResponse,
     AssetResponse,
@@ -35,6 +38,7 @@ from loom.schemas.asset import (
     IngestUrlResponse,
     PresignedUrlRequest,
     PresignedUrlResponse,
+    WaveformResponse,
 )
 from loom.security.rate_limit import user_limiter
 from loom.security.rbac import (
@@ -55,7 +59,11 @@ from loom.services.ingest import (
     record_upload_custody,
     validate_file_type,
 )
-from loom.services.storage_backends import ORIGINALS_BUCKET, StorageBackend
+from loom.services.storage_backends import (
+    DERIVATIVES_BUCKET,
+    ORIGINALS_BUCKET,
+    StorageBackend,
+)
 from loom.services.streaming_upload import (
     UploadTooLargeError,
     stream_to_tempfile,
@@ -630,6 +638,84 @@ async def get_asset(
     return AssetResponse.model_validate(asset)
 
 
+def _read_object_bytes(
+    storage: StorageBackend,
+    bucket: str,
+    key: str,
+) -> bytes:
+    """read a small object fully into memory (the peaks json is tiny)."""
+    _, stream = storage.get_object_stream(bucket, key)
+    return b"".join(stream)
+
+
+@router.get(
+    "/{asset_id}/waveform",
+    response_model=WaveformResponse,
+)
+async def get_asset_waveform(
+    case_id: str,
+    asset_id: str,
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_authenticated
+    ),
+    session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
+        get_db_session
+    ),
+    storage: StorageBackend = Depends(  # noqa: B008
+        get_storage_backend
+    ),
+) -> WaveformResponse:
+    """return the real amplitude peaks for an audio asset (viewer+).
+
+    404 when no peaks derivative exists yet — the asset is still
+    processing, or ffmpeg was absent at ingest. the player renders an
+    honest "unavailable" state on that 404 rather than a fake shape.
+    """
+    db: AsyncSession = session  # type: ignore[assignment]
+    user_id = get_current_user_id(token_payload)
+    await _check_access(db, case_id, user_id)
+
+    asset = await get_asset_svc(db, case_id, asset_id)
+    if not asset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="asset not found",
+        )
+
+    result = await db.execute(
+        select(Derivative)
+        .where(
+            Derivative.asset_id == UUID(asset_id),
+            Derivative.type == "waveform_peaks",
+        )
+        .limit(1)
+    )
+    deriv = result.scalars().first()
+    if deriv is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="waveform peaks not available for this asset",
+        )
+
+    loop = asyncio.get_running_loop()
+    try:
+        raw = await loop.run_in_executor(
+            None,
+            _read_object_bytes,
+            storage,
+            DERIVATIVES_BUCKET,
+            deriv.storage_key,
+        )
+    except (FileNotFoundError, ValueError) as err:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="waveform peaks not available for this asset",
+        ) from err
+
+    payload = json.loads(raw)
+    return WaveformResponse(peaks=payload["peaks"])
+
+
 @router.get(
     "/{asset_id}/download-url",
     response_model=PresignedUrlResponse,
@@ -660,12 +746,15 @@ async def get_download_url(
         )
 
     loop = asyncio.get_running_loop()
+    # sign an attachment disposition into the url so the browser saves
+    # the file; the same url still previews inline in media elements.
     url = await loop.run_in_executor(
         None,
         storage.get_presigned_download_url,
         ORIGINALS_BUCKET,
         asset.storage_key,
         900,
+        asset.original_filename,
     )
 
     return PresignedUrlResponse(url=url, key=asset.storage_key)
