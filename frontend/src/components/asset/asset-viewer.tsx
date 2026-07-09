@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCapabilities } from '@/hooks/use-capabilities';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
+import { useWaveform } from '@/hooks/use-waveform';
 import { loadPdf, type LoadedPdf } from '@/lib/pdf';
 import { attachmentHref } from '@/lib/utils';
 import type { Asset } from '@/types/asset';
+
+// waveform bar colors — played vs remaining
+const WAVE_PLAYED = 'hsl(221.2, 83.2%, 53.3%)';
+const WAVE_REMAINING = 'hsl(215.4, 16.3%, 46.9%)';
 
 interface AssetViewerProps {
   asset: Asset;
@@ -188,54 +194,63 @@ function VideoViewer(props: {
   );
 }
 
+function drawWaveform(
+  canvas: HTMLCanvasElement,
+  peaks: number[],
+  progress: number,
+): void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const w = canvas.width;
+  const h = canvas.height;
+  const count = peaks.length;
+  const barWidth = w / count;
+
+  ctx.clearRect(0, 0, w, h);
+  for (let i = 0; i < count; i++) {
+    const barHeight = Math.max(1, peaks[i] * h * 0.9);
+    const x = i * barWidth;
+    const y = (h - barHeight) / 2;
+    ctx.fillStyle = i / count < progress ? WAVE_PLAYED : WAVE_REMAINING;
+    ctx.fillRect(x, y, Math.max(1, barWidth), barHeight);
+  }
+}
+
+function WaveformUnavailable(props: { remedy?: string }): React.ReactElement {
+  return (
+    <div
+      data-testid="waveform-unavailable"
+      className="bg-muted text-muted-foreground flex h-24 w-full flex-col items-center justify-center rounded px-4 text-center text-sm"
+    >
+      <p>Waveform unavailable</p>
+      {props.remedy && <p className="mt-1 text-xs">{props.remedy}</p>}
+    </div>
+  );
+}
+
+// renders the real amplitude peaks decoded from the audio at ingest.
+// there is deliberately no synthesized fallback: when peaks are absent
+// the reviewer sees an honest "unavailable" state, never a fake shape.
 function AudioWaveform(props: {
+  caseId: string;
+  assetId: string;
   audioRef: React.RefObject<HTMLAudioElement | null>;
   currentTime: number;
   duration: number;
 }): React.ReactElement {
-  const { audioRef, currentTime, duration } = props;
+  const { caseId, assetId, audioRef, currentTime, duration } = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const barsRef = useRef<number[]>([]);
+  const { data, isLoading } = useWaveform(caseId, assetId);
+  const capabilities = useCapabilities();
+  const peaks = data?.peaks ?? null;
 
-  // generate deterministic waveform bars on mount
-  useEffect(() => {
-    const barCount = 80;
-    const bars: number[] = [];
-    for (let i = 0; i < barCount; i++) {
-      // simple pseudo-random pattern using sin
-      bars.push(0.2 + 0.8 * Math.abs(Math.sin(i * 0.7)));
-    }
-    barsRef.current = bars;
-  }, []);
-
-  // draw waveform on each time update
+  // redraw whenever the peaks arrive or playback advances
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const w = canvas.width;
-    const h = canvas.height;
-    const bars = barsRef.current;
-    const barCount = bars.length;
-    const barWidth = w / barCount;
+    if (!canvas || !peaks || peaks.length === 0) return;
     const progress = duration > 0 ? currentTime / duration : 0;
-
-    ctx.clearRect(0, 0, w, h);
-
-    for (let i = 0; i < barCount; i++) {
-      const barHeight = bars[i] * h * 0.8;
-      const x = i * barWidth;
-      const y = (h - barHeight) / 2;
-      const played = i / barCount < progress;
-
-      ctx.fillStyle = played
-        ? 'hsl(221.2, 83.2%, 53.3%)'
-        : 'hsl(215.4, 16.3%, 46.9%)';
-      ctx.fillRect(x + 1, y, barWidth - 2, barHeight);
-    }
-  }, [currentTime, duration]);
+    drawWaveform(canvas, peaks, progress);
+  }, [peaks, currentTime, duration]);
 
   const handleClick = (e: React.MouseEvent): void => {
     const canvas = canvasRef.current;
@@ -245,6 +260,24 @@ function AudioWaveform(props: {
     const ratio = (e.clientX - rect.left) / rect.width;
     audio.currentTime = ratio * duration;
   };
+
+  if (isLoading) {
+    return (
+      <div
+        data-testid="waveform-loading"
+        className="bg-muted text-muted-foreground flex h-24 w-full items-center justify-center rounded text-sm"
+      >
+        Loading waveform…
+      </div>
+    );
+  }
+
+  if (!peaks || peaks.length === 0) {
+    // surface the fix only when the decoder itself is the reason
+    const media = capabilities.data?.engines.mediaPipeline;
+    const remedy = media?.status === 'missing' ? (media.remedy ?? '') : '';
+    return <WaveformUnavailable remedy={remedy || undefined} />;
+  }
 
   return (
     <canvas
@@ -261,8 +294,10 @@ function AudioWaveform(props: {
 function AudioViewer(props: {
   src: string;
   filename: string;
+  caseId: string;
+  assetId: string;
 }): React.ReactElement {
-  const { src, filename } = props;
+  const { src, filename, caseId, assetId } = props;
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -306,6 +341,8 @@ function AudioViewer(props: {
       <audio ref={audioRef} src={src} aria-label={`Audio: ${filename}`} />
 
       <AudioWaveform
+        caseId={caseId}
+        assetId={assetId}
         audioRef={audioRef}
         currentTime={currentTime}
         duration={duration}
@@ -589,7 +626,14 @@ export function AssetViewer(props: AssetViewerProps): React.ReactElement {
         />
       );
     case 'audio':
-      return <AudioViewer src={src} filename={asset.originalFilename} />;
+      return (
+        <AudioViewer
+          src={src}
+          filename={asset.originalFilename}
+          caseId={asset.caseId}
+          assetId={asset.id}
+        />
+      );
     case 'image':
       return <ImageViewer src={src} alt={asset.originalFilename} />;
     case 'document':
