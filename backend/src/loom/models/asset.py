@@ -84,7 +84,7 @@ class Asset(UUIDMixin, TimestampMixin, Base):
         default="pending",
     )
     uploaded_by: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
     )
     uploaded_at: Mapped[datetime] = mapped_column(
@@ -121,6 +121,13 @@ class Asset(UUIDMixin, TimestampMixin, Base):
         String,
         nullable=False,
         default="pending",
+    )
+    # user-facing reason for a failed processing run; survives a
+    # restart, unlike the in-process workflow status map
+    processing_error: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        default=None,
     )
     deleted_at: Mapped[datetime | None] = mapped_column(
         nullable=True,

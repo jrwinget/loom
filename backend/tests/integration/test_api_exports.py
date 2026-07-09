@@ -194,6 +194,8 @@ async def test_list_exports(
     assert data["total"] == 1
     assert len(data["items"]) == 1
     assert data["items"][0]["name"] == "Test Export"
+    # list responses never presign; download_url comes from detail only
+    assert data["items"][0]["download_url"] is None
 
 
 async def test_get_export_detail(
@@ -239,3 +241,50 @@ async def test_get_export_detail(
     data = resp.json()
     assert data["name"] == "Test Export"
     assert data["status"] == "pending"
+
+
+async def test_get_export_detail_complete_has_download_url(
+    mock_settings: Settings,
+) -> None:
+    """complete export exposes download_url; storage_key stays intact."""
+    app = _create_app(mock_settings)
+    export = _make_export(status="complete")
+    export.storage_key = "exports/test-export.zip"
+
+    from loom.dependencies import get_storage_backend
+
+    signed = "https://storage.example/exports/test-export.zip?sig=abc"
+    mock_storage = MagicMock()
+    mock_storage.get_presigned_download_url.return_value = signed
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC}.get_export",
+            new_callable=AsyncMock,
+            return_value=export,
+        ),
+    ):
+        app.dependency_overrides[get_storage_backend] = lambda: mock_storage
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.get(
+                f"/api/v1/cases/{_CASE_ID}/exports/{_EXPORT_ID}",
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["download_url"] == signed
+    assert data["storage_key"] == "exports/test-export.zip"

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 import { ReviewWorkspace } from '@/components/review/review-workspace';
@@ -116,5 +116,79 @@ describe('ReviewWorkspace', () => {
     );
 
     expect(screen.getByText('Hello there')).toBeInTheDocument();
+  });
+
+  it('highlights the transcript from the video timeupdate event', () => {
+    renderWithQuery(
+      <ReviewWorkspace
+        caseId="case-1"
+        asset={makeAsset()}
+        assetSrc="/test.mp4"
+        segments={[
+          {
+            id: 'seg-1',
+            assetId: 'asset-1',
+            speakerLabel: null,
+            startTime: 0,
+            endTime: 5,
+            text: 'Hello there',
+            confidence: 0.9,
+            language: 'en',
+          },
+          {
+            id: 'seg-2',
+            assetId: 'asset-1',
+            speakerLabel: null,
+            startTime: 5,
+            endTime: 10,
+            text: 'Second segment',
+            confidence: 0.9,
+            language: 'en',
+          },
+        ]}
+        scenes={[]}
+      />,
+    );
+
+    const video = screen.getByTestId('video-element') as HTMLVideoElement;
+    video.currentTime = 6;
+    fireEvent.timeUpdate(video);
+
+    expect(screen.getByTestId('segment-seg-2')).toHaveAttribute(
+      'data-active',
+      'true',
+    );
+    expect(screen.getByTestId('segment-seg-1')).toHaveAttribute(
+      'data-active',
+      'false',
+    );
+  });
+
+  it('seeks the video when a transcript segment is clicked', () => {
+    renderWithQuery(
+      <ReviewWorkspace
+        caseId="case-1"
+        asset={makeAsset()}
+        assetSrc="/test.mp4"
+        segments={[
+          {
+            id: 'seg-1',
+            assetId: 'asset-1',
+            speakerLabel: null,
+            startTime: 4,
+            endTime: 9,
+            text: 'Hello there',
+            confidence: 0.9,
+            language: 'en',
+          },
+        ]}
+        scenes={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('segment-seg-1'));
+
+    const video = screen.getByTestId('video-element') as HTMLVideoElement;
+    expect(video.currentTime).toBe(4);
   });
 });

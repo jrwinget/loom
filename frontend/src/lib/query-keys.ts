@@ -1,4 +1,5 @@
 export const queryKeys = {
+  capabilities: ['capabilities'] as const,
   cases: {
     all: ['cases'] as const,
     detail: (id: string) => ['cases', id] as const,
@@ -36,6 +37,10 @@ export const queryKeys = {
   search: {
     results: (caseId: string, query: string, types?: string[]) =>
       ['search', caseId, query, types] as const,
+  },
+  workflows: {
+    status: (caseId: string, workflowId: string) =>
+      ['workflows', caseId, workflowId, 'status'] as const,
   },
   conflicts: {
     byCase: (caseId: string, resolved?: boolean) =>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FactoryResetDialog } from '@/components/auth/FactoryResetDialog';
 import { RecoveryCodesPanel } from '@/components/auth/RecoveryCodesPanel';
@@ -57,12 +57,20 @@ export function FirstRunPage(): React.ReactElement {
     }
   }
 
-  // already-onboarded installs should not see this page. exempt the
-  // recovery_codes step: by the time we're there we've already
-  // completed onboarding in *this* render, and we must not bounce
-  // the operator out before they save their codes.
+  // already-onboarded installs should not see this page. the ref
+  // guards the operator who is onboarding right now: the complete
+  // mutation flips the cached firstRunRequired to false while
+  // handleSubmit is still awaiting /auth/me (step is still 'admin'),
+  // and without it this effect would bounce them to / before the
+  // recovery_codes step — the only time the plaintext codes exist.
+  const onboardingRef = useRef(false);
   useEffect(() => {
-    if (status && !status.firstRunRequired && step !== 'recovery_codes') {
+    if (
+      status &&
+      !status.firstRunRequired &&
+      step !== 'recovery_codes' &&
+      !onboardingRef.current
+    ) {
       navigate('/', { replace: true });
     }
   }, [status, navigate, step]);
@@ -136,6 +144,7 @@ export function FirstRunPage(): React.ReactElement {
     }
 
     try {
+      onboardingRef.current = true;
       const resp = await complete.mutateAsync({
         admin_email: email,
         admin_password: password,

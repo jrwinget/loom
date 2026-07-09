@@ -1,6 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import type { StartWorkflowResponse } from '@/hooks/use-workflow-status';
 import { queryKeys } from '@/lib/query-keys';
+import { useJobStore } from '@/stores/job-store';
 import type { TranscriptResponse } from '@/types/transcript';
 
 export function useTranscript(
@@ -17,25 +20,36 @@ export function useTranscript(
   });
 }
 
-interface StartTranscriptionResponse {
-  taskId: string;
-}
-
 export function useStartTranscription(
   caseId: string,
   assetId: string,
-): ReturnType<typeof useMutation<StartTranscriptionResponse, Error, void>> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () =>
-      apiClient.post<StartTranscriptionResponse>(
+  label?: string,
+): ReturnType<typeof useMutation<StartWorkflowResponse, Error, void>> {
+  const start = useCallback(
+    () =>
+      apiClient.post<StartWorkflowResponse>(
         `/cases/${caseId}/assets/${assetId}/transcribe`,
       ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.transcripts.byAsset(caseId, assetId),
-      });
+    [caseId, assetId],
+  );
+
+  return useMutation({
+    mutationFn: start,
+    onSuccess: (data) => {
+      // the jobs watcher polls this workflow and invalidates the
+      // transcript query when it finishes — no premature invalidation
+      const register = (workflowId: string): void =>
+        useJobStore.getState().registerJob({
+          workflowId,
+          caseId,
+          kind: 'transcription',
+          label: label ?? 'Asset',
+          assetId,
+          retry: () => {
+            void start().then((next) => register(next.workflowId));
+          },
+        });
+      register(data.workflowId);
     },
   });
 }

@@ -1,9 +1,29 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useUploadStore } from '@/hooks/use-upload';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, renderHook } from '@testing-library/react';
+import { createElement } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useUpload, useUploadStore } from '@/hooks/use-upload';
+import { queryKeys } from '@/lib/query-keys';
+
+const { addToast, uploadAssetXhr } = vi.hoisted(() => ({
+  addToast: vi.fn(),
+  uploadAssetXhr: vi.fn(),
+}));
 
 vi.mock('@/stores/auth-store', () => ({
   useAuthStore: {
     getState: () => ({ token: 'test-token' }),
+  },
+}));
+
+vi.mock('@/hooks/use-assets', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  uploadAssetXhr,
+}));
+
+vi.mock('@/stores/toast-store', () => ({
+  useToastStore: {
+    getState: () => ({ addToast }),
   },
 }));
 
@@ -78,10 +98,7 @@ describe('useUploadStore', () => {
   });
 
   it('updateFile does not affect other files', () => {
-    const files = [
-      new File(['a'], 'a.mp4'),
-      new File(['b'], 'b.mp4'),
-    ];
+    const files = [new File(['a'], 'a.mp4'), new File(['b'], 'b.mp4')];
     useUploadStore.getState().addFiles(files);
 
     const id = useUploadStore.getState().files[0]?.id;
@@ -96,10 +113,7 @@ describe('useUploadStore', () => {
   });
 
   it('clear removes all files', () => {
-    const files = [
-      new File(['a'], 'a.mp4'),
-      new File(['b'], 'b.mp4'),
-    ];
+    const files = [new File(['a'], 'a.mp4'), new File(['b'], 'b.mp4')];
     useUploadStore.getState().addFiles(files);
     expect(useUploadStore.getState().files).toHaveLength(2);
 
@@ -108,13 +122,94 @@ describe('useUploadStore', () => {
   });
 
   it('addFiles preserves existing files', () => {
-    useUploadStore.getState().addFiles([
-      new File(['a'], 'a.mp4'),
-    ]);
-    useUploadStore.getState().addFiles([
-      new File(['b'], 'b.mp4'),
-    ]);
+    useUploadStore.getState().addFiles([new File(['a'], 'a.mp4')]);
+    useUploadStore.getState().addFiles([new File(['b'], 'b.mp4')]);
 
     expect(useUploadStore.getState().files).toHaveLength(2);
+  });
+});
+
+describe('useUpload uploadAll', () => {
+  let queryClient: QueryClient;
+
+  function renderUpload(): ReturnType<
+    typeof renderHook<ReturnType<typeof useUpload>, unknown>
+  > {
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    return renderHook(() => useUpload(), {
+      wrapper: ({ children }) =>
+        createElement(QueryClientProvider, { client: queryClient }, children),
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useUploadStore.setState({ files: [] });
+  });
+
+  it('refreshes the asset grid and toasts a summary on success', async () => {
+    uploadAssetXhr.mockResolvedValue({ id: 'asset-1' });
+    const { result } = renderUpload();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    act(() => {
+      result.current.addFiles([
+        new File(['a'], 'a.mp4'),
+        new File(['b'], 'b.mp4'),
+      ]);
+    });
+    await act(async () => {
+      await result.current.uploadAll('case-1');
+    });
+
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: queryKeys.assets.byCase('case-1'),
+    });
+    expect(addToast).toHaveBeenCalledWith({
+      type: 'success',
+      message: '2 files uploaded',
+    });
+    const statuses = useUploadStore.getState().files.map((f) => f.status);
+    expect(statuses).toEqual(['complete', 'complete']);
+  });
+
+  it('surfaces the backend detail and counts failures in the summary', async () => {
+    uploadAssetXhr
+      .mockResolvedValueOnce({ id: 'asset-1' })
+      .mockRejectedValueOnce(new Error('file type not allowed'));
+    const { result } = renderUpload();
+
+    act(() => {
+      result.current.addFiles([
+        new File(['a'], 'a.mp4'),
+        new File(['b'], 'b.exe'),
+      ]);
+    });
+    await act(async () => {
+      await result.current.uploadAll('case-1');
+    });
+
+    const failedEntry = useUploadStore
+      .getState()
+      .files.find((f) => f.status === 'error');
+    expect(failedEntry?.error).toBe('file type not allowed');
+    expect(addToast).toHaveBeenCalledWith({
+      type: 'error',
+      message: '1 uploaded, 1 failed',
+    });
+  });
+
+  it('does not refresh or toast when nothing was pending', async () => {
+    const { result } = renderUpload();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await act(async () => {
+      await result.current.uploadAll('case-1');
+    });
+
+    expect(invalidate).not.toHaveBeenCalled();
+    expect(addToast).not.toHaveBeenCalled();
   });
 });

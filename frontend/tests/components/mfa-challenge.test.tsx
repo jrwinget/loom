@@ -1,18 +1,31 @@
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MfaChallenge } from '@/components/auth/MfaChallenge';
 import { useAuthStore } from '@/stores/auth-store';
 
-vi.mock('@/lib/api-client', () => ({
+// the component navigates on success, so it needs a router in scope
+function renderChallenge(): void {
+  render(
+    <MemoryRouter>
+      <MfaChallenge />
+    </MemoryRouter>,
+  );
+}
+
+// keep the real ApiClientError so instanceof checks in the component
+// see the same class the mocked client rejects with
+vi.mock('@/lib/api-client', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   apiClient: {
     post: vi.fn(),
     get: vi.fn(),
   },
 }));
 
-import { apiClient } from '@/lib/api-client';
+import { ApiClientError, apiClient } from '@/lib/api-client';
 
 const mockedPost = vi.mocked(apiClient.post);
 const mockedGet = vi.mocked(apiClient.get);
@@ -31,7 +44,7 @@ describe('MfaChallenge', () => {
   });
 
   it('renders the code input and submit button', () => {
-    render(<MfaChallenge />);
+    renderChallenge();
 
     expect(
       screen.getByRole('heading', { name: 'Two-Factor Authentication' }),
@@ -41,7 +54,7 @@ describe('MfaChallenge', () => {
   });
 
   it('disables the submit button while the code field is empty', () => {
-    render(<MfaChallenge />);
+    renderChallenge();
 
     expect(screen.getByRole('button', { name: 'Verify' })).toBeDisabled();
   });
@@ -59,7 +72,7 @@ describe('MfaChallenge', () => {
     });
     const user = userEvent.setup();
 
-    render(<MfaChallenge />);
+    renderChallenge();
     await user.type(screen.getByLabelText('Code'), '123456');
     await user.click(screen.getByRole('button', { name: 'Verify' }));
 
@@ -84,7 +97,7 @@ describe('MfaChallenge', () => {
     );
     const user = userEvent.setup();
 
-    render(<MfaChallenge />);
+    renderChallenge();
     await user.type(screen.getByLabelText('Code'), '123456');
     await user.click(screen.getByRole('button', { name: 'Verify' }));
 
@@ -100,19 +113,67 @@ describe('MfaChallenge', () => {
     await waitFor(() => expect(useAuthStore.getState().token).toBe('t'));
   });
 
-  it('shows an error alert when the server rejects the code', async () => {
-    mockedPost.mockRejectedValueOnce(new Error('401'));
+  it('surfaces the backend detail when the server rejects the code', async () => {
+    mockedPost.mockRejectedValueOnce(
+      new ApiClientError(401, 'challenge expired, sign in again'),
+    );
     const user = userEvent.setup();
 
-    render(<MfaChallenge />);
+    renderChallenge();
     await user.type(screen.getByLabelText('Code'), '000000');
     await user.click(screen.getByRole('button', { name: 'Verify' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Invalid code. Please try again.',
+      'challenge expired, sign in again',
     );
     // verify is re-enabled so the user can retry without reloading
     expect(screen.getByRole('button', { name: 'Verify' })).not.toBeDisabled();
+  });
+
+  it('shows a rate-limit message on 429', async () => {
+    mockedPost.mockRejectedValueOnce(
+      new ApiClientError(429, 'rate limit exceeded'),
+    );
+    const user = userEvent.setup();
+
+    renderChallenge();
+    await user.type(screen.getByLabelText('Code'), '000000');
+    await user.click(screen.getByRole('button', { name: 'Verify' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Too many attempts. Wait a minute and try again.',
+    );
+  });
+
+  it('distinguishes a transport failure from a rejected code', async () => {
+    mockedPost.mockRejectedValueOnce(new TypeError('Load failed'));
+    const user = userEvent.setup();
+
+    renderChallenge();
+    await user.type(screen.getByLabelText('Code'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Verify' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't reach Loom. Make sure the app is running and try again.",
+    );
+  });
+
+  it('clears the half-auth token when the profile fetch fails', async () => {
+    mockedPost.mockResolvedValueOnce({
+      accessToken: 'new-jwt',
+      refreshToken: 'new-refresh',
+    });
+    mockedGet.mockRejectedValueOnce(new ApiClientError(500, 'boom'));
+    const user = userEvent.setup();
+
+    renderChallenge();
+    await user.type(screen.getByLabelText('Code'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Verify' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Verified, but could not load your profile. Try again.',
+    );
+    expect(useAuthStore.getState().token).toBeNull();
   });
 
   it('submits the form when the user presses Enter inside the code input', async () => {
@@ -128,7 +189,7 @@ describe('MfaChallenge', () => {
     });
     const user = userEvent.setup();
 
-    render(<MfaChallenge />);
+    renderChallenge();
     const input = screen.getByLabelText('Code');
     await user.type(input, '123456{Enter}');
 
@@ -143,7 +204,7 @@ describe('MfaChallenge', () => {
   it('clears the mfa challenge when "Back to login" is clicked', async () => {
     const user = userEvent.setup();
 
-    render(<MfaChallenge />);
+    renderChallenge();
     await user.click(screen.getByRole('button', { name: 'Back to login' }));
 
     expect(useAuthStore.getState().mfaChallengeToken).toBeNull();

@@ -194,6 +194,16 @@ export function AssetDetail(props: AssetDetailProps): React.ReactElement {
         </span>
       </div>
 
+      {asset.processingStatus === 'failed' && asset.processingError && (
+        <p
+          role="alert"
+          data-testid="processing-error"
+          className="text-sm text-destructive"
+        >
+          {asset.processingError}
+        </p>
+      )}
+
       <div className="divide-y divide-border">
         <MetaRow label="Media type" value={asset.mediaType} />
         <MetaRow label="MIME type" value={asset.mimeType} />

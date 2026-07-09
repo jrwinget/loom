@@ -1,11 +1,9 @@
-import {
-  QueryClient,
-  QueryClientProvider,
-} from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { type ReactNode, createElement } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useIngestFromUrl } from '@/hooks/use-ingest-from-url';
+import { useJobStore } from '@/stores/job-store';
 
 vi.mock('@/stores/auth-store', () => ({
   useAuthStore: {
@@ -20,9 +18,7 @@ vi.mock('@/stores/toast-store', () => ({
   },
 }));
 
-function makeWrapper(): (props: {
-  children: ReactNode;
-}) => React.ReactElement {
+function makeWrapper(): (props: { children: ReactNode }) => React.ReactElement {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -31,6 +27,10 @@ function makeWrapper(): (props: {
 }
 
 describe('useIngestFromUrl', () => {
+  beforeEach(() => {
+    useJobStore.setState({ jobs: [] });
+  });
+
   it('POSTs to the expected endpoint and returns response', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
@@ -44,10 +44,9 @@ describe('useIngestFromUrl', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderHook(
-      () => useIngestFromUrl('case-1'),
-      { wrapper: makeWrapper() },
-    );
+    const { result } = renderHook(() => useIngestFromUrl('case-1'), {
+      wrapper: makeWrapper(),
+    });
 
     result.current.mutate({ url: 'https://example.com/video.mp4' });
 
@@ -66,22 +65,29 @@ describe('useIngestFromUrl', () => {
       workflowId: 'url-ingest-asset-1',
       status: 'queued',
     });
+
+    // the ingest shows up in the jobs menu, labeled by its url
+    const job = useJobStore.getState().jobs[0];
+    expect(job.workflowId).toBe('url-ingest-asset-1');
+    expect(job.kind).toBe('url_ingest');
+    expect(job.label).toBe('https://example.com/video.mp4');
   });
 
   it('surfaces an error toast on 502', async () => {
     mockAddToast.mockReset();
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ detail: 'workflow service unavailable' }),
-        { status: 502 },
-      ),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ detail: 'workflow service unavailable' }),
+          { status: 502 },
+        ),
+      );
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderHook(
-      () => useIngestFromUrl('case-1'),
-      { wrapper: makeWrapper() },
-    );
+    const { result } = renderHook(() => useIngestFromUrl('case-1'), {
+      wrapper: makeWrapper(),
+    });
 
     result.current.mutate({ url: 'https://example.com/video.mp4' });
 

@@ -11,10 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.transcript import TranscriptSegment
 from loom.services.ai_providers import GEMINI, transport_for
-from loom.services.model_metadata import (
-    UNKNOWN_VERSION,
-    build_provenance,
+from loom.services.engines import (
+    REMEDY_WHISPER,
+    EngineUnavailableError,
 )
+from loom.services.model_metadata import build_provenance
 
 # gemini's inline-data path caps the request body (~20MB); base64 adds
 # ~33%, so guard the raw file a little under that. larger files need the
@@ -40,27 +41,14 @@ def transcribe_audio(
 
     returns list of segment dicts with keys:
     start, end, text, language, confidence, model_name,
-    model_version, model_params. if faster-whisper is not
-    installed, returns a stub result with 'unknown' provenance.
+    model_version, model_params. raises EngineUnavailableError when
+    faster-whisper is not installed — a fabricated placeholder row
+    would be worse than a visible failure on an evidence product.
     """
     try:
         from faster_whisper import WhisperModel
-    except ImportError:
-        logger.warning(
-            "faster-whisper not installed; returning stub transcript"
-        )
-        return [
-            {
-                "start": 0.0,
-                "end": 0.0,
-                "text": "[transcription unavailable]",
-                "language": None,
-                "confidence": None,
-                "model_name": _WHISPER_MODEL_NAME,
-                "model_version": UNKNOWN_VERSION,
-                "model_params": {"model_size": model_size},
-            }
-        ]
+    except ImportError as exc:
+        raise EngineUnavailableError("transcription", REMEDY_WHISPER) from exc
 
     provenance = build_provenance(
         _WHISPER_MODEL_NAME,

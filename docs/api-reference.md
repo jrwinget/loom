@@ -75,3 +75,10 @@ Most endpoints require a JWT access token in the
 ## Health
 
 - `GET /api/v1/health` — service health (no auth required)
+
+## Capabilities
+
+- `GET /api/v1/capabilities` — deployment profile plus per-engine
+  availability (`available`/`missing`) with a user-actionable remedy
+  for anything missing; the frontend uses it to gate engine-backed
+  actions (authenticated)

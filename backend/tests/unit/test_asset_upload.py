@@ -14,10 +14,10 @@ import pytest
 from starlette.requests import Request
 
 from loom.api.v1.assets import (
-    _MAX_UPLOAD_SIZE,
     complete_presigned_upload,
     upload_asset,
 )
+from loom.config import get_settings
 
 
 class _FakeUploadFile:
@@ -60,8 +60,8 @@ _SVC = "loom.api.v1.assets"
 
 @pytest.mark.asyncio
 async def test_upload_rejects_oversized_file_early() -> None:
-    """upload should reject file exceeding 100mb."""
-    oversized = b"\x00" * (_MAX_UPLOAD_SIZE + 1)
+    """upload should reject a file exceeding the configured cap."""
+    oversized = b"\x00" * (get_settings().max_upload_size_bytes + 1)
     fake_file = _FakeUploadFile(oversized)
 
     mock_request = MagicMock(spec=Request)

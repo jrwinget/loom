@@ -37,6 +37,7 @@ class AssetResponse(BaseModel):
     clock_offset_seconds: float | None = None
     clock_confidence: float | None = None
     processing_status: str
+    processing_error: str | None = None
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
