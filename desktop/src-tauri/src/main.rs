@@ -769,21 +769,98 @@ async fn factory_reset(app: AppHandle) -> Result<(), String> {
     restart_backend(app).await
 }
 
+// held between the consent check and the install click so the
+// operator installs exactly the update they were shown.
+struct PendingUpdate(Mutex<Option<tauri_plugin_updater::Update>>);
+
+#[derive(serde::Serialize)]
+struct UpdateInfo {
+    version: String,
+    notes: Option<String>,
+}
+
+// ipc command: passive update check. returns the available update's
+// metadata or None. never downloads or installs anything — consent
+// lives in the ui banner.
+#[tauri::command]
+async fn check_for_update(
+    app: AppHandle,
+) -> Result<Option<UpdateInfo>, String> {
+    // deb installs cannot self-update (the updater swaps the appimage
+    // binary in place); report "no update" rather than offering one
+    // that would fail mid-install. releases page covers deb users.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("APPIMAGE").is_none() {
+        return Ok(None);
+    }
+
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(Some(update)) => {
+            let info = UpdateInfo {
+                version: update.version.clone(),
+                notes: update.body.clone(),
+            };
+            if let Some(state) = app.try_state::<PendingUpdate>() {
+                if let Ok(mut guard) = state.0.lock() {
+                    *guard = Some(update);
+                }
+            }
+            Ok(Some(info))
+        }
+        Ok(None) => Ok(None),
+        // offline is normal for a field laptop — a failed check is
+        // "no update right now", never an error surface.
+        Err(e) => {
+            eprintln!("[loom] update check failed: {e}");
+            Ok(None)
+        }
+    }
+}
+
+// ipc command: download + install the update the operator consented
+// to, then relaunch. the sidecar is stopped FIRST — nsis cannot
+// replace a running exe, and a live sqlite writer must not be killed
+// mid-transaction by an installer.
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    let update = app
+        .try_state::<PendingUpdate>()
+        .and_then(|state| {
+            state.0.lock().ok().and_then(|mut guard| guard.take())
+        })
+        .ok_or_else(|| "no update pending — check again".to_string())?;
+
+    graceful_shutdown_sidecar_async(&app).await;
+
+    update
+        .download_and_install(|_, _| {}, || {})
+        .await
+        .map_err(|e| format!("update install failed: {e}"))?;
+    app.restart()
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(SidecarProcess(Mutex::new(None)))
         .manage(LastBackendStderr::default())
         .manage(BootReady::default())
+        .manage(PendingUpdate(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             pick_directory,
             disk_usage,
             persist_data_directory,
             restart_backend,
             factory_reset,
+            check_for_update,
+            install_update,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

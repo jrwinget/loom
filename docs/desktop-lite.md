@@ -321,8 +321,18 @@ Desktop Lite is local-only by design:
 - The backend binds to `127.0.0.1` only. There is no listener on
   any external interface; other machines on the same network cannot
   reach it.
-- No outbound network calls are made by Loom itself by default. Update
-  checks, telemetry, and crash reporting are off.
+- Telemetry and crash reporting do not exist. The one background
+  network call Loom makes is a **passive update check**: shortly
+  after launch (and daily while running) the app fetches
+  `latest.json` from this repository's GitHub Releases to learn
+  whether a newer version exists. Nothing downloads or installs
+  without an explicit click on the update banner, downloads are
+  verified against a signing key pinned in the app, and the check
+  fails silently when offline. `.deb` installs cannot self-update
+  (the updater swaps the AppImage binary in place) and are never
+  offered one — update via your package workflow or the releases
+  page. Windows installers remain OS-unsigned, so SmartScreen may
+  warn on first run of an updated build.
 - There are two opt-in exceptions, each requiring an explicit action:
   - **URL ingestion** — when you submit a URL via the ingest form, Loom
     fetches it and (best-effort) requests a Wayback Machine snapshot.

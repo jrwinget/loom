@@ -29,6 +29,8 @@
         { "path": "$APPLOCALDATA/**" }
       ]
     },
-    "store:default"
+    "store:default",
+    "updater:default",
+    "process:allow-restart"
   ]
 }
