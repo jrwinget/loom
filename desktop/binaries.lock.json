@@ -1,0 +1,40 @@
+{
+  "comment": "pinned host binaries bundled with the desktop shell. every entry is verified by sha256 before it enters the bundle; bumping one means updating url and sha256 together. macos is deliberately absent: ffmpeg/tesseract there are probed from homebrew with fail-loud remedies until relocatable arm64 builds are vetted.",
+  "ffmpeg": {
+    "linux-x86_64": {
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-08-13-30/ffmpeg-n7.1.5-1-g7d0e842004-linux64-gpl-7.1.tar.xz",
+      "sha256": "1bd71391f95473e3b5ef04a9e87873535423a67e343308264e43e19878abe893",
+      "version": "n7.1.5",
+      "license": "GPL-3.0",
+      "extract": "tar",
+      "binaries": ["ffmpeg", "ffprobe"]
+    },
+    "windows-x86_64": {
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-08-13-30/ffmpeg-n7.1.5-1-g7d0e842004-win64-gpl-7.1.zip",
+      "sha256": "9540f8f645adc1b0d512d31a0d92992c672c494538cb791410a50b5ef206e2dd",
+      "version": "n7.1.5",
+      "license": "GPL-3.0",
+      "extract": "zip",
+      "binaries": ["ffmpeg.exe", "ffprobe.exe"]
+    }
+  },
+  "tesseract": {
+    "linux-x86_64": {
+      "url": "https://github.com/AlexanderP/tesseract-appimage/releases/download/v5.5.2/tesseract-5.5.2-x86_64.AppImage",
+      "sha256": "c0eda86d2bb1bc2cec764e48767a8d287065e51d3c0c4dd1944564727293c901",
+      "version": "5.5.2",
+      "license": "Apache-2.0",
+      "extract": "none",
+      "binaries": ["tesseract"]
+    }
+  },
+  "tessdata": {
+    "eng": {
+      "url": "https://github.com/tesseract-ocr/tessdata_fast/raw/4.1.0/eng.traineddata",
+      "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+      "version": "tessdata_fast 4.1.0",
+      "license": "Apache-2.0",
+      "extract": "none"
+    }
+  }
+}

@@ -53,12 +53,15 @@ accept audio and video directly), and the egress is recorded as a
 `cloud_transcription` chain-of-custody entry (provider, model, endpoint).
 Anthropic is shown but disabled — its API can't transcribe audio. See
 [`ai-model-cards.md`](ai-model-cards.md) for per-provider detail.
-The desktop build bundles the on-device engines themselves
-(faster-whisper, pytesseract, scene detection — no torch, no
-diarization); what it does **not** yet ship are the whisper model
-weights (downloaded on demand once the model manager lands), the
-`tesseract` binary, and `ffmpeg`, so OCR and media-pipeline features
-still fail with a remedy until those are present on the host.
+The desktop build bundles the on-device engines (faster-whisper,
+pytesseract, scene detection — no torch, no diarization) and, on
+Linux and Windows, pinned sha256-verified `ffmpeg` and (Linux)
+`tesseract` binaries — see
+[`desktop/THIRD-PARTY-BINARIES.md`](../desktop/THIRD-PARTY-BINARIES.md).
+Whisper model weights download on demand from Settings → AI (the one
+explicit egress). Still probed from the host with a fail-loud
+remedy: `tesseract` on Windows (installer-only distributions) and
+both binaries on macOS (Homebrew).
 
 ## Why Lite assets are served over HTTP
 
