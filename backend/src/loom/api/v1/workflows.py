@@ -44,13 +44,23 @@ router = APIRouter(
 
 
 class WorkflowStatusResponse(BaseModel):
-    """response model for workflow status queries."""
+    """response model for workflow status queries.
+
+    stage/steps fields are lite-only progress (None on server, where
+    temporal owns per-activity state); error_code distinguishes a
+    missing engine from a genuine processing failure so the ui can
+    offer the right remedy.
+    """
 
     workflow_id: str
     status: str
+    stage: str | None = None
+    steps_done: int | None = None
+    steps_total: int | None = None
     start_time: datetime | None = None
     close_time: datetime | None = None
     error: str | None = None
+    error_code: str | None = None
 
 
 async def _check_access(
@@ -158,7 +168,12 @@ async def _lite_status(
     if in_memory is not None:
         return WorkflowStatusResponse(
             workflow_id=workflow_id,
-            status=in_memory,
+            status=in_memory.status,
+            stage=in_memory.stage,
+            steps_done=in_memory.steps_done,
+            steps_total=in_memory.steps_total,
+            error=in_memory.error_message,
+            error_code=in_memory.error_code,
         )
 
     derived = await _derive_status_from_db(db, workflow_id)

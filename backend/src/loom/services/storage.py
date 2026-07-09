@@ -1,6 +1,7 @@
 import io
 from collections.abc import Iterator
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 from minio import Minio
@@ -86,6 +87,28 @@ class StorageService(StorageBackend):
             length=len(data),
             content_type=content_type,
         )
+
+    def upload_file_move(
+        self,
+        bucket: str,
+        key: str,
+        src_path: str,
+        content_type: str,
+    ) -> None:
+        """upload a temp file to minio, consuming the source.
+
+        fput_object streams from disk (multipart internally), so a
+        multi-gb source never lands in memory.
+        """
+        try:
+            self._client.fput_object(
+                bucket,
+                key,
+                src_path,
+                content_type=content_type,
+            )
+        finally:
+            Path(src_path).unlink(missing_ok=True)
 
     def download_file(
         self,

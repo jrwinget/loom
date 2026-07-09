@@ -14,7 +14,7 @@ feature.
 | Capability | Server | Lite | How / notes |
 |---|---|---|---|
 | Auth, cases, first-run | ✓ | ✓ | identical |
-| File upload | ✓ | ✓ | local filesystem (WORM) on Lite |
+| File upload | ✓ | ✓ | streamed to disk (`POST /upload-stream`), no size cap on Lite; local filesystem (WORM) |
 | URL ingest (yt-dlp/archive) | ✓ | ✓ | in-process worker; deps bundled |
 | Asset preview/download (pdf/img/doc) | ✓ | ✓ | signed http stream from the sidecar (`/api/v1/storage/object/...`) |
 | Video/audio playback + seeking | ✓ | ✓ | same endpoint, HTTP Range → 206 |
@@ -24,11 +24,26 @@ feature.
 | OCR / scene detection | ✓ | ✓¹ | local on-device only (no cloud option yet) |
 | Video proxies / thumbnails / waveforms | ✓ | ✓¹ | needs the bundled ffmpeg binary |
 | Organizations / members / plugins | ✓ | — | server-only; hidden on Lite |
-| Presigned multipart upload completion | ✓ | — | Minio-only; Lite uploads via `POST /upload` |
+| Presigned multipart upload completion | ✓ | — | Minio-only; Lite uploads via `POST /upload-stream` |
+
+## Why Lite has no resumable-upload protocol
+
+Uploads travel over loopback (`127.0.0.1`), so the failure modes that
+resumable protocols exist for — flaky networks, dropped WAN
+connections — don't apply. The only ways a Lite upload dies are an app
+crash or a full disk, and both restart cleanly from zero at disk
+speed. The server profile keeps presigned multipart upload for WAN
+robustness. Uploads stream to `<data_dir>/tmp-uploads/` and move into
+WORM storage with an atomic rename; temp files orphaned by a crash are
+reaped at the next startup.
 
 ¹ AI/media features run on-device by default. If the on-device engine or
-ffmpeg is not installed, the step degrades to an empty result rather than
-failing.
+ffmpeg is not installed, the job **fails visibly**: the workflow status
+carries `error_code: engine_unavailable` plus a user-actionable remedy,
+and the asset records the reason in `processing_error`. Silent
+degradation (stub transcripts, empty OCR/scene results, skipped
+derivatives) was removed — a fabricated or missing result on an
+evidence product is worse than a visible failure.
 
 ² Cloud transcription (Settings → AI) is opt-in and off by default. You
 pick a provider — OpenAI, Google Gemini, a self-hosted/open-source model,

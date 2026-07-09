@@ -2,6 +2,9 @@ import type { Config } from 'tailwindcss';
 
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  // class strategy so the in-app toggle (light/dark/system) owns the
+  // theme; the provider stamps `dark` on the document element
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {

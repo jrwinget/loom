@@ -181,6 +181,61 @@ describe('FirstRunPage', () => {
     expect(useAuthStore.getState().token).toBe('access');
   });
 
+  it('holds the codes panel while /auth/me is still in flight', async () => {
+    mockedGet.mockResolvedValueOnce({
+      firstRunRequired: true,
+      deploymentProfile: 'server',
+      dataDir: null,
+    });
+    mockedPost.mockResolvedValueOnce({
+      userId: 'user-123',
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      passwordRecoveryCodes: ['aaaaa-bbbbb-ccccc-ddddd'],
+    });
+    // a realistically slow /auth/me: the complete mutation's
+    // onSuccess flips the cached firstRunRequired to false and
+    // re-renders while handleSubmit is still awaiting this response
+    // — the already-onboarded redirect must not fire mid-onboarding
+    mockedGet.mockImplementationOnce(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                id: 'user-123',
+                email: 'ada@example.org',
+                displayName: 'Ada Lovelace',
+                role: 'admin',
+                mfaEnabled: false,
+              }),
+            50,
+          ),
+        ),
+    );
+    const user = userEvent.setup();
+
+    renderWithProviders();
+    await screen.findByText('Welcome to Loom');
+
+    await user.type(screen.getByLabelText(/Full name/i), 'Ada Lovelace');
+    await user.type(screen.getByLabelText(/Email/i), 'ada@example.org');
+    const pw = 'correct-horse-battery-staple';
+    await user.type(
+      screen.getByLabelText('Password (minimum 12 characters)'),
+      pw,
+    );
+    await user.type(screen.getByLabelText(/Confirm password/i), pw);
+    await user.click(
+      screen.getByRole('button', { name: /Create admin account/i }),
+    );
+
+    expect(
+      await screen.findByTestId('recovery-codes-panel'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+  });
+
   it('navigates to / once the operator acknowledges the codes', async () => {
     mockedGet.mockResolvedValueOnce({
       firstRunRequired: true,

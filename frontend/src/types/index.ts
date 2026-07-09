@@ -14,6 +14,7 @@ export interface Case {
   assetCount: number;
   eventCount: number;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface CaseMember {

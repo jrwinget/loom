@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -13,10 +14,16 @@ vi.mock('react-router-dom', async () => {
 });
 
 function renderHeader(): void {
+  // breadcrumbs resolve the case name through the query cache
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   render(
-    <MemoryRouter>
-      <Header />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -36,31 +43,23 @@ describe('Header user menu', () => {
 
   it('renders the user menu button', () => {
     renderHeader();
-    expect(
-      screen.getByTestId('user-menu-button'),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('user-menu-button')).toBeInTheDocument();
   });
 
   it('shows first letter of email on the button', () => {
     renderHeader();
-    expect(
-      screen.getByTestId('user-menu-button'),
-    ).toHaveTextContent('A');
+    expect(screen.getByTestId('user-menu-button')).toHaveTextContent('A');
   });
 
   it('opens dropdown on click', async () => {
     const user = userEvent.setup();
     renderHeader();
 
-    expect(
-      screen.queryByTestId('user-menu-dropdown'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('user-menu-dropdown')).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('user-menu-button'));
 
-    expect(
-      screen.getByTestId('user-menu-dropdown'),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('user-menu-dropdown')).toBeInTheDocument();
   });
 
   it('displays user email in the dropdown', async () => {
@@ -69,9 +68,9 @@ describe('Header user menu', () => {
 
     await user.click(screen.getByTestId('user-menu-button'));
 
-    expect(
-      screen.getByTestId('user-menu-email'),
-    ).toHaveTextContent('analyst@example.com');
+    expect(screen.getByTestId('user-menu-email')).toHaveTextContent(
+      'analyst@example.com',
+    );
   });
 
   it('has a settings link', async () => {
@@ -90,9 +89,7 @@ describe('Header user menu', () => {
     await user.click(screen.getByTestId('user-menu-button'));
     await user.click(screen.getByText('Settings'));
 
-    expect(mockNavigate).toHaveBeenCalledWith(
-      '/settings/security',
-    );
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/security');
   });
 
   it('clears auth and navigates to login on logout', async () => {
@@ -112,13 +109,25 @@ describe('Header user menu', () => {
     renderHeader();
 
     await user.click(screen.getByTestId('user-menu-button'));
-    expect(
-      screen.getByTestId('user-menu-dropdown'),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('user-menu-dropdown')).toBeInTheDocument();
 
     await user.click(document.body);
-    expect(
-      screen.queryByTestId('user-menu-dropdown'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('user-menu-dropdown')).not.toBeInTheDocument();
+  });
+
+  it('switches the theme preference from the user menu', async () => {
+    const { useThemeStore } = await import('@/stores/theme-store');
+    useThemeStore.setState({ theme: 'system' });
+    const user = userEvent.setup();
+    renderHeader();
+
+    await user.click(screen.getByTestId('user-menu-button'));
+    await user.click(screen.getByTestId('theme-dark'));
+
+    expect(useThemeStore.getState().theme).toBe('dark');
+    expect(screen.getByTestId('theme-dark')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 });

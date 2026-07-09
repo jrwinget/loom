@@ -67,7 +67,7 @@ function snakeToCamel(key: string): string {
   return key.replace(/_([a-z0-9])/g, (_m, c: string) => c.toUpperCase());
 }
 
-function camelizeKeys(value: unknown): unknown {
+export function camelizeKeys(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(camelizeKeys);
   }

@@ -7,6 +7,21 @@ import { resolve } from 'path';
 import { describe, expect, it } from 'vitest';
 import tailwindConfig from '../tailwind.config';
 
+describe('dark mode wiring', () => {
+  it('uses the class strategy so the in-app toggle owns the theme', () => {
+    expect(tailwindConfig.darkMode).toBe('class');
+  });
+
+  it('sets color-scheme for both themes', () => {
+    const css = readFileSync(
+      resolve(__dirname, '../src/styles/globals.css'),
+      'utf8',
+    );
+    expect(css).toMatch(/color-scheme: light/);
+    expect(css).toMatch(/color-scheme: dark/);
+  });
+});
+
 describe('card surface token', () => {
   it('is registered in the tailwind theme with a foreground pair', () => {
     const colors = (tailwindConfig.theme?.extend?.colors ?? {}) as Record<

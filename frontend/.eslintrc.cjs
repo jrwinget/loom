@@ -6,7 +6,9 @@ module.exports = {
     'plugin:@typescript-eslint/recommended',
     'plugin:react-hooks/recommended',
   ],
-  ignorePatterns: ['dist', '.eslintrc.cjs'],
+  // generated api types are build artifacts in the repo; formatters
+  // must never fight the generator
+  ignorePatterns: ['dist', '.eslintrc.cjs', 'src/types/generated/api.d.ts'],
   parser: '@typescript-eslint/parser',
   parserOptions: {
     ecmaVersion: 'latest',

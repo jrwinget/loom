@@ -293,6 +293,10 @@ fn spawn_backend(
             "LOOM_STORAGE_SIGNING_SECRET",
             secrets.storage_signing_secret.clone(),
         )
+        // no upload cap on desktop: evidence footage is multi-gb and
+        // the disk is the real limit. uploads stream to disk, so this
+        // does not admit memory exhaustion.
+        .env("LOOM_MAX_UPLOAD_SIZE_BYTES", "0")
         .env("LOOM_SHUTDOWN_TOKEN", secrets.shutdown_token.clone());
 
     let (mut rx, child) = sidecar
