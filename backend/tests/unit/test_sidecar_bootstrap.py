@@ -147,8 +147,9 @@ def test_bootstrap_upgrades_stale_lite_schema(
     tables were skipped and nothing ever ran ``alembic upgrade``, so
     an install created before migration 014 never gained
     ``assets.processing_error`` and every write to it raised "no
-    such column" after the app upgraded. simulate that install by
-    dropping the column and winding alembic_version back, then boot.
+    such column" after the app upgraded. simulate a 013-era install
+    by stripping the columns migrations 014+ add on sqlite and
+    winding alembic_version back, then boot and assert they return.
     """
     db_path = _db_file(_lite_settings.database_url)
     get_settings.cache_clear()
@@ -157,7 +158,11 @@ def test_bootstrap_upgrades_stale_lite_schema(
 
         conn = sqlite3.connect(db_path)
         try:
+            # create_all built the current schema; drop back to what a
+            # db stamped at 013 actually had so the replay re-adds them
             conn.execute("ALTER TABLE assets DROP COLUMN processing_error")
+            conn.execute("DROP INDEX IF EXISTS ix_cases_source_bundle_sha256")
+            conn.execute("ALTER TABLE cases DROP COLUMN source_bundle_sha256")
             conn.execute("UPDATE alembic_version SET version_num = '013'")
             conn.commit()
         finally:
@@ -167,16 +172,21 @@ def test_bootstrap_upgrades_stale_lite_schema(
 
     conn = sqlite3.connect(db_path)
     try:
-        cols = {
+        asset_cols = {
             row[1]
             for row in conn.execute("PRAGMA table_info(assets)").fetchall()
+        }
+        case_cols = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(cases)").fetchall()
         }
         rev = conn.execute(
             "SELECT version_num FROM alembic_version"
         ).fetchone()[0]
     finally:
         conn.close()
-    assert "processing_error" in cols, "migration 014 did not replay"
+    assert "processing_error" in asset_cols, "migration 014 did not replay"
+    assert "source_bundle_sha256" in case_cols, "migration 017 did not replay"
     assert rev not in (None, "013"), f"still stamped at {rev}"
 
 

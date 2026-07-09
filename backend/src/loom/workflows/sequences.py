@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from loom.workflows.export_activities import build_export
+from loom.workflows.import_activities import import_bundle
 from loom.workflows.ingest_activities import (
     extract_asset_metadata,
     generate_asset_proxies,
@@ -204,6 +205,14 @@ EXPORT = WorkflowSpec(
     (Step(build_export, _first, timeout_s=3600, max_attempts=2),),
 )
 
+# a single attempt: recreation moves originals into WORM, so a retry
+# would collide on storage keys — the operator purges the partial
+# case and re-imports instead
+BUNDLE_IMPORT = WorkflowSpec(
+    "bundle_import",
+    (Step(import_bundle, _first, timeout_s=7200),),
+)
+
 SPECS: dict[str, WorkflowSpec] = {
     spec.name: spec
     for spec in (
@@ -213,5 +222,6 @@ SPECS: dict[str, WorkflowSpec] = {
         TRANSCRIPTION,
         SCENE_DETECTION,
         EXPORT,
+        BUNDLE_IMPORT,
     )
 }

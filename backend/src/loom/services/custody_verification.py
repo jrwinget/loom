@@ -71,7 +71,12 @@ async def verify_asset_chain(
 
     # check first entry is an upload/ingest action
     first = entries[0]
-    if first.action not in ("upload", "ingest", "presigned_upload"):
+    if first.action not in (
+        "upload",
+        "ingest",
+        "presigned_upload",
+        "imported",
+    ):
         issues.append(
             CustodyIssue(
                 severity="warning",
