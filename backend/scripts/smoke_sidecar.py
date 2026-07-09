@@ -394,7 +394,17 @@ def _terminate(proc: subprocess.Popen[bytes]) -> None:
         proc.wait(timeout=KILL_GRACE_S)
 
 
+def _force_utf8_output() -> None:
+    """windows runners default stdout to cp1252, which cannot encode
+    the arrows in engine remedy strings the capabilities check
+    prints — reconfigure rather than sanitize every message."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main() -> int:
+    _force_utf8_output()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "binary",
