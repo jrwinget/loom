@@ -2182,6 +2182,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Global Search Endpoint
+         * @description search across the caller's accessible cases for the palette.
+         */
+        get: operations["global_search_endpoint_api_v1_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/ai": {
         parameters: {
             query?: never;
@@ -3619,6 +3639,24 @@ export interface components {
             status: string;
             /** Title */
             title: string;
+        };
+        /** GlobalSearchResponse */
+        GlobalSearchResponse: {
+            /** Results */
+            results: components["schemas"]["GlobalSearchResult"][];
+        };
+        /** GlobalSearchResult */
+        GlobalSearchResult: {
+            /** Case Id */
+            case_id: string;
+            /** Id */
+            id: string;
+            /** Snippet */
+            snippet?: string | null;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -8831,6 +8869,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookDeliveryListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    global_search_endpoint_api_v1_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlobalSearchResponse"];
                 };
             };
             /** @description Validation Error */
