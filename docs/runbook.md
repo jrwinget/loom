@@ -279,6 +279,45 @@ docker compose -f docker/docker-compose.yml --profile app up -d --scale worker=3
 5. **Notify affected parties** per your organization's incident
    response procedures.
 
+## Cutting a Release
+
+`scripts/cut-release.sh` encodes the process so the footguns from
+past releases can't recur (asset-append contamination, an unbumped
+OpenAPI schema drifting the contract, tagging before the release PR
+merged). Two steps, with a human-reviewed PR between them.
+
+```bash
+# 1. write the notes first — the script refuses to prepare without
+#    a non-empty docs/release-notes/vX.Y.Z.md
+$EDITOR docs/release-notes/v0.2.2.md
+
+# 2. on a clean dev, prepare: bumps all five version files,
+#    regenerates the version-embedding openapi + generated types,
+#    verifies version lockstep, and leaves a release/v0.2.2 branch
+#    with the bump commit
+git switch dev && git pull
+scripts/cut-release.sh prepare 0.2.2
+
+# 3. push, open a PR to main, let the FULL check set pass, and
+#    squash-merge it as "Release v0.2.2: <summary>"
+git push -u origin release/v0.2.2
+
+# 4. after the PR merges, tag: verifies main actually carries the
+#    version and the notes, then creates and pushes the annotated
+#    tag that triggers the installer + updater-manifest build
+scripts/cut-release.sh tag 0.2.2
+
+# 5. publish the notes body (the workflow only attaches assets)
+gh release create v0.2.2 --verify-tag --title v0.2.2 \
+  --notes-file docs/release-notes/v0.2.2.md
+```
+
+The `Desktop` workflow's **Release Guard** job refuses to build on a
+tag whose release page already has assets, so a second run can never
+append onto a populated release. A deliberate rebuild goes through
+`workflow_dispatch`, or delete the release's assets first (see the
+re-cut procedure below).
+
 ## Desktop Hotfix Release
 
 The `Desktop` workflow attaches artifacts to a tag-named GitHub
