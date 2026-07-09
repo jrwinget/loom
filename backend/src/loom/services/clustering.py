@@ -45,87 +45,83 @@ async def compute_absolute_times(
     if not assets:
         return []
 
+    # capture_time by asset id, so the content queries below can be
+    # batched across all assets rather than run per-asset (the old
+    # shape was 3 queries per N assets; this is 3 total)
+    capture_by_asset = {a.id: a.capture_time for a in assets}
+    asset_ids = list(capture_by_asset)
+
     items: list[dict[str, Any]] = []
 
-    # transcript segments
-    for asset in assets:
-        seg_result = await session.execute(
-            select(TranscriptSegment).where(
-                TranscriptSegment.asset_id == asset.id,
-            )
+    seg_result = await session.execute(
+        select(TranscriptSegment).where(
+            TranscriptSegment.asset_id.in_(asset_ids),
         )
-        segments = seg_result.scalars().all()
-        for seg in segments:
-            ct = asset.capture_time
-            assert ct is not None  # filtered above
-            abs_start = ct + timedelta(seconds=seg.start_time)
-            abs_end = ct + timedelta(seconds=seg.end_time)
-            items.append(
-                {
-                    "asset_id": asset.id,
-                    "content_type": "transcript",
-                    "content_id": seg.id,
-                    "absolute_time_start": abs_start,
-                    "absolute_time_end": abs_end,
-                    "text_preview": seg.text[:200],
-                }
-            )
+    )
+    for seg in seg_result.scalars().all():
+        ct = capture_by_asset[seg.asset_id]
+        assert ct is not None  # every asset here has a capture_time
+        items.append(
+            {
+                "asset_id": seg.asset_id,
+                "content_type": "transcript",
+                "content_id": seg.id,
+                "absolute_time_start": ct + timedelta(seconds=seg.start_time),
+                "absolute_time_end": ct + timedelta(seconds=seg.end_time),
+                "text_preview": seg.text[:200],
+            }
+        )
 
-    # ocr regions
-    for asset in assets:
-        ocr_result = await session.execute(
-            select(OcrRegion).where(
-                OcrRegion.asset_id == asset.id,
-                OcrRegion.timestamp.isnot(None),
-            )
+    ocr_result = await session.execute(
+        select(OcrRegion).where(
+            OcrRegion.asset_id.in_(asset_ids),
+            OcrRegion.timestamp.isnot(None),
         )
-        regions = ocr_result.scalars().all()
-        for region in regions:
-            ct = asset.capture_time
-            assert ct is not None
-            ts = region.timestamp
-            assert ts is not None  # filtered above
-            abs_start = ct + timedelta(seconds=ts)
-            items.append(
-                {
-                    "asset_id": asset.id,
-                    "content_type": "ocr",
-                    "content_id": region.id,
-                    "absolute_time_start": abs_start,
-                    "absolute_time_end": None,
-                    "text_preview": region.text[:200],
-                }
-            )
+    )
+    for region in ocr_result.scalars().all():
+        ct = capture_by_asset[region.asset_id]
+        assert ct is not None
+        ts = region.timestamp
+        assert ts is not None  # filtered above
+        items.append(
+            {
+                "asset_id": region.asset_id,
+                "content_type": "ocr",
+                "content_id": region.id,
+                "absolute_time_start": ct + timedelta(seconds=ts),
+                "absolute_time_end": None,
+                "text_preview": region.text[:200],
+            }
+        )
 
-    # annotations with time ranges
-    for asset in assets:
-        ann_result = await session.execute(
-            select(Annotation).where(
-                Annotation.asset_id == asset.id,
-                Annotation.time_start.isnot(None),
-            )
+    ann_result = await session.execute(
+        select(Annotation).where(
+            Annotation.asset_id.in_(asset_ids),
+            Annotation.time_start.isnot(None),
         )
-        annotations = ann_result.scalars().all()
-        for ann in annotations:
-            ct = asset.capture_time
-            assert ct is not None
-            ts = ann.time_start
-            assert ts is not None  # filtered above
-            abs_start = ct + timedelta(seconds=ts)
-            te = ann.time_end
-            ann_end: datetime | None = (
-                ct + timedelta(seconds=te) if te is not None else None
-            )
-            items.append(
-                {
-                    "asset_id": asset.id,
-                    "content_type": "annotation",
-                    "content_id": ann.id,
-                    "absolute_time_start": abs_start,
-                    "absolute_time_end": ann_end,
-                    "text_preview": ann.content[:200],
-                }
-            )
+    )
+    for ann in ann_result.scalars().all():
+        # annotations can be case-level (asset_id None); the in_()
+        # filter excludes those, so this lookup always resolves
+        ct = capture_by_asset.get(ann.asset_id) if ann.asset_id else None
+        if ct is None:
+            continue
+        ts = ann.time_start
+        assert ts is not None  # filtered above
+        te = ann.time_end
+        ann_end: datetime | None = (
+            ct + timedelta(seconds=te) if te is not None else None
+        )
+        items.append(
+            {
+                "asset_id": ann.asset_id,
+                "content_type": "annotation",
+                "content_id": ann.id,
+                "absolute_time_start": ct + timedelta(seconds=ts),
+                "absolute_time_end": ann_end,
+                "text_preview": ann.content[:200],
+            }
+        )
 
     return items
 

@@ -163,6 +163,7 @@ def test_bootstrap_upgrades_stale_lite_schema(
             conn.execute("ALTER TABLE assets DROP COLUMN processing_error")
             conn.execute("DROP INDEX IF EXISTS ix_cases_source_bundle_sha256")
             conn.execute("ALTER TABLE cases DROP COLUMN source_bundle_sha256")
+            conn.execute("DROP INDEX IF EXISTS ix_assets_case_capture_time")
             conn.execute("UPDATE alembic_version SET version_num = '013'")
             conn.commit()
         finally:

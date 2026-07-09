@@ -45,10 +45,12 @@ def _mock_segment(
     start: float,
     end: float,
     text: str = "hello",
+    asset_id: UUID = _ASSET_A,
 ) -> MagicMock:
     """build a mock transcript segment."""
     seg = MagicMock()
     seg.id = seg_id
+    seg.asset_id = asset_id
     seg.start_time = start
     seg.end_time = end
     seg.text = text
@@ -59,10 +61,12 @@ def _mock_ocr_region(
     region_id: UUID,
     timestamp: float,
     text: str = "sign",
+    asset_id: UUID = _ASSET_A,
 ) -> MagicMock:
     """build a mock ocr region."""
     r = MagicMock()
     r.id = region_id
+    r.asset_id = asset_id
     r.timestamp = timestamp
     r.text = text
     return r
@@ -73,10 +77,12 @@ def _mock_annotation(
     time_start: float,
     time_end: float | None = None,
     content: str = "note",
+    asset_id: UUID = _ASSET_A,
 ) -> MagicMock:
     """build a mock annotation."""
     a = MagicMock()
     a.id = ann_id
+    a.asset_id = asset_id
     a.time_start = time_start
     a.time_end = time_end
     a.content = content
@@ -247,6 +253,7 @@ class TestProposeClusters:
             5.0,
             15.0,
             "world",
+            asset_id=_ASSET_B,
         )
 
         fake_cluster_id = UUID(_CLUSTER_ID)
@@ -264,16 +271,13 @@ class TestProposeClusters:
                     asset_b,
                 ]
             elif call_count == 2:
-                # segments for asset_a
-                m.scalars.return_value.all.return_value = [seg_a]
-            elif call_count == 3:
-                # segments for asset_b
-                m.scalars.return_value.all.return_value = [seg_b]
-            elif call_count <= 7:
-                # ocr/annotations (empty)
+                # all segments, batched across assets
+                m.scalars.return_value.all.return_value = [seg_a, seg_b]
+            elif call_count <= 4:
+                # ocr (3) and annotations (4), both empty
                 m.scalars.return_value.all.return_value = []
-            elif call_count == 8:
-                # asset_map query
+            elif call_count == 5:
+                # asset_map query in propose_clusters
                 m.scalars.return_value.all.return_value = [
                     asset_a,
                     asset_b,
