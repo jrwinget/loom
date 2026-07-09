@@ -271,7 +271,13 @@ def diarize_audio(audio_path: str) -> list[dict[str, Any]]:
     if pipeline is None:
         logger.warning("failed to load pyannote pipeline")
         return []
-    diarization = pipeline(audio_path)
+    # newer pyannote annotates the pipeline output as a union that
+    # includes streaming iterators; this pipeline always returns an
+    # Annotation, so narrow by capability before using it
+    diarization: Any = pipeline(audio_path)
+    if not hasattr(diarization, "itertracks"):
+        logger.warning("unexpected diarization output; skipping")
+        return []
     provenance = build_provenance(_PYANNOTE_MODEL_NAME, _PYANNOTE_PACKAGE)
 
     results: list[dict[str, Any]] = []
