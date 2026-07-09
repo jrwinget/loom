@@ -48,6 +48,18 @@ API: <http://localhost:8000/docs>. Frontend:
 - ESLint with `--max-warnings=0`
 - Inline comments lowercase
 
+### Generated API types
+
+`frontend/src/types/generated/api.d.ts` is generated from the backend
+OpenAPI schema and checked in; CI fails when a backend schema change
+lands without regenerating (`make typegen`). Adoption rule: new or
+modified API-touching code imports from `types/generated` (use the
+`Camel<T>` mapper for post-camelization shapes); the hand-written
+`types/*.ts` files are frozen — no new fields — and shrink as modules
+migrate. Compile-time assertions in
+`src/types/__tests__/generated-contract.test-d.ts` keep the remaining
+hand-written types honest against the wire.
+
 ## Tests
 
 - Backend: `pytest` with `pytest-asyncio` (≥90% coverage gate)
