@@ -65,6 +65,12 @@ class PresignedUrlResponse(BaseModel):
     key: str
 
 
+class WaveformResponse(BaseModel):
+    # normalized amplitude peaks in [0, 1] extracted from the audio;
+    # the player renders these to its own canvas
+    peaks: list[float]
+
+
 class PresignedUrlRequest(BaseModel):
     filename: str
     content_type: str

@@ -1,6 +1,8 @@
+import array
 import logging
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from loom.services.engines import (
@@ -11,6 +13,15 @@ from loom.services.engines import (
 logger = logging.getLogger(__name__)
 
 _FFMPEG = shutil.which("ffmpeg")
+
+# real audio-envelope config. the peaks are decoded from the actual
+# signal — never a synthesized stand-in — so a fabricated waveform
+# can't pass as evidence.
+WAVEFORM_PEAKS_VERSION = 1
+WAVEFORM_PEAKS_METHOD = "ffmpeg-pcm-s16le-max-abs-peak-normalized"
+_PEAKS_COUNT = 800
+_PEAKS_SAMPLE_RATE = 8000
+_PCM_FULL_SCALE = 32768.0
 
 
 def _require_ffmpeg() -> str:
@@ -160,3 +171,78 @@ def generate_waveform(input_path: str, output_path: str) -> None:
             output_path,
         ]
     )
+
+
+def generate_waveform_peaks(
+    input_path: str,
+    count: int = _PEAKS_COUNT,
+) -> list[float]:
+    """extract ``count`` normalized peak magnitudes in [0, 1].
+
+    decodes the audio down to mono 16-bit pcm via ffmpeg, buckets the
+    samples into ``count`` slices, and takes the max absolute amplitude
+    per slice normalized to the loudest peak. these values are the real
+    signal envelope, so a missing ffmpeg raises rather than fabricating
+    a shape the reviewer would mistake for the recording.
+    """
+    if count < 1:
+        msg = "count must be >= 1"
+        raise ValueError(msg)
+
+    ffmpeg = _require_ffmpeg()
+    result = subprocess.run(  # noqa: S603
+        [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            input_path,
+            "-ac",
+            "1",
+            "-ar",
+            str(_PEAKS_SAMPLE_RATE),
+            "-f",
+            "s16le",
+            "-",
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+    pcm = result.stdout
+    # each sample is a 2-byte signed short; drop a dangling odd byte
+    usable = len(pcm) - (len(pcm) % 2)
+    samples: array.array[int] = array.array("h")
+    samples.frombytes(pcm[:usable])
+    if sys.byteorder != "little":
+        # ffmpeg emits little-endian; match it on big-endian hosts
+        samples.byteswap()
+
+    return _downsample_peaks(samples, count)
+
+
+def _downsample_peaks(
+    samples: "array.array[int]",
+    count: int,
+) -> list[float]:
+    """bucket samples into ``count`` max-abs peaks, normalized to [0, 1]."""
+    total = len(samples)
+    if total == 0:
+        return [0.0] * count
+
+    raw: list[float] = []
+    for i in range(count):
+        start = (i * total) // count
+        end = ((i + 1) * total) // count
+        if end <= start:
+            raw.append(0.0)
+            continue
+        segment = samples[start:end]
+        peak = max(max(segment), -min(segment))
+        raw.append(peak / _PCM_FULL_SCALE)
+
+    loudest = max(raw)
+    if loudest <= 0:
+        return raw
+    return [round(p / loudest, 4) for p in raw]

@@ -339,10 +339,19 @@ def _generate_audio_derivatives(
     tmp_dir: str,
     base_key: str,
 ) -> list[str]:
-    """generate waveform image for an audio asset."""
-    from loom.services.proxy import generate_waveform
+    """generate the waveform image and real peak envelope for audio."""
+    import json
+
+    from loom.services.proxy import (
+        WAVEFORM_PEAKS_METHOD,
+        WAVEFORM_PEAKS_VERSION,
+        generate_waveform,
+        generate_waveform_peaks,
+    )
 
     keys: list[str] = []
+
+    # rendered waveform image (kept for the existing sprite consumers)
     wave_path = str(Path(tmp_dir) / "waveform.jpg")
     generate_waveform(src, wave_path)
     wave_key = f"{base_key}/waveform.jpg"
@@ -361,6 +370,34 @@ def _generate_audio_derivatives(
         wave_path,
     )
     keys.append(wave_key)
+
+    # machine-readable peaks the player renders to its own canvas —
+    # real amplitudes, so the visualization can't misrepresent the audio
+    peaks = generate_waveform_peaks(src)
+    peaks_path = str(Path(tmp_dir) / "waveform_peaks.json")
+    Path(peaks_path).write_text(
+        json.dumps({"peaks": peaks, "version": WAVEFORM_PEAKS_VERSION})
+    )
+    peaks_key = f"{base_key}/waveform_peaks.json"
+    storage.upload_file(
+        DERIVATIVES_BUCKET,
+        peaks_key,
+        peaks_path,
+        "application/json",
+    )
+    _record_derivative(
+        session,
+        asset_id,
+        "waveform_peaks",
+        peaks_key,
+        "application/json",
+        peaks_path,
+        generation_params={
+            "sample_count": len(peaks),
+            "method": WAVEFORM_PEAKS_METHOD,
+        },
+    )
+    keys.append(peaks_key)
     return keys
 
 
@@ -371,6 +408,7 @@ def _record_derivative(
     storage_key: str,
     mime_type: str,
     file_path: str,
+    generation_params: dict[str, Any] | None = None,
 ) -> None:
     """add a derivative record to the session (not yet committed)."""
     from loom.services.hashing import compute_hashes_from_file
@@ -386,6 +424,7 @@ def _record_derivative(
         mime_type=mime_type,
         file_size_bytes=file_size,
         sha256_hash=sha256,
+        generation_params=generation_params,
     )
     session.add(deriv)
 

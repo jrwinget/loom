@@ -5799,6 +5799,22 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "WaveformResponse": {
+        "properties": {
+          "peaks": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Peaks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "peaks"
+        ],
+        "title": "WaveformResponse",
+        "type": "object"
+      },
       "WebhookCreate": {
         "properties": {
           "events": {
@@ -9164,6 +9180,58 @@
         "summary": "Verify Single Asset",
         "tags": [
           "integrity"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/assets/{asset_id}/waveform": {
+      "get": {
+        "description": "return the real amplitude peaks for an audio asset (viewer+).\n\n404 when no peaks derivative exists yet \u2014 the asset is still\nprocessing, or ffmpeg was absent at ingest. the player renders an\nhonest \"unavailable\" state on that 404 rather than a fake shape.",
+        "operationId": "get_asset_waveform_api_v1_cases__case_id__assets__asset_id__waveform_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaveformResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Asset Waveform",
+        "tags": [
+          "assets"
         ]
       }
     },
