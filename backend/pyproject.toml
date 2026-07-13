@@ -60,7 +60,7 @@ ai-lite = [
     "scenedetect>=0.7",
     # <5: the override erases scenedetect's own bound on opencv, so
     # the major it was built against is re-pinned here
-    "opencv-python-headless>=4.9,<5",
+    "opencv-python-headless>=5.0.0.93,<6",
 ]
 ai = [
     "loom[ai-lite]",
