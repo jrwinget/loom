@@ -438,10 +438,17 @@ jobs:
         # torch.jit.script, and torch is an optional ai extra that
         # only processes operator-supplied media. revisit when a
         # fix version is published and drop this ignore.
+        #
+        # PYSEC-2026-3447 (setuptools < 83) is a unicode-normalization
+        # bypass of MANIFEST.in excludes when packing sdists on macOS
+        # filesystems. loom never builds sdists from untrusted
+        # manifests, and torch pins setuptools<82 so the fixed 83
+        # cannot resolve. drop this ignore when torch lifts its cap.
         run: >-
           uv run pip-audit --desc
           --ignore-vuln CVE-2026-3219
           --ignore-vuln CVE-2025-3000
+          --ignore-vuln PYSEC-2026-3447
 
       - name: Install frontend dependencies
         working-directory: frontend
