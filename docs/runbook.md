@@ -318,6 +318,33 @@ append onto a populated release. A deliberate rebuild goes through
 `workflow_dispatch`, or delete the release's assets first (see the
 re-cut procedure below).
 
+### Code-signing status
+
+Three separate signing concerns exist, and only one is active:
+
+- **Updater signatures (active, required).** `TAURI_SIGNING_PRIVATE_KEY`
+  and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` minisign the updater
+  artifacts (`.AppImage`, `.app.tar.gz`, `-setup.exe`) against the
+  pubkey pinned in `tauri.conf.json`. Release Guard fails a tag build
+  immediately if they are missing. Dependabot/fork PR runs have no
+  secrets and build with updater artifacts disabled instead.
+- **macOS codesign + notarization (NOT configured).** The dmg/app
+  artifacts ship unsigned and un-notarized; users need the
+  right-click-Open ritual and Gatekeeper may kill the bundled
+  sidecar on Apple Silicon. The workflow step exists and activates
+  when `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_TEAM_ID`, and
+  `APPLE_PASSWORD` are set (needs a Developer ID certificate).
+  Tracked in #349.
+- **Windows Authenticode (NOT configured).** The msi/nsis installers
+  ship unsigned, so SmartScreen warns and Defender may quarantine
+  the extracted sidecar. The workflow step activates when
+  `WINDOWS_CERT_BASE64` and `WINDOWS_CERT_PASSWORD` are set.
+  Tracked in #350.
+
+The macOS/Windows skips are silent by design (`continue-on-error`
+notices in the job log are the only trace) — check the job log for
+"signing skipped" before assuming a release was signed.
+
 ## Desktop Hotfix Release
 
 The `Desktop` workflow attaches artifacts to a tag-named GitHub
