@@ -113,14 +113,19 @@ async def test_health_has_request_id(
 async def test_health_db_down(
     mock_app_db_down: FastAPI,
 ) -> None:
-    """health endpoint reports database error gracefully."""
+    """a dead database must fail the probe, not just the body.
+
+    the desktop shell and the docker healthcheck both key on the
+    status code; a 200 with an error body reads as ready and masks
+    a backend that cannot serve first-run or login.
+    """
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=mock_app_db_down),
         base_url="http://testserver",
     ) as client:
         resp = await client.get("/api/v1/health")
 
-    assert resp.status_code == 200
+    assert resp.status_code == 503
     data = resp.json()
     assert data["services"]["database"] == "error"
     assert data["services"]["storage"] == "ok"
@@ -131,7 +136,7 @@ async def test_health_temporal_down_fails_overall(
     mock_app: FastAPI,
     _temporal_probe_ok: AsyncMock,
 ) -> None:
-    """unreachable temporal flips overall status to error."""
+    """unreachable temporal flips overall status and the code."""
     _temporal_probe_ok.return_value = "error"
 
     async with httpx.AsyncClient(
@@ -140,7 +145,7 @@ async def test_health_temporal_down_fails_overall(
     ) as client:
         resp = await client.get("/api/v1/health")
 
-    assert resp.status_code == 200
+    assert resp.status_code == 503
     data = resp.json()
     assert data["services"]["temporal"] == "error"
     assert data["services"]["database"] == "ok"
