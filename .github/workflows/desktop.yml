@@ -401,6 +401,15 @@ jobs:
           fi
           ls -la dist/
 
+      # the shell's unit tests never ran in ci before this step —
+      # tauri-build needs the renamed sidecar and the built frontend
+      # dist to exist, both true at this point. ubuntu-only: the
+      # tests are platform-neutral (tempdirs, loopback sockets) and
+      # one leg keeps the matrix cost flat.
+      - name: Run desktop shell unit tests
+        if: matrix.platform == 'linux'
+        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml
+
       # tauri bundle: per-os bundle flags, --ci suppresses prompts
       - name: Install desktop dependencies
         working-directory: desktop
