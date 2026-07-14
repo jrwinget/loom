@@ -87,6 +87,20 @@ export async function exportDiagnostics(): Promise<string | null> {
   return result ?? null;
 }
 
+export interface LogPaths {
+  // null when the shell cannot resolve its log dir (never seen in
+  // practice; the backend dir is still worth showing on its own)
+  shellLogDir: string | null;
+  backendLogDir: string;
+}
+
+// the on-disk locations the diagnostics zip collects from, so the
+// boot gate's error panel can point a stuck user at the raw logs.
+export async function getLogPaths(): Promise<LogPaths | null> {
+  if (!isTauri) return null;
+  return invokeCommand<LogPaths>('get_log_paths');
+}
+
 // destructive: wipes loom.db + buckets/ under the chosen data dir,
 // clears the data-dir preference, and restarts the sidecar. invoked
 // only from the FactoryResetDialog after a typed-confirmation gate.
