@@ -18,6 +18,7 @@
 )]
 
 mod redact;
+mod secrets;
 
 use std::panic;
 use std::path::{Path, PathBuf};
@@ -184,16 +185,49 @@ fn generate_hex_secret() -> String {
 fn ensure_bootstrap_secrets(
     app: &AppHandle,
 ) -> Result<BootstrapSecrets, String> {
-    let store = app
-        .store(SECRETS_STORE_PATH)
-        .map_err(|e| format!("failed to open secrets store: {e}"))?;
+    // a corrupt store would otherwise brick boot forever: the file
+    // deliberately survives factory reset and data-dir deletion, so
+    // no user-reachable action clears it. back it up, log loudly,
+    // and reopen fresh — the cost is one forced re-login.
+    let store = match app.store(SECRETS_STORE_PATH) {
+        Ok(store) => store,
+        Err(first_err) => {
+            let path = app
+                .path()
+                .app_data_dir()
+                .map(|dir| dir.join(SECRETS_STORE_PATH))
+                .map_err(|e| {
+                    format!("failed to locate secrets store: {e}")
+                })?;
+            let backup =
+                secrets::backup_corrupt_store(&path).map_err(|e| {
+                    format!(
+                        "failed to open secrets store ({first_err}) and \
+                         could not back it up: {e}"
+                    )
+                })?;
+            log::warn!(
+                "secrets store was unreadable ({first_err}); moved it \
+                 to {} and regenerating — existing sessions are signed \
+                 out",
+                backup.display()
+            );
+            app.store(SECRETS_STORE_PATH).map_err(|e| {
+                format!("failed to reopen secrets store: {e}")
+            })?
+        }
+    };
 
     let read_or_generate = |key: &str| -> String {
         if let Some(value) = store.get(key) {
             if let Some(existing) = value.as_str() {
-                if !existing.is_empty() {
+                if secrets::is_valid_secret(existing) {
                     return existing.to_string();
                 }
+                log::warn!(
+                    "persisted {key} failed validation; regenerating — \
+                     existing sessions are signed out"
+                );
             }
         }
         let fresh = generate_hex_secret();
