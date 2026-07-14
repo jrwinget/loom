@@ -26,14 +26,16 @@ and asserts five contracts:
      — guards the ai-lite pyinstaller collect: a regression there
      builds fine and then reports every engine missing at runtime.
 
-the 60s health budget matches ``HEALTH_TIMEOUT`` in ``desktop/
-src-tauri/src/main.rs``. a sidecar that has not bound a socket
-within that window would also fail the desktop shell's own
-``wait_for_health`` on startup, so the smoke fails on exactly the
-same condition the operator would see. the 60s also covers
-pyinstaller --onefile's cold-start unpack on the windows runner,
-where defender scans the freshly extracted exe on first launch and
-consistently pushes startup into the 15-25s range.
+the 60s health budget here is deliberately TIGHTER than the desktop
+shell's ``STARTUP_TIMEOUT`` (180s in desktop/src-tauri/src/main.rs).
+the shell's ceiling absorbs slow first launches on real hardware —
+onefile self-extraction on a slow disk, av sweeps — where waiting
+longer genuinely helps. ci runners have fast disks, so a sidecar
+that needs more than 60s here is a cold-start perf regression worth
+failing on, long before users hit the shell's ceiling. the 60s also
+covers pyinstaller --onefile's cold-start unpack on the windows
+runner, where defender scans the freshly extracted exe on first
+launch and consistently pushes startup into the 15-25s range.
 
 the script is intentionally a single file with only the standard
 library so it runs on every os runner without an extra dependency
