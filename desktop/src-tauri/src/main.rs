@@ -432,6 +432,45 @@ fn spawn_backend(
     Ok(child)
 }
 
+// the sidecar's listen address. the health/shutdown urls above and
+// the frontend api-client assume the same pair — change together.
+fn backend_addr() -> std::net::SocketAddr {
+    std::net::SocketAddr::from(([127, 0, 0, 1], 8000))
+}
+
+// a connect probe distinguishes "someone is accepting on this port"
+// from every flavor of free (closed, TIME_WAIT, filtered): only an
+// actual listener completes the handshake within the timeout.
+fn port_in_use(addr: std::net::SocketAddr) -> bool {
+    std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(250))
+        .is_ok()
+}
+
+// bounded wait for a dying process to release the listen port, so a
+// respawn right after a shutdown request does not false-positive on
+// the old sidecar's last moments.
+async fn wait_for_port_free(
+    addr: std::net::SocketAddr,
+    grace: Duration,
+) -> bool {
+    let deadline = std::time::Instant::now() + grace;
+    while port_in_use(addr) {
+        if std::time::Instant::now() >= deadline {
+            return false;
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    true
+}
+
+fn port_busy_message(addr: std::net::SocketAddr) -> String {
+    format!(
+        "another process is already listening on {addr} — usually a \
+         previous loom backend that did not exit. close other loom \
+         windows or a stray loom-backend process, then retry."
+    )
+}
+
 // polls the backend health endpoint until success or the deadline.
 // when ``boot_ready`` is supplied the loop also bails if the drain
 // task has already flipped the flag (sidecar terminated during
@@ -503,6 +542,18 @@ async fn run_initial_boot(app: AppHandle) {
             return;
         }
     };
+
+    // short grace: an orphan from a crashed previous session may be
+    // mid-exit via its own watchdog; anything still listening after
+    // this is genuinely stuck and spawning would only produce an
+    // opaque bind traceback instead of this actionable message.
+    if !wait_for_port_free(backend_addr(), Duration::from_secs(2)).await {
+        let _ = app.emit(
+            "backend-error",
+            truncate_error(port_busy_message(backend_addr())),
+        );
+        return;
+    }
 
     let child = match spawn_backend(&app, &config, &secrets) {
         Ok(c) => c,
@@ -762,6 +813,20 @@ async fn restart_backend(app: AppHandle) -> Result<(), String> {
     boot_ready.store(false, Ordering::SeqCst);
     if let Ok(mut guard) = app.state::<LastBackendStderr>().0.lock() {
         *guard = None;
+    }
+
+    // wider grace than the initial boot: the sidecar we just asked to
+    // shut down schedules its own exit after answering, so give it
+    // time to actually release the socket before declaring conflict.
+    if !wait_for_port_free(backend_addr(), Duration::from_secs(5)).await {
+        let message = port_busy_message(backend_addr());
+        if boot_ready
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+        {
+            let _ = app.emit("backend-error", truncate_error(message.clone()));
+        }
+        return Err(message);
     }
 
     let child = spawn_backend(&app, &config, &secrets)?;
@@ -1306,6 +1371,36 @@ mod tests {
 
         purge_lite_data(root).expect("first purge");
         purge_lite_data(root).expect("second purge should be idempotent");
+    }
+
+    #[test]
+    fn port_in_use_detects_a_live_listener() {
+        // a bound-and-listening socket is exactly the stale-sidecar
+        // shape the preflight exists to catch.
+        let listener =
+            std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("local addr");
+        assert!(port_in_use(addr));
+        drop(listener);
+        assert!(!port_in_use(addr));
+    }
+
+    #[tokio::test]
+    async fn wait_for_port_free_gives_up_then_recovers() {
+        let listener =
+            std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("local addr");
+        // held for the whole grace window: bounded wait must give up
+        assert!(!wait_for_port_free(addr, Duration::from_millis(300)).await);
+        drop(listener);
+        assert!(wait_for_port_free(addr, Duration::from_millis(300)).await);
+    }
+
+    #[test]
+    fn port_busy_message_names_the_port_and_remedy() {
+        let msg = port_busy_message(backend_addr());
+        assert!(msg.contains("127.0.0.1:8000"));
+        assert!(msg.contains("retry"));
     }
 
     #[test]
