@@ -475,7 +475,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          args=(tauri build --bundles "${{ matrix.bundles }}" --ci)
+          args=(tauri build --bundles "${{ matrix.bundles }}" --ci --verbose)
           if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
             echo "no updater signing key (dependabot/fork run);" \
               "disabling updater artifacts"
