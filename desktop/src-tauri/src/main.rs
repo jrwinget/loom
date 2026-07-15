@@ -42,12 +42,12 @@ use tauri_plugin_store::StoreExt;
 const BACKEND_HEALTH_URL: &str = "http://127.0.0.1:8000/api/v1/health";
 const BACKEND_SHUTDOWN_URL: &str =
     "http://127.0.0.1:8000/api/v1/admin/shutdown";
-// generous ceiling, not a wait: a healthy boot returns in seconds
-// and a dead sidecar fails fast via the drain task's terminated
-// branch, so the budget only matters when the process is alive but
-// slow — onefile self-extraction on a slow disk or an av sweep can
-// legitimately take minutes on first launch. the ci smoke keeps its
-// own 60s budget as a perf tripwire on fast runners.
+// generous ceiling, not a wait: a healthy onedir boot returns in a
+// few seconds and a dead sidecar fails fast via the drain task's
+// terminated branch, so the budget only matters when the process is
+// alive but slow — a first-launch av sweep of the _internal tree on
+// a slow disk. the ci smoke keeps its own 60s budget as a perf
+// tripwire on fast runners.
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(180);
 const HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(500);
 // how many consecutive degraded (alive but 503) health responses
