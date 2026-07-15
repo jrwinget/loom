@@ -414,10 +414,6 @@ jobs:
           rm -rf desktop/src-tauri/loom-backend
           cp -R backend/dist/loom-backend desktop/src-tauri/loom-backend
           du -sh desktop/src-tauri/loom-backend
-          stat -c '%F %s %n' \
-            desktop/src-tauri/loom-backend/_internal/alembic.ini
-          find desktop/src-tauri/loom-backend -maxdepth 2 -name "*.ini" \
-            -exec ls -la {} +
 
       # the shell's unit tests never ran in ci before this step —
       # tauri-build needs the built frontend dist to exist, true at
@@ -485,7 +481,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          args=(tauri build --bundles "${{ matrix.bundles }}" --ci -vv)
+          args=(tauri build --bundles "${{ matrix.bundles }}" --ci)
           if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
             echo "no updater signing key (dependabot/fork run);" \
               "disabling updater artifacts"
@@ -543,24 +539,20 @@ jobs:
           set -euo pipefail
           deb=$(ls desktop/src-tauri/target/release/bundle/deb/*.deb)
           listing=$(dpkg-deb -c "$deb")
-          echo "total deb entries: $(echo "$listing" | wc -l)"
-          echo "--- launcher line ---"
-          echo "$listing" | grep "loom-backend/loom-backend$" || true
-          echo "--- all alembic entries ---"
-          echo "$listing" | grep "alembic" || true
-          echo "--- all .ini entries ---"
-          echo "$listing" | grep "\.ini" || true
-          echo "$listing" \
-            | grep "usr/lib/Loom/loom-backend/loom-backend$" \
-            | grep -q "^-rwx" || {
-              echo "::error::launcher missing or lost its exe bit"
-              echo "$listing" | grep loom-backend | head -30
-              exit 1
-            }
-          echo "$listing" | grep -q "loom-backend/_internal/alembic.ini" || {
+          # herestrings, not `echo | grep -q`: under pipefail an
+          # early-exiting grep -q sigpipes the echo (the listing
+          # outgrows the pipe buffer) and false-fails the check.
+          if ! grep "usr/lib/Loom/loom-backend/loom-backend$" \
+              <<<"$listing" | grep -q "^-rwx"; then
+            echo "::error::launcher missing or lost its exe bit"
+            grep loom-backend <<<"$listing" | head -30
+            exit 1
+          fi
+          if ! grep -q "loom-backend/_internal/alembic.ini" \
+              <<<"$listing"; then
             echo "::error::_internal payload missing from the deb"
             exit 1
-          }
+          fi
           du -h "$deb"
 
       # the dist/ smoke above validates the tree pyinstaller built;
