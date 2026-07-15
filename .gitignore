@@ -79,3 +79,7 @@ CLAUDE.md
 # the placeholder README is tracked
 desktop/src-tauri/binaries/*
 !desktop/src-tauri/binaries/README.txt
+
+# staged pyinstaller onedir tree (ci copies backend/dist here so the
+# loom-backend resources glob picks it up)
+desktop/src-tauri/loom-backend/

@@ -349,7 +349,8 @@ jobs:
           else
             sep=":"
           fi
-          uv run pyinstaller --onefile --clean --noconfirm \
+          uv run pyinstaller --onedir --clean --noconfirm \
+            --contents-directory _internal \
             src/loom/__main__.py \
             --name loom-backend \
             --distpath dist \
@@ -388,41 +389,37 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${{ matrix.platform }}" = "windows" ]; then
-            binary="dist/loom-backend.exe"
+            binary="dist/loom-backend/loom-backend.exe"
           else
-            binary="dist/loom-backend"
+            binary="dist/loom-backend/loom-backend"
           fi
           uv run python scripts/smoke_sidecar.py "$binary"
 
-      # tauri v2 expects sidecar binaries declared in `externalBin`
-      # to be suffixed with the rust target triple, e.g.
-      # `loom-backend-x86_64-unknown-linux-gnu`. pyinstaller produces
-      # a bare name, so rename the artifact in place. the triple is
-      # read from rustc itself rather than hardcoded so the same step
-      # works for x86_64 linux, arm64/x86_64 macOS, and x86_64
-      # windows-msvc.
-      - name: Rename sidecar with rust target triple
-        working-directory: backend
+      # the onedir tree ships three ways from this one staged copy:
+      # macos/windows via the `loom-backend/**/*` resources glob in
+      # tauri.conf.json; the deb via `deb.files` in
+      # tauri.linux.conf.json (which overrides linux resources to
+      # binaries-only); the appimage via post-build injection below.
+      # the split exists because linuxdeploy dependency-scans every
+      # elf in the appdir and cannot resolve pyinstaller's
+      # vendored, hash-renamed libraries (av.libs etc.), which only
+      # resolve through the tree's own rpath conventions. the shell
+      # resolves the inner launcher at runtime via
+      # src/sidecar_path.rs — dir and binary names are that
+      # module's contract.
+      - name: Stage sidecar tree as a tauri resource
         shell: bash
         run: |
           set -euo pipefail
-          triple=$(rustc -vV | sed -n 's/^host: //p')
-          if [ -z "$triple" ]; then
-            echo "could not detect rust target triple" >&2
-            exit 1
-          fi
-          if [ "${{ matrix.platform }}" = "windows" ]; then
-            mv "dist/loom-backend.exe" "dist/loom-backend-${triple}.exe"
-          else
-            mv "dist/loom-backend" "dist/loom-backend-${triple}"
-          fi
-          ls -la dist/
+          rm -rf desktop/src-tauri/loom-backend
+          cp -R backend/dist/loom-backend desktop/src-tauri/loom-backend
+          du -sh desktop/src-tauri/loom-backend
 
       # the shell's unit tests never ran in ci before this step —
-      # tauri-build needs the renamed sidecar and the built frontend
-      # dist to exist, both true at this point. ubuntu-only: the
-      # tests are platform-neutral (tempdirs, loopback sockets) and
-      # one leg keeps the matrix cost flat.
+      # tauri-build needs the built frontend dist to exist, true at
+      # this point. ubuntu-only: the tests are platform-neutral
+      # (tempdirs, loopback sockets) and one leg keeps the matrix
+      # cost flat.
       - name: Run desktop shell unit tests
         if: matrix.platform == 'linux'
         run: cargo test --manifest-path desktop/src-tauri/Cargo.toml
@@ -494,13 +491,78 @@ jobs:
           npx "${args[@]}"
         continue-on-error: false
 
-      # the dist/ smoke above validates the binary pyinstaller built;
+      # the appimage cannot carry the tree through linuxdeploy (see
+      # the stage step above), so tauri builds it without the tree
+      # and this step splices it into the extracted squashfs,
+      # repacks with a pinned appimagetool, and regenerates the
+      # updater signature when the key is present (secretless runs
+      # build without signatures anyway). the tree stays
+      # byte-identical — linuxdeploy never rewrites its rpaths.
+      - name: Inject sidecar tree into the AppImage
+        if: matrix.platform == 'linux'
+        shell: bash
+        timeout-minutes: 10
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          appimage=$(realpath \
+            desktop/src-tauri/target/release/bundle/appimage/*.AppImage)
+          workdir=$(mktemp -d)
+          (cd "$workdir" && "$appimage" --appimage-extract >/dev/null)
+          approot="$workdir/squashfs-root"
+          cp -R desktop/src-tauri/loom-backend \
+            "$approot/usr/lib/Loom/loom-backend"
+          test -x "$approot/usr/lib/Loom/loom-backend/loom-backend"
+          curl -fsSL -o /tmp/appimagetool \
+            "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage"
+          echo "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  /tmp/appimagetool" \
+            | sha256sum -c -
+          chmod +x /tmp/appimagetool
+          ARCH=x86_64 /tmp/appimagetool --appimage-extract-and-run \
+            "$approot" "$appimage"
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            (cd desktop && npx tauri signer sign "$appimage")
+          fi
+          rm -rf "$workdir"
+          du -h "$appimage"
+
+      # fast, precise failure before the slower install smoke: the
+      # two risks unique to shipping the tree as resources are the
+      # launcher's exe bit surviving the bundler's copy and the
+      # _internal payload actually landing in the package.
+      - name: Assert onedir layout inside the deb
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          deb=$(ls desktop/src-tauri/target/release/bundle/deb/*.deb)
+          listing=$(dpkg-deb -c "$deb")
+          # herestrings, not `echo | grep -q`: under pipefail an
+          # early-exiting grep -q sigpipes the echo (the listing
+          # outgrows the pipe buffer) and false-fails the check.
+          if ! grep "usr/lib/Loom/loom-backend/loom-backend$" \
+              <<<"$listing" | grep -q "^-rwx"; then
+            echo "::error::launcher missing or lost its exe bit"
+            grep loom-backend <<<"$listing" | head -30
+            exit 1
+          fi
+          if ! grep -q "loom-backend/_internal/alembic.ini" \
+              <<<"$listing"; then
+            echo "::error::_internal payload missing from the deb"
+            exit 1
+          fi
+          du -h "$deb"
+
+      # the dist/ smoke above validates the tree pyinstaller built;
       # this validates what a user actually installs — the deb's
-      # sidecar placement (/usr/bin, triple stripped by the bundler),
-      # its executable bit, and that the installed layout still boots
-      # and serves. runs on tag builds too, so release artifacts get
-      # the same treatment. apt-get resolves the deb's runtime
-      # depends, unlike a bare dpkg -i.
+      # resource placement of the onedir tree (/usr/lib/Loom/), the
+      # launcher's executable bit surviving the bundler's resource
+      # copy, and that the installed layout still boots and serves.
+      # runs on tag builds too, so release artifacts get the same
+      # treatment. apt-get resolves the deb's runtime depends,
+      # unlike a bare dpkg -i.
       - name: Smoke installed deb layout
         if: matrix.platform == 'linux'
         shell: bash
@@ -509,12 +571,13 @@ jobs:
           set -euo pipefail
           sudo apt-get install -y \
             ./desktop/src-tauri/target/release/bundle/deb/*.deb
-          test -x /usr/bin/loom-backend || {
+          sidecar="/usr/lib/Loom/loom-backend/loom-backend"
+          test -x "$sidecar" || {
             echo "::error::installed sidecar missing or not executable"
-            dpkg -L loom | head -50
+            dpkg -L loom | grep -i loom-backend | head -30
             exit 1
           }
-          python3 backend/scripts/smoke_sidecar.py /usr/bin/loom-backend
+          python3 backend/scripts/smoke_sidecar.py "$sidecar"
 
       # ------------------------------------------------------------------
       # signing (env-gated). each signing step is guarded by an `if:`
