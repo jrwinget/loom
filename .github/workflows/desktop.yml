@@ -414,8 +414,10 @@ jobs:
           rm -rf desktop/src-tauri/loom-backend
           cp -R backend/dist/loom-backend desktop/src-tauri/loom-backend
           du -sh desktop/src-tauri/loom-backend
-          test -f desktop/src-tauri/loom-backend/_internal/alembic.ini
-          ls desktop/src-tauri/loom-backend/_internal/alembic | head -3
+          stat -c '%F %s %n' \
+            desktop/src-tauri/loom-backend/_internal/alembic.ini
+          find desktop/src-tauri/loom-backend -maxdepth 2 -name "*.ini" \
+            -exec ls -la {} +
 
       # the shell's unit tests never ran in ci before this step —
       # tauri-build needs the built frontend dist to exist, true at
@@ -544,9 +546,10 @@ jobs:
           echo "total deb entries: $(echo "$listing" | wc -l)"
           echo "--- launcher line ---"
           echo "$listing" | grep "loom-backend/loom-backend$" || true
-          echo "--- alembic entries ---"
-          echo "$listing" | grep -c "alembic" || true
-          echo "$listing" | grep "alembic" | head -10 || true
+          echo "--- all alembic entries ---"
+          echo "$listing" | grep "alembic" || true
+          echo "--- all .ini entries ---"
+          echo "$listing" | grep "\.ini" || true
           echo "$listing" \
             | grep "usr/lib/Loom/loom-backend/loom-backend$" \
             | grep -q "^-rwx" || {
