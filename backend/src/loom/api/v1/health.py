@@ -2,7 +2,7 @@ import asyncio
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response, status
 from sqlalchemy import text
 from temporalio.client import Client
 
@@ -31,8 +31,17 @@ async def _probe_temporal(host: str) -> str:
 
 
 @router.get("/health")
-async def health_check(request: Request) -> dict[str, Any]:
-    """check database, storage, and workflow connectivity."""
+async def health_check(
+    request: Request,
+    response: Response,
+) -> dict[str, Any]:
+    """check database, storage, and workflow connectivity.
+
+    semantics for probes: 200 means ready to serve, 503 means the
+    process is alive but a dependency is down (body says which),
+    connection refused means dead. the desktop shell, the docker
+    healthcheck, and the prometheus alerts all key on the code.
+    """
     services: dict[str, str] = {}
     settings = get_settings()
 
@@ -71,5 +80,7 @@ async def health_check(request: Request) -> dict[str, Any]:
         services["temporal"] = await _probe_temporal(settings.temporal_host)
 
     overall = "ok" if all(v == "ok" for v in services.values()) else "error"
+    if overall != "ok":
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     return {"status": overall, "services": services}

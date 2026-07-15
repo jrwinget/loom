@@ -12414,7 +12414,7 @@
     },
     "/api/v1/health": {
       "get": {
-        "description": "check database, storage, and workflow connectivity.",
+        "description": "check database, storage, and workflow connectivity.\n\nsemantics for probes: 200 means ready to serve, 503 means the\nprocess is alive but a dependency is down (body says which),\nconnection refused means dead. the desktop shell, the docker\nhealthcheck, and the prometheus alerts all key on the code.",
         "operationId": "health_check_api_v1_health_get",
         "responses": {
           "200": {
