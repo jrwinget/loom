@@ -6493,7 +6493,7 @@
   "info": {
     "description": "Evidence operating system",
     "title": "Loom",
-    "version": "0.2.3"
+    "version": "0.2.4"
   },
   "openapi": "3.1.0",
   "paths": {
