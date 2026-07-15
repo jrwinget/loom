@@ -89,3 +89,32 @@ def test_port_check_passes_on_free_port() -> None:
     probe.close()
 
     _ensure_port_available("127.0.0.1", port)
+
+
+def test_port_check_tolerates_time_wait_remnants() -> None:
+    """sockets in TIME_WAIT must not read as an occupied port.
+
+    a restart right after a shutdown leaves the old server's
+    accepted connections in TIME_WAIT on the listen port whenever
+    the server side closed first. uvicorn binds with SO_REUSEADDR
+    and sails past them; a probe that binds without it is stricter
+    than the bind it guards and stochastically kills healthy
+    restarts (caught by the two-boot ci smoke).
+    """
+    from loom.__main__ import _ensure_port_available
+
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect(("127.0.0.1", port))
+    server_side, _ = listener.accept()
+    # server closes first -> the TIME_WAIT lands on the listen port
+    server_side.close()
+    client.close()
+    listener.close()
+
+    _ensure_port_available("127.0.0.1", port)
