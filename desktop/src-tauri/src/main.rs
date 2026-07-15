@@ -1115,6 +1115,39 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
     app.restart()
 }
 
+// the two places a failing install leaves evidence: the shell log
+// dir (rotating tauri-plugin-log files that mirror redacted sidecar
+// output) and the backend's own structured log dir under data_dir.
+// exactly the dirs export_diagnostics zips.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LogPaths {
+    shell_log_dir: Option<String>,
+    backend_log_dir: String,
+}
+
+fn resolve_log_paths(
+    shell_log_dir: Option<PathBuf>,
+    data_dir: &Path,
+) -> LogPaths {
+    LogPaths {
+        shell_log_dir: shell_log_dir.map(|d| d.display().to_string()),
+        backend_log_dir: data_dir.join("logs").display().to_string(),
+    }
+}
+
+// ipc command: the boot gate's error panel shows these so a stuck
+// user can find the logs without support having to describe three
+// platform-specific paths over chat.
+#[tauri::command]
+fn get_log_paths(app: AppHandle) -> Result<LogPaths, String> {
+    let config = load_config(&app)?;
+    Ok(resolve_log_paths(
+        app.path().app_log_dir().ok(),
+        &config.resolve_data_dir(),
+    ))
+}
+
 // ipc command: bundle the shell log dir, the backend's lite log dir
 // and a version manifest into a user-chosen zip for support requests.
 // returns the saved path, or None when the user cancels the dialog.
@@ -1265,6 +1298,7 @@ fn main() {
             check_for_update,
             install_update,
             export_diagnostics,
+            get_log_paths,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -1667,6 +1701,21 @@ mod tests {
         .await;
         let err = result.expect_err("claimed flag must end the wait");
         assert!(err.contains("exited before answering"), "got: {err}");
+    }
+
+    #[test]
+    fn log_paths_point_at_the_diagnostics_dirs() {
+        let paths = resolve_log_paths(
+            Some(PathBuf::from("/var/shell-logs")),
+            &PathBuf::from("/mnt/evidence/loom"),
+        );
+        assert_eq!(paths.shell_log_dir.as_deref(), Some("/var/shell-logs"));
+        assert!(paths.backend_log_dir.ends_with("logs"));
+        assert!(paths.backend_log_dir.contains("evidence"));
+
+        // shells without a resolvable log dir still report the backend's
+        let bare = resolve_log_paths(None, &PathBuf::from("/data"));
+        assert_eq!(bare.shell_log_dir, None);
     }
 
     #[test]
