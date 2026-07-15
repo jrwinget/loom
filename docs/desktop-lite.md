@@ -10,16 +10,30 @@ machine unless you explicitly export it.
 
 ## Installing
 
-Each release publishes unsigned installers for Windows, macOS, and
-Linux. Download the one matching your operating system from the
-release page.
+Each release publishes installers for Windows, macOS, and Linux.
+Download the one matching your operating system from the release
+page.
+
+### About the security warnings
+
+Windows and macOS will warn you the first time you install or open
+Loom. That is expected: Loom is community-built open-source software,
+and the project does not purchase the operating-system code-signing
+certificates (Apple and Windows certificates are paid, recurring
+subscriptions) that suppress those prompts. The warnings say the
+publisher is unknown to Apple or Microsoft — nothing more.
+
+You do not have to take that on faith. Every release ships a
+`SHA256SUMS` file so you can verify your download came from this
+project byte-for-byte (see "Verify your download" below), and in-app
+updates are only installed after they verify against Loom's own
+signing key, which is pinned inside the app.
 
 ### Windows
 
 Double-click the `.msi` (recommended) or the `.exe` (NSIS installer)
-and follow the prompts. Windows may display "Windows protected your
-PC" or warn about an unknown publisher. That warning is expected
-until the EV certificate is in place. To proceed:
+and follow the prompts. When SmartScreen shows "Windows protected
+your PC":
 
 1. Click **More info**.
 2. Click **Run anyway**.
@@ -30,13 +44,29 @@ The MSI installs into `C:\Program Files\Loom` by default.
 
 1. Open the `.dmg`.
 2. Drag **Loom.app** into the **Applications** folder.
-3. The first time you launch, Gatekeeper will block the app because
-   it is not yet notarized. Right-click **Loom.app** and choose
+3. On first launch, Gatekeeper blocks apps from publishers not
+   registered with Apple. Right-click **Loom.app** and choose
    **Open**, then confirm **Open** in the dialog. This only needs to
    be done once per install. Double-click works normally after that.
 
-Notarization will remove this step; until then, the right-click bypass
-is the supported workflow.
+### Verify your download
+
+Every release attaches a `SHA256SUMS` file listing the checksum of
+each installer. After downloading, compare:
+
+```bash
+# linux / macos — compare against the matching line in SHA256SUMS
+shasum -a 256 Loom_*.dmg        # macos
+sha256sum Loom_*.AppImage       # linux
+```
+
+```powershell
+# windows powershell
+CertUtil -hashfile Loom_x.y.z_x64_en-US.msi SHA256
+```
+
+If the checksum matches the line in `SHA256SUMS` on the release page,
+your download is exactly what the project's CI built and published.
 
 ### Linux
 

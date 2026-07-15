@@ -345,6 +345,18 @@ The macOS/Windows skips are silent by design (`continue-on-error`
 notices in the job log are the only trace) — check the job log for
 "signing skipped" before assuming a release was signed.
 
+**Decision (2026-07-15):** OS code signing is deliberately not
+funded — Loom is an unfunded open-source project and both Apple and
+Windows certificates are paid, recurring subscriptions. The
+compensating controls are: a `SHA256SUMS` file attached to every
+release (generated in the publish job), minisign-verified in-app
+updates, and plain-language notices at every point users meet the OS
+warnings (README, `docs/desktop-lite.md`, the first-run welcome, and
+the update banner). The env-gated signing steps stay in the workflow;
+if funding ever materializes, setting the secrets reactivates them —
+note the onedir sidecar tree will then need a per-Mach-O signing pass
+(see the notes on the closed signing issues #349/#350).
+
 ## Desktop Hotfix Release
 
 The `Desktop` workflow attaches artifacts to a tag-named GitHub

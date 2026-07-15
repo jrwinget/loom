@@ -236,6 +236,12 @@ export function FirstRunPage(): React.ReactElement {
           <p className="text-muted-foreground text-sm">
             Loom combines source documents into defensible event timelines.
           </p>
+          <p className="text-muted-foreground text-xs">
+            If your system warned you when installing: that is the standard
+            notice for community-built software that ships without paid OS
+            certificates. Every release includes checksums so you can verify
+            your download.
+          </p>
         </header>
 
         {isLite && step === 'data_dir' && (

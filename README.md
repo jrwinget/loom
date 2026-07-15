@@ -66,12 +66,19 @@ machine unless you explicitly export a bundle.
    - **macOS**: `Loom-x.y.z.dmg`
    - **Linux**: `Loom-x.y.z.AppImage` or `loom_x.y.z_amd64.deb`
 2. Install:
-   - **Windows**: double-click the `.msi` and follow the prompts. Until the EV
-     certificate is in place, Windows will warn about an unknown publisher;
-     click **More info → Run anyway**.
+   - **Windows**: double-click the `.msi` and follow the prompts. SmartScreen
+     will warn about an unknown publisher; click **More info → Run anyway**.
    - **macOS**: open the `.dmg`, drag **Loom.app** to **Applications**. The
      first launch needs a right-click → **Open** to bypass Gatekeeper
      (one-time).
+
+   > **Why the warnings?** Loom is community-built open-source software and
+   > does not purchase the paid Apple/Microsoft code-signing subscriptions
+   > that suppress these prompts — the warnings mean "publisher unknown to
+   > the OS vendor", nothing else. Every release ships a `SHA256SUMS` file to
+   > verify your download, and in-app updates install only after verifying
+   > against Loom's own pinned signing key. Details in
+   > [`docs/desktop-lite.md`](docs/desktop-lite.md).
    - **Linux (Debian/Ubuntu)**: `sudo dpkg -i loom_*.deb`.
    - **Linux (any distro)**: `chmod +x Loom_*.AppImage` then run it from
      anywhere.

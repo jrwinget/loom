@@ -97,6 +97,21 @@ describe('FirstRunPage data-dir ordering', () => {
     });
   });
 
+  it('reassures about the install-time os warning on the welcome header', async () => {
+    renderPage();
+
+    await screen.findByTestId('first-run-data-dir');
+
+    // the operator just clicked through a smartscreen/gatekeeper
+    // prompt to get here — the welcome header names the cause
+    // (community software without paid os certificates) so the
+    // warning reads as expected, not alarming.
+    expect(
+      screen.getByText(/warned you when installing/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/community-built/i)).toBeInTheDocument();
+  });
+
   it('restarts onto the chosen directory before creating the admin', async () => {
     const user = userEvent.setup();
     renderPage();
