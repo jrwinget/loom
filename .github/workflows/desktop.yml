@@ -395,11 +395,17 @@ jobs:
           fi
           uv run python scripts/smoke_sidecar.py "$binary"
 
-      # the onedir tree ships as a tauri resource dir (externalBin
-      # only carries single binaries), so stage it where the
-      # `loom-backend/**/*` resources glob in tauri.conf.json picks
-      # it up. the shell resolves the inner launcher at runtime via
-      # src/sidecar_path.rs — the dir and binary names here are that
+      # the onedir tree ships three ways from this one staged copy:
+      # macos/windows via the `loom-backend/**/*` resources glob in
+      # tauri.conf.json; the deb via `deb.files` in
+      # tauri.linux.conf.json (which overrides linux resources to
+      # binaries-only); the appimage via post-build injection below.
+      # the split exists because linuxdeploy dependency-scans every
+      # elf in the appdir and cannot resolve pyinstaller's
+      # vendored, hash-renamed libraries (av.libs etc.), which only
+      # resolve through the tree's own rpath conventions. the shell
+      # resolves the inner launcher at runtime via
+      # src/sidecar_path.rs — dir and binary names are that
       # module's contract.
       - name: Stage sidecar tree as a tauri resource
         shell: bash
@@ -475,7 +481,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          args=(tauri build --bundles "${{ matrix.bundles }}" --ci --verbose)
+          args=(tauri build --bundles "${{ matrix.bundles }}" --ci)
           if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
             echo "no updater signing key (dependabot/fork run);" \
               "disabling updater artifacts"
@@ -484,6 +490,43 @@ jobs:
           fi
           npx "${args[@]}"
         continue-on-error: false
+
+      # the appimage cannot carry the tree through linuxdeploy (see
+      # the stage step above), so tauri builds it without the tree
+      # and this step splices it into the extracted squashfs,
+      # repacks with a pinned appimagetool, and regenerates the
+      # updater signature when the key is present (secretless runs
+      # build without signatures anyway). the tree stays
+      # byte-identical — linuxdeploy never rewrites its rpaths.
+      - name: Inject sidecar tree into the AppImage
+        if: matrix.platform == 'linux'
+        shell: bash
+        timeout-minutes: 10
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          appimage=$(realpath \
+            desktop/src-tauri/target/release/bundle/appimage/*.AppImage)
+          workdir=$(mktemp -d)
+          (cd "$workdir" && "$appimage" --appimage-extract >/dev/null)
+          approot="$workdir/squashfs-root"
+          cp -R desktop/src-tauri/loom-backend \
+            "$approot/usr/lib/Loom/loom-backend"
+          test -x "$approot/usr/lib/Loom/loom-backend/loom-backend"
+          curl -fsSL -o /tmp/appimagetool \
+            "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage"
+          echo "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  /tmp/appimagetool" \
+            | sha256sum -c -
+          chmod +x /tmp/appimagetool
+          ARCH=x86_64 /tmp/appimagetool --appimage-extract-and-run \
+            "$approot" "$appimage"
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            (cd desktop && npx tauri signer sign "$appimage")
+          fi
+          rm -rf "$workdir"
+          du -h "$appimage"
 
       # fast, precise failure before the slower install smoke: the
       # two risks unique to shipping the tree as resources are the
