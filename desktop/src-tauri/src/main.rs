@@ -19,6 +19,7 @@
 
 mod redact;
 mod secrets;
+mod sidecar_path;
 
 use std::panic;
 use std::path::{Path, PathBuf};
