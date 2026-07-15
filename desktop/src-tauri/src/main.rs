@@ -341,6 +341,24 @@ fn bundled_binaries_dir(app: &AppHandle) -> Option<PathBuf> {
     if has_binary { Some(dir) } else { None }
 }
 
+// where the onedir sidecar launcher may live: the bundled resource
+// tree in production, the pyinstaller dist dir when running a dev
+// shell against a locally built backend.
+fn sidecar_candidates(app: &AppHandle) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Ok(dir) = app.path().resource_dir() {
+        candidates.push(sidecar_path::sidecar_path_in(&dir));
+    }
+    #[cfg(debug_assertions)]
+    candidates.push(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../backend/dist")
+            .join(sidecar_path::SIDECAR_DIR)
+            .join(sidecar_path::sidecar_binary_name()),
+    );
+    candidates
+}
+
 fn spawn_backend(
     app: &AppHandle,
     config: &LoomConfig,
@@ -350,10 +368,17 @@ fn spawn_backend(
     let db_path = data_dir.join("loom.db");
     let db_url = format!("sqlite+aiosqlite:///{}", db_path.display());
 
+    // the onedir tree ships via resources (externalBin only carries
+    // single binaries); Shell::command returns the same Command type
+    // .sidecar() did, so the drain loop, kill semantics, and the
+    // windows job object below are untouched.
+    let sidecar_bin =
+        sidecar_path::resolve_from_candidates(&sidecar_candidates(app))
+            .map_err(|e| format!("failed to locate sidecar: {e}"))?;
+
     let mut sidecar = app
         .shell()
-        .sidecar("loom-backend")
-        .map_err(|e| format!("failed to locate sidecar: {e}"))?
+        .command(&sidecar_bin)
         .env("LOOM_DEPLOYMENT_PROFILE", "lite")
         .env("LOOM_DATA_DIR", data_dir.display().to_string())
         .env("LOOM_DATABASE_URL", db_url)
@@ -389,10 +414,11 @@ fn spawn_backend(
         .spawn()
         .map_err(|e| format!("failed to spawn sidecar: {e}"))?;
 
-    // assign the bootloader to the per-app job object so closing the
-    // tauri process cascades termination to any descendant the
-    // bootloader spawned. no-op on non-windows targets — those rely
-    // on the python-side parent-pid watchdog instead.
+    // assign the server to the per-app job object so closing the
+    // tauri process cascades termination to it and any descendant
+    // it spawned (ffmpeg, tesseract). onedir has no bootloader
+    // split, so the pid IS the server. no-op on non-windows targets
+    // — those rely on the python-side parent-pid watchdog instead.
     #[cfg(windows)]
     if let Some(job) = app.try_state::<sidecar_job::JobHandle>() {
         let pid = child.pid();
@@ -931,9 +957,9 @@ fn persist_data_directory(
 // captured stderr.
 #[tauri::command]
 async fn restart_backend(app: AppHandle) -> Result<(), String> {
-    // graceful first: the abrupt kill path can leave a pyinstaller
-    // python child orphaned holding port 8000, which would then prevent
-    // the new sidecar from binding. graceful_shutdown asks the sidecar
+    // graceful first: an abrupt kill can strand backend-spawned
+    // children and, on a badly timed exit, leave port 8000 held,
+    // which would then prevent the new sidecar from binding. graceful_shutdown asks the sidecar
     // to exit cleanly via /admin/shutdown before falling through to a
     // hard kill on timeout. await the async entry point directly —
     // block_on inside this command would panic on tokio multi-thread.
@@ -1310,7 +1336,7 @@ fn main() {
             install_signal_handlers(handle.clone());
 
             // windows-only: create the job object that will hold every
-            // sidecar bootloader spawned during this app lifetime.
+            // sidecar process spawned during this app lifetime.
             // closing the handle (which happens automatically on
             // process exit) cascades termination to all in-job
             // processes via JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE.
@@ -1367,7 +1393,7 @@ fn main() {
 
 #[cfg(windows)]
 mod sidecar_job {
-    //! windows job object that owns every sidecar bootloader spawned
+    //! windows job object that owns every sidecar process spawned
     //! during the lifetime of the tauri shell.
     //!
     //! created once at app setup and tucked into tauri state. each

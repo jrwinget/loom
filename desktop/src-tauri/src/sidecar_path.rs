@@ -1,10 +1,9 @@
-// resolution of the onedir sidecar launcher. the backend will ship
-// as a pyinstaller --onedir tree under tauri's resource dir
+// resolution of the onedir sidecar launcher. the backend ships as
+// a pyinstaller --onedir tree under tauri's resource dir
 // (loom-backend/loom-backend + loom-backend/_internal/); externalBin
 // cannot carry a directory, so the shell resolves and spawns the
 // inner binary itself. pure functions here, probing wrapper at the
 // call site — tests cover the layout contract without an AppHandle.
-#![allow(dead_code)] // wired into spawn_backend by the onedir flip
 
 use std::path::{Path, PathBuf};
 

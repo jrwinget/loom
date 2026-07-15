@@ -349,7 +349,8 @@ jobs:
           else
             sep=":"
           fi
-          uv run pyinstaller --onefile --clean --noconfirm \
+          uv run pyinstaller --onedir --clean --noconfirm \
+            --contents-directory _internal \
             src/loom/__main__.py \
             --name loom-backend \
             --distpath dist \
@@ -388,41 +389,31 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${{ matrix.platform }}" = "windows" ]; then
-            binary="dist/loom-backend.exe"
+            binary="dist/loom-backend/loom-backend.exe"
           else
-            binary="dist/loom-backend"
+            binary="dist/loom-backend/loom-backend"
           fi
           uv run python scripts/smoke_sidecar.py "$binary"
 
-      # tauri v2 expects sidecar binaries declared in `externalBin`
-      # to be suffixed with the rust target triple, e.g.
-      # `loom-backend-x86_64-unknown-linux-gnu`. pyinstaller produces
-      # a bare name, so rename the artifact in place. the triple is
-      # read from rustc itself rather than hardcoded so the same step
-      # works for x86_64 linux, arm64/x86_64 macOS, and x86_64
-      # windows-msvc.
-      - name: Rename sidecar with rust target triple
-        working-directory: backend
+      # the onedir tree ships as a tauri resource dir (externalBin
+      # only carries single binaries), so stage it where the
+      # `loom-backend/**/*` resources glob in tauri.conf.json picks
+      # it up. the shell resolves the inner launcher at runtime via
+      # src/sidecar_path.rs — the dir and binary names here are that
+      # module's contract.
+      - name: Stage sidecar tree as a tauri resource
         shell: bash
         run: |
           set -euo pipefail
-          triple=$(rustc -vV | sed -n 's/^host: //p')
-          if [ -z "$triple" ]; then
-            echo "could not detect rust target triple" >&2
-            exit 1
-          fi
-          if [ "${{ matrix.platform }}" = "windows" ]; then
-            mv "dist/loom-backend.exe" "dist/loom-backend-${triple}.exe"
-          else
-            mv "dist/loom-backend" "dist/loom-backend-${triple}"
-          fi
-          ls -la dist/
+          rm -rf desktop/src-tauri/loom-backend
+          cp -R backend/dist/loom-backend desktop/src-tauri/loom-backend
+          du -sh desktop/src-tauri/loom-backend
 
       # the shell's unit tests never ran in ci before this step —
-      # tauri-build needs the renamed sidecar and the built frontend
-      # dist to exist, both true at this point. ubuntu-only: the
-      # tests are platform-neutral (tempdirs, loopback sockets) and
-      # one leg keeps the matrix cost flat.
+      # tauri-build needs the built frontend dist to exist, true at
+      # this point. ubuntu-only: the tests are platform-neutral
+      # (tempdirs, loopback sockets) and one leg keeps the matrix
+      # cost flat.
       - name: Run desktop shell unit tests
         if: matrix.platform == 'linux'
         run: cargo test --manifest-path desktop/src-tauri/Cargo.toml
@@ -494,13 +485,14 @@ jobs:
           npx "${args[@]}"
         continue-on-error: false
 
-      # the dist/ smoke above validates the binary pyinstaller built;
+      # the dist/ smoke above validates the tree pyinstaller built;
       # this validates what a user actually installs — the deb's
-      # sidecar placement (/usr/bin, triple stripped by the bundler),
-      # its executable bit, and that the installed layout still boots
-      # and serves. runs on tag builds too, so release artifacts get
-      # the same treatment. apt-get resolves the deb's runtime
-      # depends, unlike a bare dpkg -i.
+      # resource placement of the onedir tree (/usr/lib/Loom/), the
+      # launcher's executable bit surviving the bundler's resource
+      # copy, and that the installed layout still boots and serves.
+      # runs on tag builds too, so release artifacts get the same
+      # treatment. apt-get resolves the deb's runtime depends,
+      # unlike a bare dpkg -i.
       - name: Smoke installed deb layout
         if: matrix.platform == 'linux'
         shell: bash
@@ -509,12 +501,13 @@ jobs:
           set -euo pipefail
           sudo apt-get install -y \
             ./desktop/src-tauri/target/release/bundle/deb/*.deb
-          test -x /usr/bin/loom-backend || {
+          sidecar="/usr/lib/Loom/loom-backend/loom-backend"
+          test -x "$sidecar" || {
             echo "::error::installed sidecar missing or not executable"
-            dpkg -L loom | head -50
+            dpkg -L loom | grep -i loom-backend | head -30
             exit 1
           }
-          python3 backend/scripts/smoke_sidecar.py /usr/bin/loom-backend
+          python3 backend/scripts/smoke_sidecar.py "$sidecar"
 
       # ------------------------------------------------------------------
       # signing (env-gated). each signing step is guarded by an `if:`

@@ -9,9 +9,9 @@ so the host/port pair below is load-bearing -- changing it without
 updating the rust side leaves the shell waiting on a dead endpoint.
 
 passing the asgi callable as an object (not the ``loom.main:app``
-import string) is deliberate: pyinstaller --onefile freezes the
-module graph and uvicorn's string-import resolution does not
-survive that, while a direct reference does.
+import string) is deliberate: pyinstaller freezes the module graph
+and uvicorn's string-import resolution does not survive that, while
+a direct reference does.
 """
 
 from __future__ import annotations
@@ -53,11 +53,11 @@ _WATCHDOG_INTERVAL_SECONDS = 1.0
 def _start_orphan_watchdog() -> None:
     """exit when the parent process dies.
 
-    pyinstaller --onefile spawns the python interpreter as a child of
-    a small bootloader. when the tauri shell calls ``child.kill()``
-    against the externalBin it terminates the bootloader; the python
-    process is orphaned (reparented to pid 1 on unix) and continues
-    to hold ``127.0.0.1:8000``, blocking the next launch.
+    the onedir launcher runs the server in-process, so the shell's
+    ``child.kill()`` reaches it directly — but a shell that dies
+    without running its cleanup paths (SIGKILL, power loss of the
+    parent session) still strands the server holding
+    ``127.0.0.1:8000``, blocking the next launch.
 
     this thread catches that case by polling ``os.getppid()`` and
     exiting when the original parent goes away. it is gated on
@@ -103,11 +103,12 @@ def _start_orphan_watchdog() -> None:
 def _resolve_alembic_paths() -> tuple[Path, Path]:
     """return ``(alembic_ini, alembic_dir)`` for the current runtime.
 
-    pyinstaller --onefile unpacks ``--add-data`` payloads into a
-    per-process temp directory exposed as ``sys._MEIPASS`` (see the
-    pyinstaller runtime docs). when frozen we look for the bundled
-    copy there; when running from the source tree we walk up from
-    this file to find the canonical ``backend/alembic.ini``.
+    pyinstaller --onedir ships ``--add-data`` payloads inside the
+    ``_internal`` directory next to the launcher, exposed as
+    ``sys._MEIPASS`` at runtime (same variable onefile used for its
+    temp unpack dir). when frozen we look for the bundled copy
+    there; when running from the source tree we walk up from this
+    file to find the canonical ``backend/alembic.ini``.
     """
     meipass = getattr(sys, "_MEIPASS", None)
     if meipass is not None:
