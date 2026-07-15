@@ -55,6 +55,23 @@ jobs:
           fi
           echo "release $tag has no assets; safe to build"
 
+      # a tag build without the updater signing key would either fail
+      # deep into the rust compile or ship a release the in-app updater
+      # cannot verify. fail here, in seconds, instead. secrets are not
+      # allowed in step `if:` expressions, so hoist the check into env.
+      - name: Require updater signing key
+        env:
+          HAS_UPDATER_KEY: >-
+            ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != ''
+                && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD != '' }}
+        run: |
+          if [ "$HAS_UPDATER_KEY" != "true" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY(_PASSWORD) missing;" \
+              "tag builds must produce verifiable updater artifacts"
+            exit 1
+          fi
+          echo "updater signing key present"
+
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -443,8 +460,12 @@ jobs:
       # TAURI_SIGNING_* signs the UPDATER artifacts (minisign): the
       # in-app updater verifies downloads against the pubkey pinned
       # in tauri.conf.json. independent of the os code-signing steps
-      # below. when the secret is absent (forks), tauri skips the
-      # updater artifacts and the plain installers still build.
+      # below. dependabot and fork PR runs receive no repository
+      # secrets, and with createUpdaterArtifacts enabled tauri
+      # hard-fails decoding the empty key — so those runs disable
+      # updater artifacts via a config override and still build the
+      # plain installers. tag builds hard-require the key up front in
+      # release-guard.
       - name: Build Tauri bundles
         working-directory: desktop
         shell: bash
@@ -452,7 +473,16 @@ jobs:
           APPIMAGE_BUNDLE_GSTREAMER: "1"
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npx tauri build --bundles ${{ matrix.bundles }} --ci
+        run: |
+          set -euo pipefail
+          args=(tauri build --bundles "${{ matrix.bundles }}" --ci)
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            echo "no updater signing key (dependabot/fork run);" \
+              "disabling updater artifacts"
+            unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+            args+=(--config "$PWD/src-tauri/updater-off.conf.json")
+          fi
+          npx "${args[@]}"
         continue-on-error: false
 
       # ------------------------------------------------------------------
