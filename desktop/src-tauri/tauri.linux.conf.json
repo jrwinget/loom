@@ -1,0 +1,12 @@
+{
+  "bundle": {
+    "resources": ["binaries/**/*"],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/lib/Loom/loom-backend": "loom-backend"
+        }
+      }
+    }
+  }
+}
