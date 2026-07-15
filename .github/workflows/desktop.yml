@@ -485,6 +485,30 @@ jobs:
           npx "${args[@]}"
         continue-on-error: false
 
+      # fast, precise failure before the slower install smoke: the
+      # two risks unique to shipping the tree as resources are the
+      # launcher's exe bit surviving the bundler's copy and the
+      # _internal payload actually landing in the package.
+      - name: Assert onedir layout inside the deb
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          deb=$(ls desktop/src-tauri/target/release/bundle/deb/*.deb)
+          listing=$(dpkg-deb -c "$deb")
+          echo "$listing" \
+            | grep "usr/lib/Loom/loom-backend/loom-backend$" \
+            | grep -q "^-rwx" || {
+              echo "::error::launcher missing or lost its exe bit"
+              echo "$listing" | grep loom-backend | head -30
+              exit 1
+            }
+          echo "$listing" | grep -q "loom-backend/_internal/alembic.ini" || {
+            echo "::error::_internal payload missing from the deb"
+            exit 1
+          }
+          du -h "$deb"
+
       # the dist/ smoke above validates the tree pyinstaller built;
       # this validates what a user actually installs — the deb's
       # resource placement of the onedir tree (/usr/lib/Loom/), the
