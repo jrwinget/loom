@@ -1988,6 +1988,11 @@ export interface paths {
         /**
          * Health Check
          * @description check database, storage, and workflow connectivity.
+         *
+         *     semantics for probes: 200 means ready to serve, 503 means the
+         *     process is alive but a dependency is down (body says which),
+         *     connection refused means dead. the desktop shell, the docker
+         *     healthcheck, and the prometheus alerts all key on the code.
          */
         get: operations["health_check_api_v1_health_get"];
         put?: never;

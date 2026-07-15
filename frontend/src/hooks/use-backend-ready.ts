@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 
+export interface BootProgress {
+  elapsedSecs: number;
+  timeoutSecs: number;
+}
+
 export interface BackendReadyState {
   status: 'booting' | 'ready' | 'error';
   error?: string;
+  // present while a boot is in flight and the shell is emitting
+  // once-a-second liveness events; cleared on ready/error/reset.
+  progress?: BootProgress;
 }
 
 export interface UseBackendReadyResult extends BackendReadyState {
@@ -57,6 +65,25 @@ export function useBackendReady(): UseBackendReadyResult {
         setState({ status: 'error', error: message });
       });
       unlisteners.push(offError);
+
+      const offProgress = await mod.listen<BootProgress>(
+        'backend-boot-progress',
+        (event) => {
+          if (cancelled) return;
+          const payload = event.payload;
+          if (
+            typeof payload?.elapsedSecs !== 'number' ||
+            typeof payload?.timeoutSecs !== 'number'
+          ) {
+            return;
+          }
+          // progress after ready/error is a stale straggler; ignore.
+          setState((prev) =>
+            prev.status === 'booting' ? { ...prev, progress: payload } : prev,
+          );
+        },
+      );
+      unlisteners.push(offProgress);
     })().catch(() => {
       // if the event module fails to load we surface an error rather
       // than leaving the user stuck on the boot panel.

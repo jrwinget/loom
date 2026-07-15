@@ -18,6 +18,7 @@
 )]
 
 mod redact;
+mod secrets;
 
 use std::panic;
 use std::path::{Path, PathBuf};
@@ -40,8 +41,21 @@ use tauri_plugin_store::StoreExt;
 const BACKEND_HEALTH_URL: &str = "http://127.0.0.1:8000/api/v1/health";
 const BACKEND_SHUTDOWN_URL: &str =
     "http://127.0.0.1:8000/api/v1/admin/shutdown";
-const HEALTH_TIMEOUT: Duration = Duration::from_secs(60);
+// generous ceiling, not a wait: a healthy boot returns in seconds
+// and a dead sidecar fails fast via the drain task's terminated
+// branch, so the budget only matters when the process is alive but
+// slow — onefile self-extraction on a slow disk or an av sweep can
+// legitimately take minutes on first launch. the ci smoke keeps its
+// own 60s budget as a perf tripwire on fast runners.
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(180);
 const HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(500);
+// how many consecutive degraded (alive but 503) health responses
+// before giving up early: the backend is up, waiting longer will
+// not heal it, and the body already names the failing service.
+const DEGRADED_POLL_THRESHOLD: u32 = 6;
+// progress events are for humans; once a second is plenty and keeps
+// the ipc channel quiet.
+const BOOT_PROGRESS_EVERY: Duration = Duration::from_secs(1);
 // short, bounded window for the sidecar to flush its 204 and call
 // os._exit. anything longer makes the window-close interaction feel
 // hung; anything shorter risks racing the loopback roundtrip.
@@ -171,16 +185,49 @@ fn generate_hex_secret() -> String {
 fn ensure_bootstrap_secrets(
     app: &AppHandle,
 ) -> Result<BootstrapSecrets, String> {
-    let store = app
-        .store(SECRETS_STORE_PATH)
-        .map_err(|e| format!("failed to open secrets store: {e}"))?;
+    // a corrupt store would otherwise brick boot forever: the file
+    // deliberately survives factory reset and data-dir deletion, so
+    // no user-reachable action clears it. back it up, log loudly,
+    // and reopen fresh — the cost is one forced re-login.
+    let store = match app.store(SECRETS_STORE_PATH) {
+        Ok(store) => store,
+        Err(first_err) => {
+            let path = app
+                .path()
+                .app_data_dir()
+                .map(|dir| dir.join(SECRETS_STORE_PATH))
+                .map_err(|e| {
+                    format!("failed to locate secrets store: {e}")
+                })?;
+            let backup =
+                secrets::backup_corrupt_store(&path).map_err(|e| {
+                    format!(
+                        "failed to open secrets store ({first_err}) and \
+                         could not back it up: {e}"
+                    )
+                })?;
+            log::warn!(
+                "secrets store was unreadable ({first_err}); moved it \
+                 to {} and regenerating — existing sessions are signed \
+                 out",
+                backup.display()
+            );
+            app.store(SECRETS_STORE_PATH).map_err(|e| {
+                format!("failed to reopen secrets store: {e}")
+            })?
+        }
+    };
 
     let read_or_generate = |key: &str| -> String {
         if let Some(value) = store.get(key) {
             if let Some(existing) = value.as_str() {
-                if !existing.is_empty() {
+                if secrets::is_valid_secret(existing) {
                     return existing.to_string();
                 }
+                log::warn!(
+                    "persisted {key} failed validation; regenerating — \
+                     existing sessions are signed out"
+                );
             }
         }
         let fresh = generate_hex_secret();
@@ -432,39 +479,171 @@ fn spawn_backend(
     Ok(child)
 }
 
+// the sidecar's listen address. the health/shutdown urls above and
+// the frontend api-client assume the same pair — change together.
+fn backend_addr() -> std::net::SocketAddr {
+    std::net::SocketAddr::from(([127, 0, 0, 1], 8000))
+}
+
+// a connect probe distinguishes "someone is accepting on this port"
+// from every flavor of free (closed, TIME_WAIT, filtered): only an
+// actual listener completes the handshake within the timeout.
+fn port_in_use(addr: std::net::SocketAddr) -> bool {
+    std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(250))
+        .is_ok()
+}
+
+// bounded wait for a dying process to release the listen port, so a
+// respawn right after a shutdown request does not false-positive on
+// the old sidecar's last moments.
+async fn wait_for_port_free(
+    addr: std::net::SocketAddr,
+    grace: Duration,
+) -> bool {
+    let deadline = std::time::Instant::now() + grace;
+    while port_in_use(addr) {
+        if std::time::Instant::now() >= deadline {
+            return false;
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    true
+}
+
+fn port_busy_message(addr: std::net::SocketAddr) -> String {
+    format!(
+        "another process is already listening on {addr} — usually a \
+         previous loom backend that did not exit. close other loom \
+         windows or a stray loom-backend process, then retry."
+    )
+}
+
+// pull the failing services out of a degraded /health body, e.g.
+// "database: error". returns None when the body is not the health
+// shape (a proxy error page, a startup half-response) so the caller
+// keeps polling instead of failing on garbage.
+fn describe_degraded(body: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(body).ok()?;
+    let services = value.get("services")?.as_object()?;
+    let failing: Vec<String> = services
+        .iter()
+        .filter(|(_, v)| v.as_str() != Some("ok"))
+        .map(|(k, v)| format!("{k}: {}", v.as_str().unwrap_or("unknown")))
+        .collect();
+    if failing.is_empty() {
+        None
+    } else {
+        Some(failing.join(", "))
+    }
+}
+
 // polls the backend health endpoint until success or the deadline.
 // when ``boot_ready`` is supplied the loop also bails if the drain
 // task has already flipped the flag (sidecar terminated during
 // boot), so the user is not held on the boot panel for the full
-// health timeout when the backend is already dead.
-async fn wait_for_health(
+// startup budget when the backend is already dead. a run of
+// consecutive degraded (503) answers also ends the wait early: the
+// process is up, more time will not heal it, and the body names the
+// broken service. transport errors reset that run — during a slow
+// cold start every poll is connection-refused and must not count.
+// ``on_progress(elapsed_secs, budget_secs)`` fires at most once per
+// ``progress_every`` so the boot gate can show liveness.
+async fn wait_for_health_core(
+    url: &str,
+    budget: Duration,
+    poll_interval: Duration,
+    progress_every: Duration,
     boot_ready: Option<Arc<AtomicBool>>,
+    mut on_progress: impl FnMut(u64, u64),
 ) -> Result<(), String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(2))
         .build()
         .map_err(|e| format!("reqwest build failed: {e}"))?;
 
-    let deadline = std::time::Instant::now() + HEALTH_TIMEOUT;
+    let started = std::time::Instant::now();
+    let deadline = started + budget;
+    let mut last_progress = started;
+    let mut degraded_polls: u32 = 0;
+    let mut last_degraded: Option<String> = None;
     loop {
         if let Some(flag) = boot_ready.as_ref() {
             if flag.load(Ordering::SeqCst) {
                 return Err("backend exited before answering health".into());
             }
         }
-        if let Ok(resp) = client.get(BACKEND_HEALTH_URL).send().await {
-            if resp.status().is_success() {
-                return Ok(());
+        match client.get(url).send().await {
+            Ok(resp) if resp.status().is_success() => return Ok(()),
+            Ok(resp) => {
+                let detail = resp
+                    .text()
+                    .await
+                    .ok()
+                    .as_deref()
+                    .and_then(describe_degraded);
+                if let Some(detail) = detail {
+                    degraded_polls += 1;
+                    last_degraded = Some(detail);
+                }
+                if degraded_polls >= DEGRADED_POLL_THRESHOLD {
+                    return Err(format!(
+                        "backend is running but reported unhealthy \
+                         services: {}",
+                        last_degraded
+                            .unwrap_or_else(|| "unknown".to_string())
+                    ));
+                }
+            }
+            Err(_) => {
+                degraded_polls = 0;
             }
         }
-        if std::time::Instant::now() >= deadline {
+        let now = std::time::Instant::now();
+        if now >= deadline {
             return Err(format!(
-                "backend did not respond to {BACKEND_HEALTH_URL} within {:?}",
-                HEALTH_TIMEOUT
+                "backend did not respond to {url} within {budget:?}"
             ));
         }
-        tokio::time::sleep(HEALTH_POLL_INTERVAL).await;
+        if now.duration_since(last_progress) >= progress_every {
+            last_progress = now;
+            on_progress(
+                started.elapsed().as_secs(),
+                budget.as_secs(),
+            );
+        }
+        tokio::time::sleep(poll_interval).await;
     }
+}
+
+// production wrapper: real url, real budget, progress events to the
+// boot gate, and a pointer at the shell log dir appended to every
+// failure so the error panel tells the user where to look next.
+async fn wait_for_health(
+    app: &AppHandle,
+    boot_ready: Option<Arc<AtomicBool>>,
+) -> Result<(), String> {
+    let progress_app = app.clone();
+    let result = wait_for_health_core(
+        BACKEND_HEALTH_URL,
+        STARTUP_TIMEOUT,
+        HEALTH_POLL_INTERVAL,
+        BOOT_PROGRESS_EVERY,
+        boot_ready,
+        move |elapsed_secs, timeout_secs| {
+            let _ = progress_app.emit(
+                "backend-boot-progress",
+                serde_json::json!({
+                    "elapsedSecs": elapsed_secs,
+                    "timeoutSecs": timeout_secs,
+                }),
+            );
+        },
+    )
+    .await;
+    result.map_err(|err| match app.path().app_log_dir() {
+        Ok(dir) => format!("{err}\ncheck the logs in {}", dir.display()),
+        Err(_) => err,
+    })
 }
 
 // runs the full boot sequence (config + spawn + health wait) off
@@ -504,6 +683,18 @@ async fn run_initial_boot(app: AppHandle) {
         }
     };
 
+    // short grace: an orphan from a crashed previous session may be
+    // mid-exit via its own watchdog; anything still listening after
+    // this is genuinely stuck and spawning would only produce an
+    // opaque bind traceback instead of this actionable message.
+    if !wait_for_port_free(backend_addr(), Duration::from_secs(2)).await {
+        let _ = app.emit(
+            "backend-error",
+            truncate_error(port_busy_message(backend_addr())),
+        );
+        return;
+    }
+
     let child = match spawn_backend(&app, &config, &secrets) {
         Ok(c) => c,
         Err(err) => {
@@ -514,7 +705,7 @@ async fn run_initial_boot(app: AppHandle) {
     app.state::<SidecarProcess>().replace(child);
 
     let boot_ready = app.state::<BootReady>().0.clone();
-    match wait_for_health(Some(boot_ready.clone())).await {
+    match wait_for_health(&app, Some(boot_ready.clone())).await {
         Ok(()) => {
             // only emit ready if the drain task has not already
             // claimed the boot slot via Terminated.
@@ -764,10 +955,24 @@ async fn restart_backend(app: AppHandle) -> Result<(), String> {
         *guard = None;
     }
 
+    // wider grace than the initial boot: the sidecar we just asked to
+    // shut down schedules its own exit after answering, so give it
+    // time to actually release the socket before declaring conflict.
+    if !wait_for_port_free(backend_addr(), Duration::from_secs(5)).await {
+        let message = port_busy_message(backend_addr());
+        if boot_ready
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+        {
+            let _ = app.emit("backend-error", truncate_error(message.clone()));
+        }
+        return Err(message);
+    }
+
     let child = spawn_backend(&app, &config, &secrets)?;
     app.state::<SidecarProcess>().replace(child);
 
-    match wait_for_health(Some(boot_ready.clone())).await {
+    match wait_for_health(&app, Some(boot_ready.clone())).await {
         Ok(()) => {
             let won = boot_ready
                 .compare_exchange(
@@ -908,6 +1113,39 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
         .await
         .map_err(|e| format!("update install failed: {e}"))?;
     app.restart()
+}
+
+// the two places a failing install leaves evidence: the shell log
+// dir (rotating tauri-plugin-log files that mirror redacted sidecar
+// output) and the backend's own structured log dir under data_dir.
+// exactly the dirs export_diagnostics zips.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LogPaths {
+    shell_log_dir: Option<String>,
+    backend_log_dir: String,
+}
+
+fn resolve_log_paths(
+    shell_log_dir: Option<PathBuf>,
+    data_dir: &Path,
+) -> LogPaths {
+    LogPaths {
+        shell_log_dir: shell_log_dir.map(|d| d.display().to_string()),
+        backend_log_dir: data_dir.join("logs").display().to_string(),
+    }
+}
+
+// ipc command: the boot gate's error panel shows these so a stuck
+// user can find the logs without support having to describe three
+// platform-specific paths over chat.
+#[tauri::command]
+fn get_log_paths(app: AppHandle) -> Result<LogPaths, String> {
+    let config = load_config(&app)?;
+    Ok(resolve_log_paths(
+        app.path().app_log_dir().ok(),
+        &config.resolve_data_dir(),
+    ))
 }
 
 // ipc command: bundle the shell log dir, the backend's lite log dir
@@ -1060,6 +1298,7 @@ fn main() {
             check_for_update,
             install_update,
             export_diagnostics,
+            get_log_paths,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -1306,6 +1545,177 @@ mod tests {
 
         purge_lite_data(root).expect("first purge");
         purge_lite_data(root).expect("second purge should be idempotent");
+    }
+
+    #[test]
+    fn port_in_use_detects_a_live_listener() {
+        // a bound-and-listening socket is exactly the stale-sidecar
+        // shape the preflight exists to catch.
+        let listener =
+            std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("local addr");
+        assert!(port_in_use(addr));
+        drop(listener);
+        assert!(!port_in_use(addr));
+    }
+
+    #[tokio::test]
+    async fn wait_for_port_free_gives_up_then_recovers() {
+        let listener =
+            std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("local addr");
+        // held for the whole grace window: bounded wait must give up
+        assert!(!wait_for_port_free(addr, Duration::from_millis(300)).await);
+        drop(listener);
+        assert!(wait_for_port_free(addr, Duration::from_millis(300)).await);
+    }
+
+    #[test]
+    fn port_busy_message_names_the_port_and_remedy() {
+        let msg = port_busy_message(backend_addr());
+        assert!(msg.contains("127.0.0.1:8000"));
+        assert!(msg.contains("retry"));
+    }
+
+    #[test]
+    fn describe_degraded_names_failing_services() {
+        let body = r#"{"status":"error","services":
+            {"database":"error","storage":"ok","temporal":"ok"}}"#;
+        assert_eq!(
+            describe_degraded(body).as_deref(),
+            Some("database: error")
+        );
+        let healthy = r#"{"status":"ok","services":{"database":"ok"}}"#;
+        assert_eq!(describe_degraded(healthy), None);
+        assert_eq!(describe_degraded("<html>bad gateway</html>"), None);
+    }
+
+    // minimal canned http server: answers every connection with the
+    // same response until the stop flag flips. gives the health-wait
+    // tests a real socket without pulling in a server dependency.
+    fn serve_canned(body: String, status: &str) -> (String, Arc<AtomicBool>) {
+        let listener =
+            std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("local addr");
+        listener.set_nonblocking(true).expect("nonblocking");
+        let response = format!(
+            "HTTP/1.1 {status}\r\ncontent-type: application/json\r\n\
+             content-length: {}\r\nconnection: close\r\n\r\n{body}",
+            body.len(),
+        );
+        let stop = Arc::new(AtomicBool::new(false));
+        let stop_flag = stop.clone();
+        std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            while !stop_flag.load(Ordering::SeqCst) {
+                match listener.accept() {
+                    Ok((mut sock, _)) => {
+                        let _ = sock.set_read_timeout(Some(
+                            Duration::from_millis(100),
+                        ));
+                        let mut buf = [0u8; 1024];
+                        let _ = sock.read(&mut buf);
+                        let _ = sock.write_all(response.as_bytes());
+                    }
+                    Err(_) => std::thread::sleep(Duration::from_millis(5)),
+                }
+            }
+        });
+        (format!("http://{addr}/api/v1/health"), stop)
+    }
+
+    #[tokio::test]
+    async fn health_wait_succeeds_on_200() {
+        let (url, stop) =
+            serve_canned(r#"{"status":"ok"}"#.into(), "200 OK");
+        let result = wait_for_health_core(
+            &url,
+            Duration::from_secs(5),
+            Duration::from_millis(20),
+            Duration::from_secs(60),
+            None,
+            |_, _| {},
+        )
+        .await;
+        stop.store(true, Ordering::SeqCst);
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn health_wait_fails_fast_on_degraded_backend() {
+        let body = r#"{"status":"error","services":
+            {"database":"error","storage":"ok"}}"#;
+        let (url, stop) =
+            serve_canned(body.into(), "503 Service Unavailable");
+        let started = std::time::Instant::now();
+        let result = wait_for_health_core(
+            &url,
+            Duration::from_secs(30),
+            Duration::from_millis(20),
+            Duration::from_secs(60),
+            None,
+            |_, _| {},
+        )
+        .await;
+        stop.store(true, Ordering::SeqCst);
+        let err = result.expect_err("degraded backend must fail");
+        assert!(err.contains("database: error"), "got: {err}");
+        // the whole point: fail at the threshold, not the deadline
+        assert!(started.elapsed() < Duration::from_secs(10));
+    }
+
+    #[tokio::test]
+    async fn health_wait_times_out_when_nothing_listens() {
+        let listener =
+            std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("local addr");
+        drop(listener);
+        let progress_calls = Arc::new(AtomicBool::new(false));
+        let seen = progress_calls.clone();
+        let result = wait_for_health_core(
+            &format!("http://{addr}/api/v1/health"),
+            Duration::from_millis(400),
+            Duration::from_millis(20),
+            Duration::from_millis(50),
+            None,
+            move |_, _| seen.store(true, Ordering::SeqCst),
+        )
+        .await;
+        let err = result.expect_err("no listener must time out");
+        assert!(err.contains("did not respond"), "got: {err}");
+        // liveness: progress fired while the wait was in flight
+        assert!(progress_calls.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn health_wait_bails_when_boot_flag_claimed() {
+        let flag = Arc::new(AtomicBool::new(true));
+        let result = wait_for_health_core(
+            "http://127.0.0.1:1/api/v1/health",
+            Duration::from_secs(5),
+            Duration::from_millis(20),
+            Duration::from_secs(60),
+            Some(flag),
+            |_, _| {},
+        )
+        .await;
+        let err = result.expect_err("claimed flag must end the wait");
+        assert!(err.contains("exited before answering"), "got: {err}");
+    }
+
+    #[test]
+    fn log_paths_point_at_the_diagnostics_dirs() {
+        let paths = resolve_log_paths(
+            Some(PathBuf::from("/var/shell-logs")),
+            &PathBuf::from("/mnt/evidence/loom"),
+        );
+        assert_eq!(paths.shell_log_dir.as_deref(), Some("/var/shell-logs"));
+        assert!(paths.backend_log_dir.ends_with("logs"));
+        assert!(paths.backend_log_dir.contains("evidence"));
+
+        // shells without a resolvable log dir still report the backend's
+        let bare = resolve_log_paths(None, &PathBuf::from("/data"));
+        assert_eq!(bare.shell_log_dir, None);
     }
 
     #[test]

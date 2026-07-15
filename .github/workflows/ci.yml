@@ -438,18 +438,30 @@ jobs:
         # torch.jit.script, and torch is an optional ai extra that
         # only processes operator-supplied media. revisit when a
         # fix version is published and drop this ignore.
+        #
+        # PYSEC-2026-3447 (setuptools < 83) is a unicode-normalization
+        # bypass of MANIFEST.in excludes when packing sdists on macOS
+        # filesystems. loom never builds sdists from untrusted
+        # manifests, and torch pins setuptools<82 so the fixed 83
+        # cannot resolve. drop this ignore when torch lifts its cap.
         run: >-
           uv run pip-audit --desc
           --ignore-vuln CVE-2026-3219
           --ignore-vuln CVE-2025-3000
+          --ignore-vuln PYSEC-2026-3447
 
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
+      # npm permanently retired the legacy audit endpoints on
+      # 2026-07-15 (http 410); only pnpm >= 11 speaks the replacement
+      # bulk advisory endpoint. installs stay on the repo's pnpm 10
+      # toolchain — this one step runs the audit through pnpm 11,
+      # which needs the node 22 the job already sets up.
       - name: Run pnpm audit on frontend
         working-directory: frontend
-        run: pnpm audit --prod
+        run: npx -y pnpm@11 audit --prod
 
       # the runner's default docker builder shares one buildkit daemon
       # across the host, which sporadically loses track of in-flight

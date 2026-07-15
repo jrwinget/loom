@@ -55,6 +55,23 @@ jobs:
           fi
           echo "release $tag has no assets; safe to build"
 
+      # a tag build without the updater signing key would either fail
+      # deep into the rust compile or ship a release the in-app updater
+      # cannot verify. fail here, in seconds, instead. secrets are not
+      # allowed in step `if:` expressions, so hoist the check into env.
+      - name: Require updater signing key
+        env:
+          HAS_UPDATER_KEY: >-
+            ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != ''
+                && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD != '' }}
+        run: |
+          if [ "$HAS_UPDATER_KEY" != "true" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY(_PASSWORD) missing;" \
+              "tag builds must produce verifiable updater artifacts"
+            exit 1
+          fi
+          echo "updater signing key present"
+
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -401,6 +418,15 @@ jobs:
           fi
           ls -la dist/
 
+      # the shell's unit tests never ran in ci before this step —
+      # tauri-build needs the renamed sidecar and the built frontend
+      # dist to exist, both true at this point. ubuntu-only: the
+      # tests are platform-neutral (tempdirs, loopback sockets) and
+      # one leg keeps the matrix cost flat.
+      - name: Run desktop shell unit tests
+        if: matrix.platform == 'linux'
+        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml
+
       # tauri bundle: per-os bundle flags, --ci suppresses prompts
       - name: Install desktop dependencies
         working-directory: desktop
@@ -443,8 +469,12 @@ jobs:
       # TAURI_SIGNING_* signs the UPDATER artifacts (minisign): the
       # in-app updater verifies downloads against the pubkey pinned
       # in tauri.conf.json. independent of the os code-signing steps
-      # below. when the secret is absent (forks), tauri skips the
-      # updater artifacts and the plain installers still build.
+      # below. dependabot and fork PR runs receive no repository
+      # secrets, and with createUpdaterArtifacts enabled tauri
+      # hard-fails decoding the empty key — so those runs disable
+      # updater artifacts via a config override and still build the
+      # plain installers. tag builds hard-require the key up front in
+      # release-guard.
       - name: Build Tauri bundles
         working-directory: desktop
         shell: bash
@@ -452,8 +482,39 @@ jobs:
           APPIMAGE_BUNDLE_GSTREAMER: "1"
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npx tauri build --bundles ${{ matrix.bundles }} --ci
+        run: |
+          set -euo pipefail
+          args=(tauri build --bundles "${{ matrix.bundles }}" --ci)
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            echo "no updater signing key (dependabot/fork run);" \
+              "disabling updater artifacts"
+            unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+            args+=(--config "$PWD/src-tauri/updater-off.conf.json")
+          fi
+          npx "${args[@]}"
         continue-on-error: false
+
+      # the dist/ smoke above validates the binary pyinstaller built;
+      # this validates what a user actually installs — the deb's
+      # sidecar placement (/usr/bin, triple stripped by the bundler),
+      # its executable bit, and that the installed layout still boots
+      # and serves. runs on tag builds too, so release artifacts get
+      # the same treatment. apt-get resolves the deb's runtime
+      # depends, unlike a bare dpkg -i.
+      - name: Smoke installed deb layout
+        if: matrix.platform == 'linux'
+        shell: bash
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y \
+            ./desktop/src-tauri/target/release/bundle/deb/*.deb
+          test -x /usr/bin/loom-backend || {
+            echo "::error::installed sidecar missing or not executable"
+            dpkg -L loom | head -50
+            exit 1
+          }
+          python3 backend/scripts/smoke_sidecar.py /usr/bin/loom-backend
 
       # ------------------------------------------------------------------
       # signing (env-gated). each signing step is guarded by an `if:`
