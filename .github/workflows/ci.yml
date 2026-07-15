@@ -454,9 +454,14 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
+      # npm permanently retired the legacy audit endpoints on
+      # 2026-07-15 (http 410); only pnpm >= 11 speaks the replacement
+      # bulk advisory endpoint. installs stay on the repo's pnpm 10
+      # toolchain — this one step runs the audit through pnpm 11,
+      # which needs the node 22 the job already sets up.
       - name: Run pnpm audit on frontend
         working-directory: frontend
-        run: pnpm audit --prod
+        run: npx -y pnpm@11 audit --prod
 
       # the runner's default docker builder shares one buildkit daemon
       # across the host, which sporadically loses track of in-flight
