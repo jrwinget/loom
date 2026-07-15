@@ -34,6 +34,18 @@ describe('UpdateBanner', () => {
     expect(screen.queryByTestId('update-banner')).not.toBeInTheDocument();
   });
 
+  it('explains verification and the expected os notice', async () => {
+    mockedCheck.mockResolvedValue({ version: '0.3.0', notes: null });
+    await renderAndTick();
+
+    // the trust story rides with the consent moment: updates verify
+    // against the pinned key, and any smartscreen notice is expected
+    // because the project ships without paid os certificates.
+    const banner = screen.getByTestId('update-banner');
+    expect(banner).toHaveTextContent(/verified against loom's update key/i);
+    expect(banner).toHaveTextContent(/community-built/i);
+  });
+
   it('offers the update and installs only on click', async () => {
     mockedCheck.mockResolvedValue({ version: '0.3.0', notes: null });
     mockedInstall.mockResolvedValue();

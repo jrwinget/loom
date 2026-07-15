@@ -40,6 +40,11 @@ export function UpdateBanner(): React.ReactElement | null {
             {error}
           </span>
         )}
+        <span className="text-muted-foreground mt-0.5 block text-xs">
+          Verified against Loom&apos;s update key before installing. A
+          SmartScreen notice on Windows is expected — Loom is community-built
+          and ships without paid OS certificates.
+        </span>
       </span>
       <button
         type="button"
