@@ -414,6 +414,8 @@ jobs:
           rm -rf desktop/src-tauri/loom-backend
           cp -R backend/dist/loom-backend desktop/src-tauri/loom-backend
           du -sh desktop/src-tauri/loom-backend
+          test -f desktop/src-tauri/loom-backend/_internal/alembic.ini
+          ls desktop/src-tauri/loom-backend/_internal/alembic | head -3
 
       # the shell's unit tests never ran in ci before this step —
       # tauri-build needs the built frontend dist to exist, true at
@@ -539,8 +541,12 @@ jobs:
           set -euo pipefail
           deb=$(ls desktop/src-tauri/target/release/bundle/deb/*.deb)
           listing=$(dpkg-deb -c "$deb")
-          echo "--- deb contents under usr/lib/Loom (first 80) ---"
-          echo "$listing" | grep "usr/lib/Loom" | head -80 || true
+          echo "total deb entries: $(echo "$listing" | wc -l)"
+          echo "--- launcher line ---"
+          echo "$listing" | grep "loom-backend/loom-backend$" || true
+          echo "--- alembic entries ---"
+          echo "$listing" | grep -c "alembic" || true
+          echo "$listing" | grep "alembic" | head -10 || true
           echo "$listing" \
             | grep "usr/lib/Loom/loom-backend/loom-backend$" \
             | grep -q "^-rwx" || {
