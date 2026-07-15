@@ -455,6 +455,28 @@ jobs:
         run: npx tauri build --bundles ${{ matrix.bundles }} --ci
         continue-on-error: false
 
+      # the dist/ smoke above validates the binary pyinstaller built;
+      # this validates what a user actually installs — the deb's
+      # sidecar placement (/usr/bin, triple stripped by the bundler),
+      # its executable bit, and that the installed layout still boots
+      # and serves. runs on tag builds too, so release artifacts get
+      # the same treatment. apt-get resolves the deb's runtime
+      # depends, unlike a bare dpkg -i.
+      - name: Smoke installed deb layout
+        if: matrix.platform == 'linux'
+        shell: bash
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y \
+            ./desktop/src-tauri/target/release/bundle/deb/*.deb
+          test -x /usr/bin/loom-backend || {
+            echo "::error::installed sidecar missing or not executable"
+            dpkg -L loom | head -50
+            exit 1
+          }
+          python3 backend/scripts/smoke_sidecar.py /usr/bin/loom-backend
+
       # ------------------------------------------------------------------
       # signing (env-gated). each signing step is guarded by an `if:`
       # expression that short-circuits when the secret is empty, and
