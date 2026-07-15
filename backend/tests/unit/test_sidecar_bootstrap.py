@@ -191,6 +191,47 @@ def test_bootstrap_upgrades_stale_lite_schema(
     assert rev not in (None, "013"), f"still stamped at {rev}"
 
 
+def test_bootstrap_replays_018_when_index_already_exists(
+    _lite_settings: Settings,
+) -> None:
+    """a create_all schema with a stale stamp must survive the replay.
+
+    create_all materialises the model's (case_id, capture_time)
+    index, so a db stamped before 018 already carries it. the
+    upgrade branch then replays 018 against that db; a plain
+    create_index crashes with "index already exists" before uvicorn
+    ever binds, and the desktop app reports the backend as dead.
+    """
+    db_path = _db_file(_lite_settings.database_url)
+    get_settings.cache_clear()
+    with patch("loom.config.get_settings", return_value=_lite_settings):
+        bootstrap_schema_if_lite()
+
+        conn = sqlite3.connect(db_path)
+        try:
+            # wind the stamp back but keep the index create_all built
+            conn.execute("UPDATE alembic_version SET version_num = '017'")
+            conn.commit()
+        finally:
+            conn.close()
+
+        bootstrap_schema_if_lite()
+
+    conn = sqlite3.connect(db_path)
+    try:
+        index_row = conn.execute(
+            "SELECT name FROM sqlite_master"
+            " WHERE type='index' AND name='ix_assets_case_capture_time'"
+        ).fetchone()
+        rev = conn.execute(
+            "SELECT version_num FROM alembic_version"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert index_row is not None, "index dropped during replay"
+    assert rev != "017", f"still stamped at {rev}"
+
+
 def test_bootstrap_is_noop_on_server_profile(tmp_path: Path) -> None:
     """server profile must not touch the database.
 

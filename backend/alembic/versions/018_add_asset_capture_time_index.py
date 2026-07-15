@@ -10,7 +10,9 @@ scan. the timeline (case_id, event_time_start) index already
 exists, so this adds only the genuinely-missing asset composite.
 
 create_index does not rebuild the table, so this replays cleanly on
-sqlite during the lite upgrade.
+sqlite during the lite upgrade. the guards matter there: a lite db
+built by create_all already carries the model's index, so a stale
+stamp would otherwise crash the replay before uvicorn binds.
 """
 
 from collections.abc import Sequence
@@ -28,8 +30,13 @@ def upgrade() -> None:
         "ix_assets_case_capture_time",
         "assets",
         ["case_id", "capture_time"],
+        if_not_exists=True,
     )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_assets_case_capture_time", table_name="assets")
+    op.drop_index(
+        "ix_assets_case_capture_time",
+        table_name="assets",
+        if_exists=True,
+    )
