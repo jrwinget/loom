@@ -24,16 +24,34 @@ and asserts five contracts:
      "invalid email or password" after a desktop restart,
   5. ``GET /api/v1/capabilities`` reports the bundled local engines
      — guards the ai-lite pyinstaller collect: a regression there
-     builds fine and then reports every engine missing at runtime.
+     builds fine and then reports every engine missing at runtime,
+  6. the same binary boots AGAIN after ``alembic_version`` is wound
+     back one release — the upgrade branch every existing install
+     takes after an update, which the fresh-dir phase never touches
+     — and ``/first-run/status`` flips to ``first_run_required:
+     False`` and the phase-1 admin can still sign in. this guards
+     both the ``_upgrade_lite_schema`` machinery in the frozen
+     binary (bundled alembic dir, worker-thread migrate) and the
+     replay-safety policy below.
 
-the 60s health budget matches ``HEALTH_TIMEOUT`` in ``desktop/
-src-tauri/src/main.rs``. a sidecar that has not bound a socket
-within that window would also fail the desktop shell's own
-``wait_for_health`` on startup, so the smoke fails on exactly the
-same condition the operator would see. the 60s also covers
-pyinstaller --onefile's cold-start unpack on the windows runner,
-where defender scans the freshly extracted exe on first launch and
-consistently pushes startup into the 15-25s range.
+migration replay policy: the upgrade phase rewinds the stamp while
+leaving the create_all-built schema in place, so every migration
+after ``UPGRADE_REWIND_REVISION`` replays against a database that
+already carries the current model state. new migrations must
+therefore be idempotent (if_not_exists / inspector guards) or this
+smoke fails on the pr that introduces them — which is exactly the
+crash a dev-channel install would hit in the wild.
+
+the 60s health budget here is deliberately TIGHTER than the desktop
+shell's ``STARTUP_TIMEOUT`` (180s in desktop/src-tauri/src/main.rs).
+the shell's ceiling absorbs slow first launches on real hardware —
+onefile self-extraction on a slow disk, av sweeps — where waiting
+longer genuinely helps. ci runners have fast disks, so a sidecar
+that needs more than 60s here is a cold-start perf regression worth
+failing on, long before users hit the shell's ceiling. the 60s also
+covers pyinstaller --onefile's cold-start unpack on the windows
+runner, where defender scans the freshly extracted exe on first
+launch and consistently pushes startup into the 15-25s range.
 
 the script is intentionally a single file with only the standard
 library so it runs on every os runner without an extra dependency
@@ -47,12 +65,14 @@ import json
 import os
 import secrets
 import signal
+import sqlite3
 import subprocess
 import sys
 import tempfile
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
 from typing import Final
@@ -75,6 +95,12 @@ TAURI_ORIGIN: Final = "tauri://localhost"
 POLL_INTERVAL_S: Final = 0.2
 DEADLINE_S: Final = 60.0
 KILL_GRACE_S: Final = 5.0
+# the release-before-current head. the upgrade phase winds the stamp
+# back here and boots again, so every migration after this revision
+# replays against the create_all schema (see the module docstring's
+# replay policy). bump alongside new migrations once they have
+# shipped in a release.
+UPGRADE_REWIND_REVISION: Final = "017"
 
 
 def _build_env(data_dir: Path) -> dict[str, str]:
@@ -376,6 +402,149 @@ def _check_capabilities() -> tuple[bool, str]:
     )
 
 
+def _read_alembic_stamp(db_path: Path) -> str:
+    conn = sqlite3.connect(db_path, timeout=5)
+    try:
+        row = conn.execute("SELECT version_num FROM alembic_version").fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        raise RuntimeError("alembic_version table has no row")
+    return str(row[0])
+
+
+def _rewind_alembic_stamp(db_path: Path, revision: str) -> None:
+    """wind the stamp back so the next boot takes the upgrade branch.
+
+    retried because on windows the just-terminated sidecar can hold
+    the sqlite file handle for a moment (same lag the tempdir cleanup
+    works around with ignore_cleanup_errors).
+    """
+    deadline = time.monotonic() + KILL_GRACE_S * 2
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            conn = sqlite3.connect(db_path, timeout=1)
+            try:
+                conn.execute(
+                    "UPDATE alembic_version SET version_num = ?",
+                    (revision,),
+                )
+                conn.commit()
+                return
+            finally:
+                conn.close()
+        except sqlite3.OperationalError as exc:
+            last_error = exc
+            time.sleep(0.5)
+    raise RuntimeError(f"could not rewind alembic stamp: {last_error!r}")
+
+
+def _check_upgraded_first_run() -> tuple[bool, str]:
+    """after the upgrade boot, the phase-1 admin must still exist."""
+    try:
+        # FIRST_RUN_URL is a hardcoded http://127.0.0.1 literal --
+        # bandit S310 does not apply.
+        with urllib.request.urlopen(  # noqa: S310
+            FIRST_RUN_URL, timeout=5
+        ) as resp:
+            body = json.loads(resp.read())
+    except (urllib.error.URLError, ConnectionError, OSError) as exc:
+        return False, f"transport error from {FIRST_RUN_URL}: {exc!r}"
+    if body.get("first_run_required") is not False:
+        return False, (
+            "first_run_required should be False after the upgrade "
+            f"boot (existing admin): {body!r}"
+        )
+    return True, f"upgrade boot: {FIRST_RUN_URL} -> {body!r}"
+
+
+def _check_login_after_upgrade() -> tuple[bool, str]:
+    """the pre-upgrade admin signs in against the migrated database.
+
+    this is the flow a real install runs after every app update, and
+    the one the fresh-dir phase can never cover: existing user,
+    existing schema, migrations replayed on top.
+    """
+    try:
+        status, raw = _post_json(
+            LOGIN_URL,
+            {
+                "email": SMOKE_ADMIN_EMAIL,
+                "password": SMOKE_ADMIN_PASSWORD,
+            },
+        )
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        return False, f"HTTP {exc.code} on post-upgrade login: {body}"
+    except (urllib.error.URLError, ConnectionError, OSError) as exc:
+        return False, f"transport error on post-upgrade login: {exc!r}"
+    if status != 200:
+        return False, f"post-upgrade login -> {status}, expected 200"
+    if not json.loads(raw).get("access_token"):
+        return False, f"post-upgrade login 200 without token: {raw!r}"
+    return True, "upgrade boot: existing admin login -> 200"
+
+
+def _spawn_sidecar(
+    binary: Path,
+    env: dict[str, str],
+    creationflags: int,
+) -> subprocess.Popen[bytes]:
+    return subprocess.Popen(
+        [str(binary)],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        creationflags=creationflags,
+    )
+
+
+def _fail_dead_or_timeout(proc: subprocess.Popen[bytes]) -> int:
+    """diagnose a boot that never served health; returns exit code 1.
+
+    if the binary exited on its own, surface its stderr — that is
+    the actionable diagnostic for the v0.1.x class of bug.
+    """
+    if proc.poll() is not None:
+        out, err = proc.communicate(timeout=KILL_GRACE_S)
+        print("FAIL: sidecar exited before serving health")
+        print(f"exit code: {proc.returncode}")
+        if out:
+            print("--- stdout ---")
+            sys.stdout.buffer.write(out)
+        if err:
+            print("--- stderr ---")
+            sys.stderr.buffer.write(err)
+        return 1
+    print(f"FAIL: {HEALTH_URL} did not answer within {DEADLINE_S:.0f}s")
+    return 1
+
+
+def _run_checks(
+    checks: tuple[Callable[[], tuple[bool, str]], ...],
+) -> bool:
+    for check in checks:
+        ok, message = check()
+        if not ok:
+            print(f"FAIL: {message}")
+            return False
+        print(f"OK: {message}")
+    return True
+
+
+def _verify_stamp_advanced(db_path: Path) -> bool:
+    stamp = _read_alembic_stamp(db_path)
+    if stamp == UPGRADE_REWIND_REVISION:
+        print(
+            f"FAIL: stamp still {stamp!r} after the upgrade boot — "
+            "_upgrade_lite_schema did not run"
+        )
+        return False
+    print(f"OK: upgrade boot advanced the stamp to {stamp!r}")
+    return True
+
+
 def _terminate(proc: subprocess.Popen[bytes]) -> None:
     if proc.poll() is not None:
         return
@@ -432,48 +601,44 @@ def main() -> int:
             # only the sidecar, not the test runner.
             creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
 
-        proc = subprocess.Popen(
-            [str(args.binary)],
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            creationflags=creationflags,
-        )
-
+        proc = _spawn_sidecar(args.binary, env, creationflags)
         try:
-            if _poll_health():
-                print(f"OK: {HEALTH_URL} -> 200")
-                checks = (
-                    _check_first_run_status,
-                    _check_preflight_cors,
-                    _check_login_roundtrip,
-                    _check_capabilities,
-                    _check_reported_version,
-                )
-                for check in checks:
-                    ok, message = check()
-                    if not ok:
-                        print(f"FAIL: {message}")
-                        return 1
-                    print(f"OK: {message}")
-                return 0
-
-            # if the binary exited on its own, surface its stderr --
-            # that is the actionable diagnostic for the v0.1.x bug.
-            if proc.poll() is not None:
-                out, err = proc.communicate(timeout=KILL_GRACE_S)
-                print("FAIL: sidecar exited before serving health")
-                print(f"exit code: {proc.returncode}")
-                if out:
-                    print("--- stdout ---")
-                    sys.stdout.buffer.write(out)
-                if err:
-                    print("--- stderr ---")
-                    sys.stderr.buffer.write(err)
+            if not _poll_health():
+                return _fail_dead_or_timeout(proc)
+            print(f"OK: {HEALTH_URL} -> 200")
+            fresh_checks = (
+                _check_first_run_status,
+                _check_preflight_cors,
+                _check_login_roundtrip,
+                _check_capabilities,
+                _check_reported_version,
+            )
+            if not _run_checks(fresh_checks):
                 return 1
 
-            print(f"FAIL: {HEALTH_URL} did not answer within {DEADLINE_S:.0f}s")
-            return 1
+            # upgrade phase: same binary, same data dir, stamp wound
+            # back one release — the boot path every existing install
+            # takes after an update.
+            _terminate(proc)
+            db_path = data_dir / "loom.db"
+            _rewind_alembic_stamp(db_path, UPGRADE_REWIND_REVISION)
+            print(
+                f"OK: stamp rewound to {UPGRADE_REWIND_REVISION}; "
+                "booting again for the upgrade phase"
+            )
+            proc = _spawn_sidecar(args.binary, env, creationflags)
+            if not _poll_health():
+                return _fail_dead_or_timeout(proc)
+            print(f"OK: upgrade boot {HEALTH_URL} -> 200")
+            upgrade_checks = (
+                _check_upgraded_first_run,
+                _check_login_after_upgrade,
+            )
+            if not _run_checks(upgrade_checks):
+                return 1
+            if not _verify_stamp_advanced(db_path):
+                return 1
+            return 0
         finally:
             _terminate(proc)
 

@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import socket
 import sys
 import threading
 import time
@@ -323,8 +324,45 @@ def bootstrap_schema_if_lite() -> None:
     _stamp_alembic_head(settings)
 
 
+def _ensure_port_available(host: str, port: int) -> None:
+    """abort with a greppable sentinel if the listen port is taken.
+
+    a stale sidecar (or anything else) holding the port would
+    otherwise surface as uvicorn's bind traceback only after the
+    schema bootstrap already ran. probing with a bind keeps the
+    failed launch cheap and puts an unambiguous cause on stderr,
+    which the desktop shell captures into its error panel and logs.
+    the probe races anything that binds between here and uvicorn;
+    that is fine, it is a diagnostic layer, not a lock.
+
+    the probe must mirror the bind uvicorn will actually perform:
+    asyncio sets SO_REUSEADDR on posix, so TIME_WAIT remnants from
+    a just-shut-down server do not block it. a plain bind here is
+    stricter than the real one and stochastically fails healthy
+    restarts. windows keeps the plain bind — SO_REUSEADDR means
+    something dangerously different there and asyncio does not set
+    it.
+    """
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        if os.name != "nt":
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        probe.bind((host, port))
+    except OSError:
+        sys.stderr.write(
+            f"loom-boot-error: port {host}:{port} already in use;"
+            " close the process holding it (often a previous"
+            " loom-backend) and relaunch\n"
+        )
+        sys.stderr.flush()
+        raise SystemExit(1) from None
+    finally:
+        probe.close()
+
+
 def main() -> None:
     _start_orphan_watchdog()
+    _ensure_port_available("127.0.0.1", 8000)
     bootstrap_schema_if_lite()
     uvicorn.run(
         app,
