@@ -27,7 +27,7 @@ import httpx
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from loom.__main__ import bootstrap_schema_if_lite
+from loom.__main__ import _alembic_head_revision, bootstrap_schema_if_lite
 from loom.config import Settings, get_settings
 from loom.dependencies import get_db_session
 from loom.security.rate_limit import limiter
@@ -145,11 +145,14 @@ def test_bootstrap_upgrades_stale_lite_schema(
 
     the bootstrap used to be create_all + stamp only: existing
     tables were skipped and nothing ever ran ``alembic upgrade``, so
-    an install created before migration 014 never gained
-    ``assets.processing_error`` and every write to it raised "no
-    such column" after the app upgraded. simulate a 013-era install
-    by stripping the columns migrations 014+ add on sqlite and
-    winding alembic_version back, then boot and assert they return.
+    an install created before migration 013 never gained
+    ``app_settings`` or ``assets.processing_error`` and every use of
+    them failed after the app upgraded. simulate a 012-era install
+    (v0.1.4-v0.1.15, the oldest field stamp) by stripping the
+    objects migrations 013+ add on sqlite and winding
+    alembic_version back, then boot and assert they return. this
+    also proves the replay guards create-when-absent instead of
+    skipping unconditionally.
     """
     db_path = _db_file(_lite_settings.database_url)
     get_settings.cache_clear()
@@ -159,12 +162,13 @@ def test_bootstrap_upgrades_stale_lite_schema(
         conn = sqlite3.connect(db_path)
         try:
             # create_all built the current schema; drop back to what a
-            # db stamped at 013 actually had so the replay re-adds them
+            # db stamped at 012 actually had so the replay re-adds them
+            conn.execute("DROP TABLE app_settings")
             conn.execute("ALTER TABLE assets DROP COLUMN processing_error")
             conn.execute("DROP INDEX IF EXISTS ix_cases_source_bundle_sha256")
             conn.execute("ALTER TABLE cases DROP COLUMN source_bundle_sha256")
             conn.execute("DROP INDEX IF EXISTS ix_assets_case_capture_time")
-            conn.execute("UPDATE alembic_version SET version_num = '013'")
+            conn.execute("UPDATE alembic_version SET version_num = '012'")
             conn.commit()
         finally:
             conn.close()
@@ -173,6 +177,12 @@ def test_bootstrap_upgrades_stale_lite_schema(
 
     conn = sqlite3.connect(db_path)
     try:
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
         asset_cols = {
             row[1]
             for row in conn.execute("PRAGMA table_info(assets)").fetchall()
@@ -186,9 +196,80 @@ def test_bootstrap_upgrades_stale_lite_schema(
         ).fetchone()[0]
     finally:
         conn.close()
+    assert "app_settings" in tables, "migration 013 did not replay"
     assert "processing_error" in asset_cols, "migration 014 did not replay"
     assert "source_bundle_sha256" in case_cols, "migration 017 did not replay"
-    assert rev not in (None, "013"), f"still stamped at {rev}"
+    assert rev not in (None, "012"), f"still stamped at {rev}"
+
+
+@pytest.mark.parametrize("stale_stamp", ["012", "013", "016", "017"])
+def test_bootstrap_replays_field_stamps_on_materialized_schema(
+    _lite_settings: Settings, stale_stamp: str
+) -> None:
+    """every shipped lite stamp must replay against a create_all db.
+
+    the create_all bootstrap stamped head only when alembic_version
+    was empty, so v0.1.16/17 silently materialised new model state
+    (app_settings, assets.processing_error) on older installs while
+    the stamp stayed at the install-era revision. the v0.2.0 upgrade
+    branch then replays those migrations onto objects that already
+    exist; an unguarded 013 crashed with "table app_settings already
+    exists" before uvicorn bound, and the desktop boot gate retried
+    forever. each parametrized stamp is a revision some released
+    build actually left behind.
+    """
+    db_path = _db_file(_lite_settings.database_url)
+    get_settings.cache_clear()
+    with patch("loom.config.get_settings", return_value=_lite_settings):
+        bootstrap_schema_if_lite()
+
+        conn = sqlite3.connect(db_path)
+        try:
+            # schema stays exactly as create_all built it — only the
+            # stamp is stale, which is the field drift shape
+            conn.execute(
+                "UPDATE alembic_version SET version_num = ?",
+                (stale_stamp,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        bootstrap_schema_if_lite()
+
+    conn = sqlite3.connect(db_path)
+    try:
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        indexes = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='index'"
+            ).fetchall()
+        }
+        asset_cols = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(assets)").fetchall()
+        }
+        case_cols = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(cases)").fetchall()
+        }
+        stamp_rows = conn.execute(
+            "SELECT version_num FROM alembic_version"
+        ).fetchall()
+    finally:
+        conn.close()
+    assert "app_settings" in tables, "migration 013 broke the table"
+    assert "processing_error" in asset_cols, "migration 014 broke the column"
+    assert "source_bundle_sha256" in case_cols, "migration 017 broke the column"
+    assert "ix_cases_source_bundle_sha256" in indexes
+    assert "ix_assets_case_capture_time" in indexes
+    assert stamp_rows == [(_alembic_head_revision(),)]
 
 
 def test_bootstrap_replays_018_when_index_already_exists(

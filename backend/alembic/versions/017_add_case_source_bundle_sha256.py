@@ -28,20 +28,34 @@ def upgrade() -> None:
     # a plain column add + a separate unique index: creating the index
     # does not rebuild the table, so this replays cleanly on sqlite
     # (a unique constraint inside batch_alter_table trips the sqlite
-    # table-rebuild's circular-dependency sort).
-    with op.batch_alter_table("cases") as batch:
-        batch.add_column(
-            sa.Column("source_bundle_sha256", sa.String(64), nullable=True)
-        )
+    # table-rebuild's circular-dependency sort). the guards cover the
+    # lite upgrade path, where create_all already built both objects
+    # and a stale stamp replays this migration onto them.
+    bind = op.get_bind()
+    columns = {c["name"] for c in sa.inspect(bind).get_columns("cases")}
+    if "source_bundle_sha256" not in columns:
+        with op.batch_alter_table("cases") as batch:
+            batch.add_column(
+                sa.Column("source_bundle_sha256", sa.String(64), nullable=True)
+            )
     op.create_index(
         "ix_cases_source_bundle_sha256",
         "cases",
         ["source_bundle_sha256"],
         unique=True,
+        if_not_exists=True,
     )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_cases_source_bundle_sha256", table_name="cases")
+    op.drop_index(
+        "ix_cases_source_bundle_sha256",
+        table_name="cases",
+        if_exists=True,
+    )
+    bind = op.get_bind()
+    columns = {c["name"] for c in sa.inspect(bind).get_columns("cases")}
+    if "source_bundle_sha256" not in columns:
+        return
     with op.batch_alter_table("cases") as batch:
         batch.drop_column("source_bundle_sha256")
