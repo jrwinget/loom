@@ -8,6 +8,10 @@ backs runtime, admin-editable configuration that must change without a
 restart — currently the AI engine config (key "ai"). the lite profile
 materialises this table via create_all; the server profile via this
 migration.
+
+the guards matter on the lite upgrade path: a db built by create_all
+already carries this table, so a stale stamp (012 — the v0.1.4-v0.1.15
+installs) must not crash the replay before uvicorn binds.
 """
 
 from collections.abc import Sequence
@@ -41,8 +45,9 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("key"),
+        if_not_exists=True,
     )
 
 
 def downgrade() -> None:
-    op.drop_table("app_settings")
+    op.drop_table("app_settings", if_exists=True)
