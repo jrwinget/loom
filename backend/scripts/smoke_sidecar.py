@@ -26,21 +26,24 @@ and asserts five contracts:
      — guards the ai-lite pyinstaller collect: a regression there
      builds fine and then reports every engine missing at runtime,
   6. the same binary boots AGAIN after ``alembic_version`` is wound
-     back one release — the upgrade branch every existing install
-     takes after an update, which the fresh-dir phase never touches
-     — and ``/first-run/status`` flips to ``first_run_required:
-     False`` and the phase-1 admin can still sign in. this guards
-     both the ``_upgrade_lite_schema`` machinery in the frozen
-     binary (bundled alembic dir, worker-thread migrate) and the
-     replay-safety policy below.
+     back to the oldest field stamp — the upgrade branch every
+     existing install takes after an update, which the fresh-dir
+     phase never touches — and ``/first-run/status`` flips to
+     ``first_run_required: False`` and the phase-1 admin can still
+     sign in. this guards both the ``_upgrade_lite_schema``
+     machinery in the frozen binary (bundled alembic dir,
+     worker-thread migrate) and the replay-safety policy below.
 
-migration replay policy: the upgrade phase rewinds the stamp while
-leaving the create_all-built schema in place, so every migration
-after ``UPGRADE_REWIND_REVISION`` replays against a database that
-already carries the current model state. new migrations must
-therefore be idempotent (if_not_exists / inspector guards) or this
-smoke fails on the pr that introduces them — which is exactly the
-crash a dev-channel install would hit in the wild.
+migration replay policy: the upgrade phase rewinds the stamp to the
+oldest revision a field lite install can carry (012 — the
+v0.1.4-v0.1.15 create_all bootstraps) while leaving the
+create_all-built schema in place, so every migration after 012
+replays against a database that already carries the current model
+state. migrations must therefore be idempotent (if_not_exists /
+inspector guards) or this smoke fails on the pr that introduces
+them — which is exactly the crash a stale-stamped install hits in
+the wild after an update (issue #388: an unguarded 013 crash-looped
+every 012-stamped desktop install).
 
 the 60s health budget here is deliberately TIGHTER than the desktop
 shell's ``STARTUP_TIMEOUT`` (180s in desktop/src-tauri/src/main.rs).
@@ -94,12 +97,12 @@ TAURI_ORIGIN: Final = "tauri://localhost"
 POLL_INTERVAL_S: Final = 0.2
 DEADLINE_S: Final = 60.0
 KILL_GRACE_S: Final = 5.0
-# the release-before-current head. the upgrade phase winds the stamp
-# back here and boots again, so every migration after this revision
-# replays against the create_all schema (see the module docstring's
-# replay policy). bump alongside new migrations once they have
-# shipped in a release.
-UPGRADE_REWIND_REVISION: Final = "017"
+# the oldest stamp any field lite install can carry: v0.1.4-v0.1.15
+# create_all bootstraps stamped 012 and every later release stamps
+# higher. the upgrade phase winds the stamp back here and boots
+# again, so migrations 013+ replay against the create_all schema
+# (see the module docstring's replay policy). fixed — do not bump.
+UPGRADE_REWIND_REVISION: Final = "012"
 
 
 def _build_env(data_dir: Path) -> dict[str, str]:
