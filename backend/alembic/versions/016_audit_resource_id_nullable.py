@@ -28,6 +28,18 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # a lite db built by create_all is already nullable here — skip
+    # the sqlite table rebuild a batch alter would otherwise run
+    # against the (potentially large) append-only audit table when a
+    # stale stamp replays this migration
+    bind = op.get_bind()
+    resource_id = next(
+        c
+        for c in sa.inspect(bind).get_columns("audit_log")
+        if c["name"] == "resource_id"
+    )
+    if resource_id["nullable"]:
+        return
     with op.batch_alter_table("audit_log") as batch:
         batch.alter_column(
             "resource_id",
