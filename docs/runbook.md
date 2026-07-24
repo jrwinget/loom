@@ -310,7 +310,19 @@ scripts/cut-release.sh tag 0.2.2
 # 5. publish the notes body (the workflow only attaches assets)
 gh release create v0.2.2 --verify-tag --title v0.2.2 \
   --notes-file docs/release-notes/v0.2.2.md
+
+# 6. reconcile: merge main back into dev, so the squash-merged
+#    version bump doesn't leave the next release PR conflicting
+#    on the seven version-embedding files (issue #391)
+scripts/cut-release.sh reconcile 0.2.2
 ```
+
+The reconcile step pushes a merge commit to `dev`, whose branch
+protection requires linear history — the push only lands with the
+operator's admin bypass, which is how every main→dev reconcile
+merge to date has landed. Skipping the step is what left the
+v0.2.7 release PR CONFLICTING on all seven version files, which
+silently starved it of `pull_request` CI.
 
 The `Desktop` workflow's **Release Guard** job refuses to build on a
 tag whose release page already has assets, so a second run can never
