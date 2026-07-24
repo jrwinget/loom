@@ -2,9 +2,14 @@
 
 a court bundle is a zip containing:
     cover.pdf             — case name, dates, preparer, bundle sha-256
-    report.pdf            — timeline + evidence + custody appendix
     exhibit_index.pdf     — numbered exhibits (E1..EN) with
                             cross-references to timeline events
+    chain_of_custody.json — the custody log for every exhibit
+    report.pdf            — timeline + evidence + custody appendix
+                            (attorney work product; only when
+                            include_analysis is requested)
+    exhibits/E###_<name>  — original files, re-verified at export
+                            time (only when include_originals)
     MANIFEST.sha256       — one line per file: "<sha256>  <path>"
     MANIFEST.sha256.sig   — detached signature (optional)
 
@@ -20,7 +25,7 @@ cover + exhibit index + MANIFEST.sha256.
 """
 
 import hashlib
-import io
+import json
 import logging
 import warnings
 import zipfile
@@ -41,8 +46,12 @@ from loom.models.timeline import (
     TimelineEvent,
     TimelineEventEvidence,
 )
+from loom.services.portable_bundle import (
+    BundleVerificationError,
+    stream_evidence_entry,
+)
 from loom.services.report import render_report_pdf
-from loom.services.storage_backends import DERIVATIVES_BUCKET, StorageBackend
+from loom.services.storage_backends import ORIGINALS_BUCKET, StorageBackend
 
 logger = logging.getLogger(__name__)
 
@@ -288,14 +297,9 @@ def _html_to_pdf_or_fallback(html: str) -> bytes:
         return html.encode("utf-8")
 
 
-def _compute_manifest(
-    files: dict[str, bytes],
-) -> str:
+def _render_manifest_lines(entries: dict[str, str]) -> str:
     """MANIFEST.sha256 body: '<sha256>  <path>' lines, sorted."""
-    lines: list[str] = []
-    for path in sorted(files):
-        digest = hashlib.sha256(files[path]).hexdigest()
-        lines.append(f"{digest}  {path}")
+    lines = [f"{entries[path]}  {path}" for path in sorted(entries)]
     return "\n".join(lines) + "\n"
 
 
@@ -339,15 +343,23 @@ async def build_court_bundle(
     case_id: str,
     options: dict[str, Any],
     storage: StorageBackend,
-    output_key: str,
+    dest_path: Path,
     *,
     preparer: str | None = None,
     signing_key_pem: str | None = None,
-) -> tuple[str, str]:
-    """orchestrate: render pdfs, hash, zip, upload.
+) -> tuple[str, list[dict[str, Any]]]:
+    """write the court bundle zip to dest_path.
 
-    returns (output_key, bundle_sha256). the sha256 is of the
-    outer zip, suitable for export_bundle.sha256_hash.
+    returns (bundle_sha256, exported) where exported lists the
+    assets whose originals were streamed in and re-verified. the
+    caller moves dest_path into storage so bundles with originals
+    never live in memory.
+
+    the work-product firewall: report.pdf (the timeline narrative —
+    core attorney work product) ships only when include_analysis is
+    true; the default court bundle is an evidence-only production
+    of cover, exhibit index, custody log, manifest, and optionally
+    the original files.
     """
     # import report renderer lazily — the module does db work on
     # import (templates env with autoescape) but not fetches.
@@ -356,6 +368,9 @@ async def build_court_bundle(
         render_report_html,
     )
 
+    include_analysis = options.get("include_analysis", False)
+    include_originals = options.get("include_originals", False)
+
     data = await build_court_bundle_data(
         session,
         case_id,
@@ -363,61 +378,92 @@ async def build_court_bundle(
         preparer=preparer,
     )
 
-    # reuse the main report renderer with include_custody=True
-    # so the timeline pdf includes the custody appendix the
-    # issue spec calls for.
-    report_data = await build_report_data(
-        session,
-        case_id,
-        {**options, "include_custody": True},
-    )
-    report_pdf = _html_to_pdf_or_fallback(render_report_html(report_data))
-
-    exhibit_pdf = render_exhibit_index_pdf(data)
-
-    # cover carries the bundle-attestation hash: the sha256 of the
-    # MANIFEST.sha256 content that lists every other file. that
-    # makes cover.pdf self-consistent once written — any later
-    # change to a listed file invalidates the attestation.
-    #
-    # MANIFEST.sha256 follows the standard `sha256sum` convention
-    # and does NOT list itself — self-hashing is circular. cover
-    # attestation is computed over the manifest bytes instead.
-    pre_attestable: dict[str, bytes] = {
-        "report.pdf": report_pdf,
-        "exhibit_index.pdf": exhibit_pdf,
-    }
-    pre_manifest = _compute_manifest(pre_attestable)
-    attest_hash = hashlib.sha256(pre_manifest.encode("utf-8")).hexdigest()
-
-    cover_pdf = render_cover_pdf(data, bundle_sha256=attest_hash)
     listed_files: dict[str, bytes] = {
-        "report.pdf": report_pdf,
-        "exhibit_index.pdf": exhibit_pdf,
-        "cover.pdf": cover_pdf,
+        "exhibit_index.pdf": render_exhibit_index_pdf(data),
+        # the custody log is evidence-layer and machine-checkable;
+        # it ships in every court bundle
+        "chain_of_custody.json": json.dumps(
+            data["chain_of_custody"], indent=2, sort_keys=True
+        ).encode("utf-8"),
     }
-    manifest = _compute_manifest(listed_files)
 
-    files: dict[str, bytes] = dict(listed_files)
-    files["MANIFEST.sha256"] = manifest.encode("utf-8")
+    if include_analysis:
+        # reuse the main report renderer with include_custody=True
+        # so the timeline pdf includes the custody appendix the
+        # issue spec calls for.
+        report_data = await build_report_data(
+            session,
+            case_id,
+            {**options, "include_custody": True},
+        )
+        report_data["work_product"] = True
+        listed_files["report.pdf"] = _html_to_pdf_or_fallback(
+            render_report_html(report_data)
+        )
 
-    signature = _sign_manifest(manifest, signing_key_pem)
-    if signature is not None:
-        files["MANIFEST.sha256.sig"] = signature
+    exported: list[dict[str, Any]] = []
+    with zipfile.ZipFile(
+        dest_path, "w", compression=zipfile.ZIP_DEFLATED
+    ) as zf:
+        entries: dict[str, str] = {}
 
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        # stable order so two identical cases yield identical bytes
-        for path in sorted(files):
-            zf.writestr(path, files[path])
+        if include_originals:
+            exhibits = await _fetch_exhibits(
+                session, UUID(case_id), options.get("asset_ids")
+            )
+            for number, asset in enumerate(exhibits, start=1):
+                entry_name = f"exhibits/E{number:03d}_{asset.original_filename}"
+                _size, stream = storage.get_object_stream(
+                    ORIGINALS_BUCKET, asset.storage_key
+                )
+                digest = stream_evidence_entry(zf, entry_name, stream)
+                if digest != asset.sha256_hash:
+                    raise BundleVerificationError(
+                        f"stored bytes for {asset.id} do not match the "
+                        "recorded sha256 — refusing to export a corrupt "
+                        "original"
+                    )
+                entries[entry_name] = digest
+                exported.append(
+                    {
+                        "id": str(asset.id),
+                        "sha256": digest,
+                        "exhibit_number": number,
+                    }
+                )
 
-    zip_bytes = buf.getvalue()
-    bundle_sha256 = hashlib.sha256(zip_bytes).hexdigest()
+        # cover carries the bundle-attestation hash: the sha256 of
+        # the MANIFEST.sha256 content that lists every other file.
+        # that makes cover.pdf self-consistent once written — any
+        # later change to a listed file invalidates the attestation.
+        #
+        # MANIFEST.sha256 follows the standard `sha256sum` convention
+        # and does NOT list itself — self-hashing is circular. cover
+        # attestation is computed over the manifest bytes instead.
+        pre_entries = dict(entries)
+        for path, body in listed_files.items():
+            pre_entries[path] = hashlib.sha256(body).hexdigest()
+        pre_manifest = _render_manifest_lines(pre_entries)
+        attest_hash = hashlib.sha256(pre_manifest.encode("utf-8")).hexdigest()
 
-    storage.upload_bytes(
-        DERIVATIVES_BUCKET,
-        output_key,
-        zip_bytes,
-        "application/zip",
-    )
-    return output_key, bundle_sha256
+        listed_files["cover.pdf"] = render_cover_pdf(
+            data, bundle_sha256=attest_hash
+        )
+
+        for path in sorted(listed_files):
+            body = listed_files[path]
+            zf.writestr(path, body)
+            entries[path] = hashlib.sha256(body).hexdigest()
+
+        manifest = _render_manifest_lines(entries)
+        zf.writestr("MANIFEST.sha256", manifest.encode("utf-8"))
+
+        signature = _sign_manifest(manifest, signing_key_pem)
+        if signature is not None:
+            zf.writestr("MANIFEST.sha256.sig", signature)
+
+    bundle_digest = hashlib.sha256()
+    with dest_path.open("rb") as fh:
+        while chunk := fh.read(1024 * 1024):
+            bundle_digest.update(chunk)
+    return bundle_digest.hexdigest(), exported

@@ -2909,6 +2909,17 @@
             "title": "Format",
             "type": "string"
           },
+          "include_analysis": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Analysis"
+          },
           "include_originals": {
             "default": false,
             "title": "Include Originals",
@@ -2997,6 +3008,15 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "options": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
           },
           "sha256_hash": {
             "anyOf": [

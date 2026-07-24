@@ -222,6 +222,9 @@ async def build_report_data(
         "executive_summary": options.get("executive_summary"),
         "date_range_start": _format_dt(date_start),
         "date_range_end": _format_dt(date_end),
+        # frcp 26(b)(3): a rendered report is the analysis layer;
+        # callers set this so the template stamps the banner
+        "work_product": options.get("work_product", False),
     }
 
 

@@ -3622,6 +3622,8 @@ export interface components {
             event_ids?: string[] | null;
             /** Format */
             format: string;
+            /** Include Analysis */
+            include_analysis?: boolean | null;
             /**
              * Include Originals
              * @default false
@@ -3667,6 +3669,8 @@ export interface components {
             manifest?: unknown | null;
             /** Name */
             name: string;
+            /** Options */
+            options?: unknown | null;
             /** Sha256 Hash */
             sha256_hash: string | null;
             /** Status */

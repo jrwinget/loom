@@ -11,6 +11,12 @@ class ExportCreate(BaseModel):
         pattern=r"^(zip|pdf_report|json_manifest|court_bundle|portable_bundle)$"
     )
     include_originals: bool = False
+    # work-product firewall: whether the analysis layer (timeline
+    # events, annotations, notes) ships in the bundle. None resolves
+    # to a per-format default at creation: court bundles are
+    # evidence-only productions unless counsel opts in; other formats
+    # keep their historical full contents.
+    include_analysis: bool | None = None
     event_ids: list[str] | None = None
     asset_ids: list[str] | None = None
     date_range_start: datetime | None = None
@@ -29,6 +35,9 @@ class ExportResponse(BaseModel):
     download_url: str | None = None
     status: str
     manifest: Any | None = None
+    # the export request as submitted, so the ui can show what a
+    # completed bundle was asked to contain
+    options: Any | None = None
     created_by: UUID
     created_at: datetime
 
