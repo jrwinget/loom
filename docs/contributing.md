@@ -62,13 +62,13 @@ hand-written types honest against the wire.
 
 ## Tests
 
-- Backend: `pytest` with `pytest-asyncio` (≥90% coverage gate)
+- Backend: `pytest` with `pytest-asyncio` (≥86% coverage gate)
 - Frontend: Vitest with React Testing Library + MSW
   (≥90% coverage gate)
 - E2E: Playwright
 
 Run `make test` before pushing. CI rejects PRs that drop
-coverage below 90% on either side.
+backend coverage below 86% or frontend coverage below 90%.
 
 ## Branching model
 
