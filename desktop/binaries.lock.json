@@ -1,18 +1,18 @@
 {
-  "comment": "pinned host binaries bundled with the desktop shell. every entry is verified by sha256 before it enters the bundle; bumping one means updating url and sha256 together. macos is deliberately absent: ffmpeg/tesseract there are probed from homebrew with fail-loud remedies until relocatable arm64 builds are vetted.",
+  "comment": "pinned host binaries bundled with the desktop shell. every entry is verified by sha256 before it enters the bundle; bumping one means updating url and sha256 together. ffmpeg archives are mirrored into this repo's host-binaries-* release because upstream BtbN autobuilds are pruned after ~2 weeks and a rotted url fails every desktop build. macos is deliberately absent: ffmpeg/tesseract there are probed from homebrew with fail-loud remedies until relocatable arm64 builds are vetted.",
   "ffmpeg": {
     "linux-x86_64": {
-      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-08-13-30/ffmpeg-n7.1.5-1-g7d0e842004-linux64-gpl-7.1.tar.xz",
-      "sha256": "1bd71391f95473e3b5ef04a9e87873535423a67e343308264e43e19878abe893",
-      "version": "n7.1.5",
+      "url": "https://github.com/jrwinget/loom/releases/download/host-binaries-v1/ffmpeg-n7.1.5-10-g2aefd64d48-linux64-gpl-7.1.tar.xz",
+      "sha256": "20be8c733871ef83563d1fc96be225ea5d2411816eb449e81dd014653cf0da85",
+      "version": "n7.1.5-10-g2aefd64d48",
       "license": "GPL-3.0",
       "extract": "tar",
       "binaries": ["ffmpeg", "ffprobe"]
     },
     "windows-x86_64": {
-      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-08-13-30/ffmpeg-n7.1.5-1-g7d0e842004-win64-gpl-7.1.zip",
-      "sha256": "9540f8f645adc1b0d512d31a0d92992c672c494538cb791410a50b5ef206e2dd",
-      "version": "n7.1.5",
+      "url": "https://github.com/jrwinget/loom/releases/download/host-binaries-v1/ffmpeg-n7.1.5-10-g2aefd64d48-win64-gpl-7.1.zip",
+      "sha256": "fb6c871ce2165bd352abdadcb8b474d574208da8f14fae865e3d9c49322359e8",
+      "version": "n7.1.5-10-g2aefd64d48",
       "license": "GPL-3.0",
       "extract": "zip",
       "binaries": ["ffmpeg.exe", "ffprobe.exe"]
