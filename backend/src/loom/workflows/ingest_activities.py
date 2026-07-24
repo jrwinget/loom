@@ -19,7 +19,10 @@ from loom.metrics import ingest_workflow_duration
 from loom.models.asset import Asset
 from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.models.derivative import Derivative
-from loom.services.clock_drift import detect_clock_drift
+from loom.services.clock_drift import (
+    detect_clock_drift,
+    parse_metadata_timestamp,
+)
 from loom.services.hashing import (
     compute_hashes_from_file,
 )
@@ -138,6 +141,15 @@ async def extract_asset_metadata(
 
             asset.metadata_raw = metadata.get("raw", {})
             asset.metadata_extracted = normalized
+            # promote the container creation time to the typed column
+            # that clustering/correlation/geo/court-bundle query on.
+            # stored naive utc, matching the column and its readers;
+            # unparseable values leave it NULL rather than fail ingest.
+            capture_time = parse_metadata_timestamp(
+                normalized.get("capture_time_utc")
+            )
+            if capture_time is not None:
+                asset.capture_time = capture_time.replace(tzinfo=None)
             asset.clock_confidence = drift["confidence"]
             # offset is only set via the user-anchor endpoint; we do
             # not guess which source is "correct" from detection alone.
