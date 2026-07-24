@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -45,7 +46,9 @@ class CustodyEntryResponse(BaseModel):
     id: UUID
     action: str
     actor_id: UUID
-    detail: dict[str, str] | None = None
+    # custody details are free-form json: integrity runs write bools,
+    # bundle imports embed the source custody chain as a list
+    detail: Any | None = None
     ip_address: str | None = None
     timestamp: datetime
 

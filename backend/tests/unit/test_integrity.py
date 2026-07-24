@@ -495,6 +495,74 @@ class TestGenerateIntegrityReport:
         assert report.custody_chain[0].action == "upload"
         assert report.report_generated_at is not None
 
+    @pytest.mark.asyncio
+    async def test_report_tolerates_real_detail_payloads(self) -> None:
+        """custody details carry bools and lists, not just strings.
+
+        verify_asset_integrity writes sha256_match as a bool and
+        bundle imports embed the source custody chain as a list; the
+        report must serialize both instead of 500ing.
+        """
+        asset = _make_asset()
+        sha256, sha512 = _computed_hashes()
+
+        verification_entry = MagicMock()
+        verification_entry.id = UUID("00000000-0000-0000-0000-000000000051")
+        verification_entry.action = "integrity_verification"
+        verification_entry.actor_id = UUID(_USER_ID)
+        verification_entry.detail = {
+            "result": "pass",
+            "sha256_match": True,
+            "sha512_match": True,
+            "computed_sha256": sha256,
+            "computed_sha512": sha512,
+        }
+        verification_entry.ip_address = None
+        verification_entry.timestamp = datetime(2025, 1, 2, tzinfo=UTC)
+
+        imported_entry = MagicMock()
+        imported_entry.id = UUID("00000000-0000-0000-0000-000000000052")
+        imported_entry.action = "imported"
+        imported_entry.actor_id = UUID(_USER_ID)
+        imported_entry.detail = {
+            "action": "imported_from_bundle",
+            "source_custody_chain": [{"action": "upload"}],
+        }
+        imported_entry.ip_address = None
+        imported_entry.timestamp = datetime(2025, 1, 3, tzinfo=UTC)
+
+        session = AsyncMock()
+        call_count = [0]
+
+        async def execute_side_effect(query):
+            call_count[0] += 1
+            result_mock = MagicMock()
+            if call_count[0] <= 2:
+                result_mock.scalar_one_or_none.return_value = asset
+                result_mock.scalar_one.return_value = asset
+            else:
+                scalars_mock = MagicMock()
+                scalars_mock.all.return_value = [
+                    verification_entry,
+                    imported_entry,
+                ]
+                result_mock.scalars.return_value = scalars_mock
+            return result_mock
+
+        session.execute = AsyncMock(side_effect=execute_side_effect)
+        session.add = MagicMock()
+        session.flush = AsyncMock()
+        storage = _make_storage()
+
+        report = await generate_integrity_report(
+            session, storage, _ASSET_ID, _USER_ID
+        )
+
+        details = [e.detail for e in report.custody_chain]
+        assert {"sha256_match": True}.items() <= details[0].items()
+        assert details[1]["source_custody_chain"] == [{"action": "upload"}]
+        assert report.model_dump()["custody_chain"][0]["detail"] is not None
+
 
 class TestIntegrityResultSchema:
     """schema validation tests."""
