@@ -44,6 +44,14 @@ class ExportBundle(UUIDMixin, Base):
         JSON,
         nullable=True,
     )
+    # the export request as submitted (include_originals, event_ids,
+    # date range, ...). manifest is an output slot the builders
+    # overwrite, so the requested options need their own column to
+    # stay recoverable after completion.
+    options: Mapped[Any | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
     created_by: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,

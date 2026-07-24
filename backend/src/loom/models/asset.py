@@ -124,6 +124,17 @@ class Asset(UUIDMixin, TimestampMixin, Base):
         Float,
         nullable=True,
     )
+    # when this asset's stored bytes were last re-hashed against the
+    # ingest digests, and whether they matched. null until the first
+    # explicit verification run.
+    last_verified_at: Mapped[datetime | None] = mapped_column(
+        nullable=True,
+        default=None,
+    )
+    last_verification_ok: Mapped[bool | None] = mapped_column(
+        nullable=True,
+        default=None,
+    )
     processing_status: Mapped[str] = mapped_column(
         String,
         nullable=False,

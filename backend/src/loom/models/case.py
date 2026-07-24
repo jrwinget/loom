@@ -54,6 +54,26 @@ class Case(UUIDMixin, TimestampMixin, Base):
         String(64),
         nullable=True,
     )
+    # litigation hold: while active, case purge and asset deletion
+    # are refused. set/release is owner-gated and audited.
+    hold_active: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=False,
+    )
+    hold_reason: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        default=None,
+    )
+    hold_set_by: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
+    )
+    hold_set_at: Mapped[datetime | None] = mapped_column(
+        nullable=True,
+        default=None,
+    )
 
 
 class CaseMembership(UUIDMixin, Base):

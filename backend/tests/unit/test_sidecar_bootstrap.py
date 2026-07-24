@@ -202,7 +202,7 @@ def test_bootstrap_upgrades_stale_lite_schema(
     assert rev not in (None, "012"), f"still stamped at {rev}"
 
 
-@pytest.mark.parametrize("stale_stamp", ["012", "013", "016", "017"])
+@pytest.mark.parametrize("stale_stamp", ["012", "013", "016", "017", "018"])
 def test_bootstrap_replays_field_stamps_on_materialized_schema(
     _lite_settings: Settings, stale_stamp: str
 ) -> None:
@@ -259,6 +259,12 @@ def test_bootstrap_replays_field_stamps_on_materialized_schema(
             row[1]
             for row in conn.execute("PRAGMA table_info(cases)").fetchall()
         }
+        export_cols = {
+            row[1]
+            for row in conn.execute(
+                "PRAGMA table_info(export_bundles)"
+            ).fetchall()
+        }
         stamp_rows = conn.execute(
             "SELECT version_num FROM alembic_version"
         ).fetchall()
@@ -269,6 +275,17 @@ def test_bootstrap_replays_field_stamps_on_materialized_schema(
     assert "source_bundle_sha256" in case_cols, "migration 017 broke the column"
     assert "ix_cases_source_bundle_sha256" in indexes
     assert "ix_assets_case_capture_time" in indexes
+    assert "options" in export_cols, "migration 019 broke the column"
+    assert "last_verified_at" in asset_cols, "migration 019 broke the column"
+    assert "last_verification_ok" in asset_cols, (
+        "migration 019 broke the column"
+    )
+    assert {
+        "hold_active",
+        "hold_reason",
+        "hold_set_by",
+        "hold_set_at",
+    } <= case_cols, "migration 019 broke the hold columns"
     assert stamp_rows == [(_alembic_head_revision(),)]
 
 
