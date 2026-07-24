@@ -22,7 +22,10 @@ from loom.models.base import Base
 from loom.models.case import Case
 from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.models.timeline import TimelineEvent
-from loom.services.bundle_import import recreate_case_contents
+from loom.services.bundle_import import (
+    _recreate_events,
+    recreate_case_contents,
+)
 from loom.services.portable_bundle import build_portable_bundle, verify_bundle
 from loom.services.storage_backends import ORIGINALS_BUCKET
 from loom.services.storage_backends.local import LocalStorageBackend
@@ -99,6 +102,65 @@ async def _seed_source(
     )
     await session.flush()
     return str(case.id)
+
+
+@pytest.mark.parametrize(
+    "foreign_status",
+    ["proposed", "accepted", "rejected", "archived", "garbage"],
+)
+async def test_import_clamps_unknown_event_status(
+    session: AsyncSession, foreign_status: str
+) -> None:
+    """a foreign bundle's event status must never violate the model
+    check constraint.
+
+    bundles from other deploys (or hand-edited ones) carry whatever
+    status string their writer produced; older postgres schemas even
+    allowed 'archived'. importing one of those used to raise an
+    IntegrityError at flush and abort the whole import.
+    """
+    importer = uuid4()
+    case = Case(name="Imported", created_by=importer, status="closed")
+    session.add(case)
+    await session.flush()
+
+    events_doc = [
+        {
+            "source_id": "e1",
+            "title": "A thing happened",
+            "event_time_start": "2026-07-01T00:00:00",
+            "status": foreign_status,
+        }
+    ]
+    event_map = await _recreate_events(session, case, events_doc, importer)
+
+    event = await session.get(TimelineEvent, event_map["e1"])
+    assert event is not None
+    assert event.status == "draft"
+
+
+@pytest.mark.parametrize("known_status", ["draft", "confirmed", "disputed"])
+async def test_import_preserves_known_event_status(
+    session: AsyncSession, known_status: str
+) -> None:
+    importer = uuid4()
+    case = Case(name="Imported", created_by=importer, status="closed")
+    session.add(case)
+    await session.flush()
+
+    events_doc = [
+        {
+            "source_id": "e1",
+            "title": "A thing happened",
+            "event_time_start": "2026-07-01T00:00:00",
+            "status": known_status,
+        }
+    ]
+    event_map = await _recreate_events(session, case, events_doc, importer)
+
+    event = await session.get(TimelineEvent, event_map["e1"])
+    assert event is not None
+    assert event.status == known_status
 
 
 async def test_export_import_preserves_evidence(
