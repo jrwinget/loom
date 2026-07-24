@@ -21,6 +21,13 @@ class ExportCreate(BaseModel):
     asset_ids: list[str] | None = None
     date_range_start: datetime | None = None
     date_range_end: datetime | None = None
+    # pdf-report composition controls (the report builder ui); None
+    # means "builder default" and is excluded from stored options so
+    # it never clobbers the service-side defaults
+    include_evidence: bool | None = None
+    include_contradictions: bool | None = None
+    include_custody: bool | None = None
+    executive_summary: str | None = None
 
 
 class ExportResponse(BaseModel):

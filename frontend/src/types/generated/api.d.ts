@@ -3620,10 +3620,18 @@ export interface components {
             date_range_start?: string | null;
             /** Event Ids */
             event_ids?: string[] | null;
+            /** Executive Summary */
+            executive_summary?: string | null;
             /** Format */
             format: string;
             /** Include Analysis */
             include_analysis?: boolean | null;
+            /** Include Contradictions */
+            include_contradictions?: boolean | null;
+            /** Include Custody */
+            include_custody?: boolean | null;
+            /** Include Evidence */
+            include_evidence?: boolean | null;
             /**
              * Include Originals
              * @default false
