@@ -46,6 +46,10 @@ def _make_case(
     case.updated_at = _NOW
     case.asset_count = 0
     case.event_count = 0
+    case.hold_active = False
+    case.hold_reason = None
+    case.hold_set_by = None
+    case.hold_set_at = None
     return case
 
 
@@ -226,6 +230,11 @@ async def test_get_case_by_id(
             new_callable=AsyncMock,
             return_value=case,
         ),
+        patch(
+            f"{_SVC}.get_case_counts",
+            new_callable=AsyncMock,
+            return_value=(0, 0),
+        ),
     ):
         token = create_access_token(str(_ADMIN_ID), "admin")
         async with httpx.AsyncClient(
@@ -293,6 +302,11 @@ async def test_update_case(
             f"{_SVC}.update_case",
             new_callable=AsyncMock,
             return_value=case,
+        ),
+        patch(
+            f"{_SVC}.get_case_counts",
+            new_callable=AsyncMock,
+            return_value=(0, 0),
         ),
     ):
         token = create_access_token(str(_ADMIN_ID), "admin")
