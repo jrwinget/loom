@@ -1,0 +1,19 @@
+# pnpm settings. pnpm 11 stopped reading the "pnpm" field in
+# package.json, which silently disabled the security overrides that
+# lived there — this file is their new canonical home.
+packages:
+  - "."
+
+overrides:
+  "brace-expansion@<1.1.13": 1.1.13
+  "brace-expansion@>=2.0.0 <2.0.3": 2.0.3
+  "js-yaml@<4.2.0": 4.2.0
+
+auditConfig:
+  ignoreGhsas:
+    # react-router RSC-mode CSRF bypass (patched only in the 8.x
+    # major). loom uses react-router-dom as a plain client-side spa
+    # router — no rsc server mode, no server actions — so the
+    # vulnerable code path is unreachable. revisit with the held
+    # react-router 8 major upgrade.
+    - GHSA-qwww-vcr4-c8h2
