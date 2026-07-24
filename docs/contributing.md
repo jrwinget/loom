@@ -145,8 +145,8 @@ regenerated.
 Dependabot runs weekly (Monday) against **`dev`** for the
 backend (uv), frontend (npm), desktop shell (npm + cargo),
 and GitHub Actions. Non-major bumps are grouped per
-ecosystem, auto-approved, and squash-auto-merged once the
-required checks pass. Major bumps wait for manual review.
+ecosystem and squash-auto-merged once the required checks
+pass. Major bumps wait for manual review.
 
 ## Commits and pull requests
 
