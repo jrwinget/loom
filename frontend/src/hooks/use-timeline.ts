@@ -175,3 +175,46 @@ export function useLinkEvidence(): ReturnType<
     },
   });
 }
+
+export function useUnlinkEvidence(): ReturnType<
+  typeof useMutation<
+    void,
+    Error,
+    {
+      caseId: string;
+      eventId: string;
+      linkId: string;
+    }
+  >
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      caseId,
+      eventId,
+      linkId,
+    }: {
+      caseId: string;
+      eventId: string;
+      linkId: string;
+    }) =>
+      apiClient.delete<void>(
+        `/cases/${caseId}/events/${eventId}/evidence/${linkId}`,
+      ),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.timeline.events(variables.caseId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.timeline.full(variables.caseId),
+      });
+    },
+    onError: (error: Error) => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: error.message || 'Failed to unlink evidence',
+      });
+    },
+  });
+}

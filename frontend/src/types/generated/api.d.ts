@@ -4623,8 +4623,9 @@ export interface components {
             /**
              * Status
              * @default draft
+             * @enum {string}
              */
-            status: string;
+            status: "draft" | "confirmed" | "disputed";
             /**
              * Time Precision
              * @default approximate
@@ -4784,7 +4785,7 @@ export interface components {
             /** Location Lon */
             location_lon?: number | null;
             /** Status */
-            status?: string | null;
+            status?: ("draft" | "confirmed" | "disputed") | null;
             /** Time Precision */
             time_precision?: string | null;
             /** Title */

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { QueryError } from '@/components/layout/query-error';
+import { EventDetailDrawer } from '@/components/timeline/event-detail-drawer';
 import { TimelineCanvas } from '@/components/timeline/timeline-canvas';
 import { TimelineControls } from '@/components/timeline/timeline-controls';
 import { useCorrelationCandidates } from '@/hooks/use-correlations';
@@ -120,6 +121,13 @@ export function TimelinePage(): React.ReactElement {
     setSelectedEvent(null);
   }, []);
 
+  // the drawer always renders the fresh detail object so evidence
+  // and edits reflect immediately after query invalidation
+  const selectedDetail = useMemo(
+    () => events.find((e) => e.id === selectedEvent?.id) ?? null,
+    [events, selectedEvent],
+  );
+
   return (
     <div className="flex flex-col gap-4 p-6">
       <h1 className="text-foreground text-2xl font-bold">Timeline</h1>
@@ -159,62 +167,12 @@ export function TimelinePage(): React.ReactElement {
         />
       )}
 
-      {selectedEvent && (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-30 bg-black/30"
-            onClick={handleClosePanel}
-            aria-label="Close panel"
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="event-detail-title"
-            data-testid="event-detail-panel"
-            className={
-              'fixed inset-y-0 right-0 z-40 flex w-full ' +
-              'max-w-md flex-col overflow-y-auto border-l ' +
-              'border-border bg-background p-6 shadow-lg'
-            }
-          >
-            <h2
-              id="event-detail-title"
-              className="text-foreground text-lg font-semibold"
-            >
-              {selectedEvent.title}
-            </h2>
-            {selectedEvent.description && (
-              <p className="text-muted-foreground mt-2 text-sm">
-                {selectedEvent.description}
-              </p>
-            )}
-            <div className={'text-muted-foreground mt-4 space-y-2 text-sm'}>
-              <p>
-                Status:{' '}
-                <span className="font-medium">{selectedEvent.status}</span>
-              </p>
-              <p>
-                Precision:{' '}
-                <span className="font-medium">
-                  {selectedEvent.timePrecision}
-                </span>
-              </p>
-              <p>
-                Evidence:{' '}
-                <span className="font-medium">
-                  {selectedEvent.evidenceCount} link
-                  {selectedEvent.evidenceCount !== 1 ? 's' : ''}
-                </span>
-              </p>
-              {selectedEvent.hasContradictions && (
-                <p className="font-medium text-amber-600">
-                  Has contradicting evidence
-                </p>
-              )}
-            </div>
-          </div>
-        </>
+      {selectedDetail && (
+        <EventDetailDrawer
+          caseId={safeId}
+          event={selectedDetail}
+          onClose={handleClosePanel}
+        />
       )}
     </div>
   );

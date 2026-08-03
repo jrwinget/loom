@@ -5253,6 +5253,11 @@
           },
           "status": {
             "default": "draft",
+            "enum": [
+              "draft",
+              "confirmed",
+              "disputed"
+            ],
             "title": "Status",
             "type": "string"
           },
@@ -5657,6 +5662,11 @@
           "status": {
             "anyOf": [
               {
+                "enum": [
+                  "draft",
+                  "confirmed",
+                  "disputed"
+                ],
                 "type": "string"
               },
               {
