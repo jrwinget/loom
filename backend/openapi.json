@@ -1143,6 +1143,20 @@
         "title": "CaseCustodyVerificationResult",
         "type": "object"
       },
+      "CaseHoldRequest": {
+        "properties": {
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "CaseHoldRequest",
+        "type": "object"
+      },
       "CaseIntegrityResult": {
         "description": "aggregate result of verifying all assets in a case.",
         "properties": {
@@ -1319,6 +1333,45 @@
             "title": "Event Count",
             "type": "integer"
           },
+          "hold_active": {
+            "title": "Hold Active",
+            "type": "boolean"
+          },
+          "hold_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hold Reason"
+          },
+          "hold_set_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hold Set At"
+          },
+          "hold_set_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hold Set By"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -1345,7 +1398,11 @@
           "status",
           "created_by",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "hold_active",
+          "hold_reason",
+          "hold_set_by",
+          "hold_set_at"
         ],
         "title": "CaseResponse",
         "type": "object"
@@ -11741,6 +11798,112 @@
         "summary": "Get Geo Events Endpoint",
         "tags": [
           "geo"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/hold": {
+      "post": {
+        "description": "place a litigation hold on a case (owner only).\n\nwhile held, purging the case and deleting its assets are refused \u2014\nfrcp 37(e) posture: evidence destruction must be impossible during\npending or anticipated litigation. the hold and its audit entry\nland in the same commit.",
+        "operationId": "set_case_hold_endpoint_api_v1_cases__case_id__hold_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseHoldRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Case Hold Endpoint",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/hold/release": {
+      "post": {
+        "description": "release a litigation hold (owner only).\n\na reason is required and recorded in the audit trail; the case's\nhold fields are cleared in the same commit.",
+        "operationId": "release_case_hold_endpoint_api_v1_cases__case_id__hold_release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseHoldRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Case Hold Endpoint",
+        "tags": [
+          "cases"
         ]
       }
     },

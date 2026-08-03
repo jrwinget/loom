@@ -24,6 +24,11 @@ vi.mock('@/hooks/use-case', () => ({
     isPending: false,
   }),
 }));
+// the danger zone also renders the litigation hold controls
+vi.mock('@/hooks/use-case-hold', () => ({
+  useSetHold: () => ({ mutate: vi.fn(), isPending: false }),
+  useReleaseHold: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 vi.mock('@/hooks/use-audit', () => ({
   useCaseAudit: () => ({ data: { items: [] } }),
 }));

@@ -1718,6 +1718,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases/{case_id}/hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Case Hold Endpoint
+         * @description place a litigation hold on a case (owner only).
+         *
+         *     while held, purging the case and deleting its assets are refused —
+         *     frcp 37(e) posture: evidence destruction must be impossible during
+         *     pending or anticipated litigation. the hold and its audit entry
+         *     land in the same commit.
+         */
+        post: operations["set_case_hold_endpoint_api_v1_cases__case_id__hold_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/hold/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release Case Hold Endpoint
+         * @description release a litigation hold (owner only).
+         *
+         *     a reason is required and recorded in the audit trail; the case's
+         *     hold fields are cleared in the same commit.
+         */
+        post: operations["release_case_hold_endpoint_api_v1_cases__case_id__hold_release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{case_id}/members": {
         parameters: {
             query?: never;
@@ -2864,6 +2912,11 @@ export interface components {
              */
             verified_at: string;
         };
+        /** CaseHoldRequest */
+        CaseHoldRequest: {
+            /** Reason */
+            reason: string;
+        };
         /**
          * CaseIntegrityResult
          * @description aggregate result of verifying all assets in a case.
@@ -2960,6 +3013,14 @@ export interface components {
              * @default 0
              */
             event_count: number;
+            /** Hold Active */
+            hold_active: boolean;
+            /** Hold Reason */
+            hold_reason: string | null;
+            /** Hold Set At */
+            hold_set_at: string | null;
+            /** Hold Set By */
+            hold_set_by: string | null;
             /**
              * Id
              * Format: uuid
@@ -8119,6 +8180,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GeoEventResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_case_hold_endpoint_api_v1_cases__case_id__hold_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseHoldRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_case_hold_endpoint_api_v1_cases__case_id__hold_release_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseHoldRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseResponse"];
                 };
             };
             /** @description Validation Error */
