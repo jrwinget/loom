@@ -1,11 +1,14 @@
 """tests for export service functions."""
 
+import hashlib
 import json
 import zipfile
 from datetime import UTC, datetime
-from io import BytesIO
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID
+
+import pytest
 
 from loom.models.export_bundle import ExportBundle
 from loom.services.export import (
@@ -15,7 +18,9 @@ from loom.services.export import (
     list_exports,
     package_export_bundle,
 )
-from loom.services.storage import StorageService
+from loom.services.portable_bundle import BundleVerificationError
+from loom.services.storage_backends import ORIGINALS_BUCKET
+from loom.services.storage_backends.local import LocalStorageBackend
 
 _CASE_ID = "01912345-6789-7abc-8def-0123456789ef"
 _USER_ID = "01912345-6789-7abc-8def-012345678901"
@@ -45,6 +50,24 @@ class TestCreateExportRecord:
         assert added.format == "zip"
         assert added.case_id == UUID(_CASE_ID)
         assert added.created_by == UUID(_USER_ID)
+        assert added.options is None
+
+    async def test_persists_submitted_options(self) -> None:
+        """the export request survives on the record verbatim."""
+        session = AsyncMock()
+        session.add = MagicMock()
+
+        options = {
+            "include_originals": True,
+            "include_analysis": False,
+            "event_ids": ["e1"],
+        }
+        await create_export_record(
+            session, _CASE_ID, "n", "zip", _USER_ID, options=options
+        )
+
+        added = session.add.call_args[0][0]
+        assert added.options == options
 
 
 class TestListExports:
@@ -236,44 +259,96 @@ class TestBuildExportManifest:
         # no custody query since asset list is empty
         assert manifest["chain_of_custody"] == []
 
+    async def test_analysis_layer_excluded_when_opted_out(self) -> None:
+        """include_analysis=False skips the work-product queries and
+        records the exclusion in the contents section."""
+        session = AsyncMock()
+        call_count = 0
 
-class TestPackageExportBundle:
-    """package_export_bundle creates ZIP with correct structure."""
+        async def mock_execute(query: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            m = MagicMock()
+            m.scalars.return_value.all.return_value = []
+            return m
 
-    def test_creates_zip_with_all_files(self) -> None:
-        """zip contains manifest, readme, timeline, etc."""
-        manifest = {
-            "case_id": _CASE_ID,
-            "assets": [
-                {
-                    "sha256_hash": "a" * 64,
-                    "original_filename": "vid.mp4",
-                },
-            ],
-            "timeline_events": [{"id": "1", "title": "E1"}],
-            "annotations": [{"id": "2", "content": "note"}],
-            "chain_of_custody": [{"id": "3", "action": "uploaded"}],
-        }
+        session.execute = AsyncMock(side_effect=mock_execute)
 
-        mock_client = MagicMock()
-        storage = StorageService(mock_client)
-
-        key, sha256 = package_export_bundle(
-            manifest, storage, "exports/test/bundle.zip"
+        manifest = await build_export_manifest(
+            session, _CASE_ID, {"include_analysis": False}
         )
 
-        assert key == "exports/test/bundle.zip"
+        # only the assets query ran — events and annotations were
+        # never gathered, not gathered-then-dropped
+        assert call_count == 1
+        assert manifest["timeline_events"] == []
+        assert manifest["annotations"] == []
+        assert manifest["include_analysis"] is False
+        excluded = manifest["contents"]["excluded"]
+        assert "timeline_events" in excluded
+        assert "annotations" in excluded
+        assert "work product" in excluded["timeline_events"]
+
+    async def test_contents_section_counts_included_layers(self) -> None:
+        """the manifest states what shipped and what did not."""
+        session = AsyncMock()
+
+        async def mock_execute(query: object) -> MagicMock:
+            m = MagicMock()
+            m.scalars.return_value.all.return_value = []
+            return m
+
+        session.execute = AsyncMock(side_effect=mock_execute)
+
+        manifest = await build_export_manifest(session, _CASE_ID, {})
+
+        included = manifest["contents"]["included"]
+        assert included["assets"] == 0
+        assert included["timeline_events"] == 0
+        assert included["annotations"] == 0
+        assert manifest["contents"]["excluded"] == {
+            "original_files": "not requested"
+        }
+
+
+def _manifest_fixture(**overrides: object) -> dict:
+    manifest: dict = {
+        "case_id": _CASE_ID,
+        "assets": [
+            {
+                "id": "00000000-0000-0000-0000-000000000001",
+                "sha256_hash": "a" * 64,
+                "original_filename": "vid.mp4",
+                "storage_key": "case/vid.mp4",
+            },
+        ],
+        "timeline_events": [{"id": "1", "title": "E1"}],
+        "annotations": [{"id": "2", "content": "note"}],
+        "chain_of_custody": [{"id": "3", "action": "uploaded"}],
+        "include_originals": False,
+        "include_analysis": True,
+        "contents": {"included": {"assets": 1}, "excluded": {}},
+    }
+    manifest.update(overrides)
+    return manifest
+
+
+class TestPackageExportBundle:
+    """package_export_bundle writes the zip to disk."""
+
+    def test_creates_zip_with_all_files(self, tmp_path: Path) -> None:
+        """zip contains manifest, readme, timeline, etc."""
+        manifest = _manifest_fixture()
+        storage = LocalStorageBackend(tmp_path, signing_secret="x" * 32)
+        dest = tmp_path / "bundle.zip"
+
+        sha256, exported = package_export_bundle(manifest, storage, dest)
+
         assert len(sha256) == 64
+        assert exported == []
+        assert sha256 == hashlib.sha256(dest.read_bytes()).hexdigest()
 
-        # verify upload was called
-        mock_client.put_object.assert_called_once()
-        call_args = mock_client.put_object.call_args
-        assert call_args[0][0] == "loom-derivatives"
-
-        # verify zip contents
-        uploaded_data = call_args[0][2]
-        zip_bytes = uploaded_data.read()
-        with zipfile.ZipFile(BytesIO(zip_bytes)) as zf:
+        with zipfile.ZipFile(dest) as zf:
             names = zf.namelist()
             assert "manifest.json" in names
             assert "README.txt" in names
@@ -282,26 +357,94 @@ class TestPackageExportBundle:
             assert "chain_of_custody.json" in names
             assert "checksums.sha256" in names
 
-            # verify manifest content
             m = json.loads(zf.read("manifest.json"))
             assert m["case_id"] == _CASE_ID
 
-    def test_sha256_is_deterministic(self) -> None:
-        """same manifest produces same hash."""
-        manifest = {
-            "case_id": _CASE_ID,
-            "assets": [],
-            "timeline_events": [],
-            "annotations": [],
-            "chain_of_custody": [],
-        }
+    def test_analysis_files_absent_when_excluded(self, tmp_path: Path) -> None:
+        """an excluded layer is absent, not shipped as empty files."""
+        manifest = _manifest_fixture(
+            include_analysis=False,
+            timeline_events=[],
+            annotations=[],
+        )
+        storage = LocalStorageBackend(tmp_path, signing_secret="x" * 32)
+        dest = tmp_path / "bundle.zip"
 
-        mock_client = MagicMock()
-        storage = StorageService(mock_client)
+        package_export_bundle(manifest, storage, dest)
 
-        _, h1 = package_export_bundle(manifest, storage, "k1")
-        _, h2 = package_export_bundle(manifest, storage, "k2")
-        # note: zip may not be byte-identical due to timestamps,
-        # but the content is the same
+        with zipfile.ZipFile(dest) as zf:
+            names = zf.namelist()
+            assert "timeline.json" not in names
+            assert "annotations.json" not in names
+            # evidence layer still ships
+            assert "chain_of_custody.json" in names
+
+    def test_readme_lists_included_and_excluded(self, tmp_path: Path) -> None:
+        manifest = _manifest_fixture(
+            contents={
+                "included": {"assets": 1},
+                "excluded": {"original_files": "not requested"},
+            }
+        )
+        storage = LocalStorageBackend(tmp_path, signing_secret="x" * 32)
+        dest = tmp_path / "bundle.zip"
+
+        package_export_bundle(manifest, storage, dest)
+
+        with zipfile.ZipFile(dest) as zf:
+            readme = zf.read("README.txt").decode("utf-8")
+        assert "Included:" in readme
+        assert "assets: 1" in readme
+        assert "Excluded:" in readme
+        assert "original_files: not requested" in readme
+
+    def test_streams_and_verifies_originals(self, tmp_path: Path) -> None:
+        """originals are re-hashed on the way into the zip."""
+        payload = b"original evidence bytes"
+        sha = hashlib.sha256(payload).hexdigest()
+        storage = LocalStorageBackend(tmp_path, signing_secret="x" * 32)
+        storage.upload_bytes(
+            ORIGINALS_BUCKET, "case/vid.mp4", payload, "video/mp4"
+        )
+        manifest = _manifest_fixture(include_originals=True)
+        manifest["assets"][0]["sha256_hash"] = sha
+        dest = tmp_path / "bundle.zip"
+
+        _, exported = package_export_bundle(manifest, storage, dest)
+
+        assert exported == [
+            {
+                "id": "00000000-0000-0000-0000-000000000001",
+                "sha256": sha,
+            }
+        ]
+        with zipfile.ZipFile(dest) as zf:
+            entry = "evidence/00000000-0000-0000-0000-000000000001/vid.mp4"
+            assert zf.read(entry) == payload
+
+    def test_refuses_corrupt_original(self, tmp_path: Path) -> None:
+        """a stored file that no longer matches its ingest hash
+        aborts the export instead of shipping silently."""
+        storage = LocalStorageBackend(tmp_path, signing_secret="x" * 32)
+        storage.upload_bytes(
+            ORIGINALS_BUCKET, "case/vid.mp4", b"tampered", "video/mp4"
+        )
+        manifest = _manifest_fixture(include_originals=True)
+        dest = tmp_path / "bundle.zip"
+
+        with pytest.raises(BundleVerificationError):
+            package_export_bundle(manifest, storage, dest)
+
+    def test_sha256_is_deterministic_shape(self, tmp_path: Path) -> None:
+        """hash is the zip file's own sha256."""
+        manifest = _manifest_fixture(
+            assets=[], timeline_events=[], annotations=[]
+        )
+        manifest["chain_of_custody"] = []
+        storage = LocalStorageBackend(tmp_path, signing_secret="x" * 32)
+
+        h1, _ = package_export_bundle(manifest, storage, tmp_path / "1.zip")
+        h2, _ = package_export_bundle(manifest, storage, tmp_path / "2.zip")
         assert len(h1) == 64
+        assert len(h2) == 64
         assert len(h2) == 64

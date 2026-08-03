@@ -40,6 +40,7 @@ def _make_export(
     export.storage_key = ""
     export.sha256_hash = ""
     export.manifest = None
+    export.options = None
     export.created_by = created_by
     export.created_at = _NOW
     return export
@@ -154,6 +155,184 @@ async def test_create_export(
     assert data["name"] == "Test Export"
     assert data["format"] == "zip"
     assert data["status"] == "pending"
+
+
+async def test_create_export_persists_options(
+    mock_settings: Settings,
+) -> None:
+    """the submitted options reach the export record instead of
+    being silently dropped."""
+    app = _create_app(mock_settings)
+    export = _make_export()
+
+    mock_temporal = AsyncMock()
+    mock_temporal.start_workflow = AsyncMock()
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC}.create_export_record",
+            new_callable=AsyncMock,
+            return_value=export,
+        ) as mock_create,
+        patch(
+            "temporalio.client.Client.connect",
+            new_callable=AsyncMock,
+            return_value=mock_temporal,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/exports",
+                json={
+                    "name": "Production Set",
+                    "format": "zip",
+                    "include_originals": True,
+                    "event_ids": ["e1", "e2"],
+                    "date_range_start": "2025-01-01T00:00:00Z",
+                },
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 201
+    options = mock_create.await_args.kwargs["options"]
+    assert options["include_originals"] is True
+    assert options["event_ids"] == ["e1", "e2"]
+    assert options["date_range_start"] == "2025-01-01T00:00:00Z"
+    # zip keeps its historical full contents by default
+    assert options["include_analysis"] is True
+    # unset fields must be absent, not stored as None — a stored
+    # None would clobber the builders' options.get(key, default)
+    assert "include_custody" not in options
+    assert "executive_summary" not in options
+    assert "date_range_end" not in options
+
+
+async def test_create_export_persists_report_options(
+    mock_settings: Settings,
+) -> None:
+    """report-builder composition controls reach the record."""
+    app = _create_app(mock_settings)
+    export = _make_export(fmt="pdf_report")
+
+    mock_temporal = AsyncMock()
+    mock_temporal.start_workflow = AsyncMock()
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC}.create_export_record",
+            new_callable=AsyncMock,
+            return_value=export,
+        ) as mock_create,
+        patch(
+            "temporalio.client.Client.connect",
+            new_callable=AsyncMock,
+            return_value=mock_temporal,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/exports",
+                json={
+                    "name": "Report",
+                    "format": "pdf_report",
+                    "include_custody": True,
+                    "include_contradictions": False,
+                    "executive_summary": "what happened on the bridge",
+                },
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 201
+    options = mock_create.await_args.kwargs["options"]
+    assert options["include_custody"] is True
+    assert options["include_contradictions"] is False
+    assert options["executive_summary"] == "what happened on the bridge"
+    assert "include_evidence" not in options
+
+
+async def test_court_bundle_defaults_to_evidence_only(
+    mock_settings: Settings,
+) -> None:
+    """a court bundle is an evidence-only production unless counsel
+    opts the analysis layer in (work-product firewall)."""
+    app = _create_app(mock_settings)
+    export = _make_export(fmt="court_bundle")
+
+    mock_temporal = AsyncMock()
+    mock_temporal.start_workflow = AsyncMock()
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            f"{_SVC}.check_case_access",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC}.create_export_record",
+            new_callable=AsyncMock,
+            return_value=export,
+        ) as mock_create,
+        patch(
+            "temporalio.client.Client.connect",
+            new_callable=AsyncMock,
+            return_value=mock_temporal,
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/exports",
+                json={"name": "Court Bundle", "format": "court_bundle"},
+                headers=_auth_header(token),
+            )
+            explicit = await ac.post(
+                f"/api/v1/cases/{_CASE_ID}/exports",
+                json={
+                    "name": "Court Bundle",
+                    "format": "court_bundle",
+                    "include_analysis": True,
+                },
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 201
+    assert explicit.status_code == 201
+    first, second = mock_create.await_args_list
+    assert first.kwargs["options"]["include_analysis"] is False
+    assert second.kwargs["options"]["include_analysis"] is True
 
 
 async def test_list_exports(

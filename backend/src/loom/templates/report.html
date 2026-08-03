@@ -91,9 +91,24 @@
     font-size: 9pt;
     text-align: center;
   }
+  .work-product-banner {
+    border: 2px solid #8a1f1f;
+    color: #8a1f1f;
+    font-weight: bold;
+    text-align: center;
+    padding: 8px;
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+  }
 </style>
 </head>
 <body>
+
+{% if work_product %}
+<div class="work-product-banner">
+  ATTORNEY WORK PRODUCT — PREPARED IN ANTICIPATION OF LITIGATION
+</div>
+{% endif %}
 
 <h1>{{ case.name }} — Evidence Report</h1>
 <div class="meta">

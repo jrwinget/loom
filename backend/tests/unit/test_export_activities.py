@@ -67,6 +67,7 @@ class TestBuildExportActivity:
     ) -> None:
         """dispatches to json manifest builder."""
         export = _make_export(fmt="json_manifest")
+        mock_json_builder.return_value = None
 
         session = AsyncMock()
         result = MagicMock()
@@ -91,6 +92,7 @@ class TestBuildExportActivity:
     ) -> None:
         """dispatches to zip bundle builder."""
         export = _make_export(fmt="zip")
+        mock_zip_builder.return_value = None
 
         session = AsyncMock()
         result = MagicMock()
@@ -130,3 +132,73 @@ class TestBuildExportActivity:
             await build_export(_EXPORT_ID)
 
         assert export.status == "failed"
+
+    @patch("loom.workflows.export_activities._build_zip_bundle")
+    @patch("loom.workflows.export_activities.get_db_session")
+    async def test_rolls_back_before_recording_failure(
+        self,
+        mock_session_ctx: MagicMock,
+        mock_zip_builder: AsyncMock,
+    ) -> None:
+        """a failed build must not commit staged custody rows.
+
+        custody is append-only — anything the builder session.add()ed
+        before raising would otherwise be committed alongside the
+        failed status and could never be removed.
+        """
+        export = _make_export(fmt="zip")
+        mock_zip_builder.side_effect = RuntimeError("boom")
+
+        session = AsyncMock()
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = export
+        session.execute.return_value = result
+
+        ctx = AsyncMock()
+        ctx.__aenter__.return_value = session
+        mock_session_ctx.return_value = ctx
+
+        with pytest.raises(RuntimeError, match="boom"):
+            await build_export(_EXPORT_ID)
+
+        session.rollback.assert_awaited_once()
+        session.add.assert_not_called()
+
+    @patch("loom.workflows.export_activities._build_zip_bundle")
+    @patch("loom.workflows.export_activities.get_db_session")
+    async def test_writes_exported_custody_entries(
+        self,
+        mock_session_ctx: MagicMock,
+        mock_zip_builder: AsyncMock,
+    ) -> None:
+        """each included original gets an exported custody entry in
+        the same commit as the flip to complete."""
+        export = _make_export(fmt="zip")
+        export.name = "production set 1"
+        export.sha256_hash = "c" * 64
+        export.created_by = UUID(_CASE_ID)
+        asset_id = UUID("00000000-0000-0000-0000-000000000042")
+        mock_zip_builder.return_value = [
+            {"id": str(asset_id), "sha256": "a" * 64}
+        ]
+
+        session = AsyncMock()
+        session.add = MagicMock()
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = export
+        session.execute.return_value = result
+
+        ctx = AsyncMock()
+        ctx.__aenter__.return_value = session
+        mock_session_ctx.return_value = ctx
+
+        await build_export(_EXPORT_ID)
+
+        session.add.assert_called_once()
+        entry = session.add.call_args[0][0]
+        assert entry.action == "exported"
+        assert entry.actor_id == export.created_by
+        assert entry.detail["export_id"] == _EXPORT_ID
+        assert entry.detail["format"] == "zip"
+        assert entry.detail["verified"] is True
+        assert export.status == "complete"

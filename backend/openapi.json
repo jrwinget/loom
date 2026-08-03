@@ -2904,10 +2904,65 @@
             ],
             "title": "Event Ids"
           },
+          "executive_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executive Summary"
+          },
           "format": {
             "pattern": "^(zip|pdf_report|json_manifest|court_bundle|portable_bundle)$",
             "title": "Format",
             "type": "string"
+          },
+          "include_analysis": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Analysis"
+          },
+          "include_contradictions": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Contradictions"
+          },
+          "include_custody": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Custody"
+          },
+          "include_evidence": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Evidence"
           },
           "include_originals": {
             "default": false,
@@ -2997,6 +3052,15 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "options": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
           },
           "sha256_hash": {
             "anyOf": [
