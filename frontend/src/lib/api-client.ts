@@ -61,6 +61,11 @@ const OPAQUE_VALUE_KEYS = new Set([
   // correlation reasoning is keyed by dynamic signal names
   // (e.g. "time_proximity") that are displayed verbatim.
   'reasoning',
+  // an export's manifest mirrors the manifest.json inside the
+  // bundle and its options mirror the request as submitted; both
+  // must render exactly as recorded
+  'manifest',
+  'options',
 ]);
 
 function snakeToCamel(key: string): string {

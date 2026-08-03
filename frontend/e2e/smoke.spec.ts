@@ -145,6 +145,12 @@ test('first run through export', async ({ page }) => {
       .getByPlaceholder('e.g. Case export 2026-03')
       .fill(EXPORT_NAME);
     await page.getByRole('button', { name: 'Next' }).click();
+
+    // the layer choice is the work-product firewall; a zip keeps its
+    // historical full contents, so analysis starts checked here
+    await expect(page.getByTestId('layer-controls')).toBeVisible();
+    await expect(page.getByTestId('include-analysis')).toBeChecked();
+
     await page.getByRole('button', { name: 'Next' }).click();
     await page.getByTestId('export-submit').click();
 

@@ -118,4 +118,113 @@ describe('ExportWizard', () => {
       expect.any(Object),
     );
   });
+
+  async function fillNameAndAdvance(
+    user: ReturnType<typeof userEvent.setup>,
+    format?: string,
+  ): Promise<void> {
+    await user.type(
+      screen.getByPlaceholderText('e.g. Case export 2026-03'),
+      'My Export',
+    );
+    if (format) {
+      fireEvent.change(screen.getByRole('combobox'), {
+        target: { value: format },
+      });
+    }
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+  }
+
+  it('zip defaults to including the analysis layer', async () => {
+    renderWizard();
+    const user = userEvent.setup();
+    await fillNameAndAdvance(user);
+
+    expect(screen.getByTestId('include-analysis')).toBeChecked();
+    expect(
+      screen.getByTestId('work-product-warning'),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await user.click(screen.getByTestId('export-submit'));
+
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        format: 'zip',
+        include_analysis: true,
+        include_originals: false,
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it('court bundle defaults to an evidence-only production', async () => {
+    renderWizard();
+    const user = userEvent.setup();
+    await fillNameAndAdvance(user, 'court_bundle');
+
+    expect(screen.getByTestId('include-analysis')).not.toBeChecked();
+    expect(
+      screen.queryByTestId('work-product-warning'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Evidence-only production/),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await user.click(screen.getByTestId('export-submit'));
+
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        format: 'court_bundle',
+        include_analysis: false,
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it('opting analysis into a court bundle shows the warning', async () => {
+    renderWizard();
+    const user = userEvent.setup();
+    await fillNameAndAdvance(user, 'court_bundle');
+
+    await user.click(screen.getByTestId('include-analysis'));
+    expect(
+      screen.getByTestId('work-product-warning'),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(
+      screen.getByText('Included (work product)'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByTestId('export-submit'));
+
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ include_analysis: true }),
+      expect.any(Object),
+    );
+  });
+
+  it('hides layer controls for formats without a choice', async () => {
+    renderWizard();
+    const user = userEvent.setup();
+    await fillNameAndAdvance(user, 'portable_bundle');
+
+    expect(
+      screen.queryByTestId('layer-controls'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/always contain the whole case/),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await user.click(screen.getByTestId('export-submit'));
+
+    const payload = mockMutate.mock.calls.at(-1)?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(payload).not.toHaveProperty('include_analysis');
+    expect(payload).not.toHaveProperty('include_originals');
+  });
 });
