@@ -69,6 +69,11 @@ async def verify_asset_integrity(
 
     passed = sha256_match and sha512_match
 
+    # stamp verification recency on the asset itself so list views
+    # and reports can show it without replaying the custody chain
+    asset.last_verified_at = verified_at
+    asset.last_verification_ok = passed
+
     # record custody entry
     entry = ChainOfCustodyEntry(
         asset_id=UUID(asset_id),
@@ -128,7 +133,7 @@ async def verify_case_integrity(
                 ip_address,
             )
             results.append(ir)
-            if ir.sha256_match and ir.sha512_match:
+            if ir.passed:
                 passed_count += 1
             else:
                 failed_count += 1
@@ -148,28 +153,22 @@ async def verify_case_integrity(
 
 async def generate_integrity_report(
     session: AsyncSession,
-    storage: StorageBackend,
     asset_id: str,
-    actor_id: str,
-    ip_address: str | None = None,
 ) -> IntegrityReportResponse:
-    """generate a court-ready integrity report.
+    """generate a court-ready integrity report from stored state.
 
-    includes verification result, full custody chain,
-    and asset metadata.
+    read-only: summarizes the ingest hashes, verification recency,
+    and recorded custody chain. it never re-hashes the file or
+    writes custody entries -- verification stays on the editor-gated
+    verify endpoints.
     """
-    # verify integrity first
-    verification = await verify_asset_integrity(
-        session, storage, asset_id, actor_id, ip_address
-    )
-
-    # fetch asset record for metadata
     result = await session.execute(
         select(Asset).where(Asset.id == UUID(asset_id))
     )
-    asset = result.scalar_one()
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise IntegrityError(f"asset {asset_id} not found")
 
-    # fetch full custody chain
     custody_result = await session.execute(
         select(ChainOfCustodyEntry)
         .where(ChainOfCustodyEntry.asset_id == UUID(asset_id))
@@ -188,6 +187,9 @@ async def generate_integrity_report(
         )
         for e in entries
     ]
+    verification_history = [
+        c for c in custody_chain if c.action == "integrity_verification"
+    ]
 
     return IntegrityReportResponse(
         asset_id=asset.id,
@@ -199,7 +201,11 @@ async def generate_integrity_report(
         file_size_bytes=asset.file_size_bytes,
         uploaded_by=asset.uploaded_by,
         uploaded_at=asset.uploaded_at,
-        verification=verification,
+        sha256_hash=asset.sha256_hash,
+        sha512_hash=asset.sha512_hash,
+        last_verified_at=asset.last_verified_at,
+        last_verification_ok=asset.last_verification_ok,
+        verification_history=verification_history,
         custody_chain=custody_chain,
         report_generated_at=datetime.now(UTC),
     )

@@ -649,6 +649,29 @@
             "title": "Id",
             "type": "string"
           },
+          "last_verification_ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Verification Ok"
+          },
+          "last_verified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Verified At"
+          },
           "media_type": {
             "title": "Media Type",
             "type": "string"
@@ -3406,7 +3429,7 @@
         "type": "object"
       },
       "IntegrityReportResponse": {
-        "description": "court-ready integrity report for an asset.",
+        "description": "court-ready integrity report for an asset.\n\na read-only summary of stored state: ingest hashes, verification\nrecency, and the recorded custody chain. generating it never\nre-verifies the asset or writes custody entries.",
         "properties": {
           "asset_id": {
             "format": "uuid",
@@ -3429,6 +3452,29 @@
             "title": "File Size Bytes",
             "type": "integer"
           },
+          "last_verification_ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Verification Ok"
+          },
+          "last_verified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Verified At"
+          },
           "media_type": {
             "title": "Media Type",
             "type": "string"
@@ -3446,6 +3492,14 @@
             "title": "Report Generated At",
             "type": "string"
           },
+          "sha256_hash": {
+            "title": "Sha256 Hash",
+            "type": "string"
+          },
+          "sha512_hash": {
+            "title": "Sha512 Hash",
+            "type": "string"
+          },
           "storage_key": {
             "title": "Storage Key",
             "type": "string"
@@ -3460,8 +3514,12 @@
             "title": "Uploaded By",
             "type": "string"
           },
-          "verification": {
-            "$ref": "#/components/schemas/IntegrityResult"
+          "verification_history": {
+            "items": {
+              "$ref": "#/components/schemas/loom__schemas__integrity__CustodyEntryResponse"
+            },
+            "title": "Verification History",
+            "type": "array"
           }
         },
         "required": [
@@ -3474,7 +3532,11 @@
           "file_size_bytes",
           "uploaded_by",
           "uploaded_at",
-          "verification",
+          "sha256_hash",
+          "sha512_hash",
+          "last_verified_at",
+          "last_verification_ok",
+          "verification_history",
           "custody_chain",
           "report_generated_at"
         ],
@@ -3504,6 +3566,11 @@
           "filename": {
             "title": "Filename",
             "type": "string"
+          },
+          "passed": {
+            "readOnly": true,
+            "title": "Passed",
+            "type": "boolean"
           },
           "sha256_match": {
             "title": "Sha256 Match",
@@ -3542,7 +3609,8 @@
           "computed_sha512",
           "sha256_match",
           "sha512_match",
-          "verified_at"
+          "verified_at",
+          "passed"
         ],
         "title": "IntegrityResult",
         "type": "object"
@@ -6445,12 +6513,7 @@
           },
           "detail": {
             "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
+              {},
               {
                 "type": "null"
               }
@@ -8601,7 +8664,7 @@
     },
     "/api/v1/cases/{case_id}/assets/{asset_id}/integrity-report": {
       "get": {
-        "description": "generate a court-ready integrity report for an asset.",
+        "description": "summarize stored integrity state for an asset.\n\nread-only: never re-verifies or writes custody entries, so it is\nsafe behind viewer access.",
         "operationId": "get_integrity_report_api_v1_cases__case_id__assets__asset_id__integrity_report_get",
         "parameters": [
           {

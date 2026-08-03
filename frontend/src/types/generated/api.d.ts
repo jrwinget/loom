@@ -787,7 +787,10 @@ export interface paths {
         };
         /**
          * Get Integrity Report
-         * @description generate a court-ready integrity report for an asset.
+         * @description summarize stored integrity state for an asset.
+         *
+         *     read-only: never re-verifies or writes custody entries, so it is
+         *     safe behind viewer access.
          */
         get: operations["get_integrity_report_api_v1_cases__case_id__assets__asset_id__integrity_report_get"];
         put?: never;
@@ -2701,6 +2704,10 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Last Verification Ok */
+            last_verification_ok?: boolean | null;
+            /** Last Verified At */
+            last_verified_at?: string | null;
             /** Media Type */
             media_type: string;
             /** Metadata Extracted */
@@ -3841,6 +3848,10 @@ export interface components {
         /**
          * IntegrityReportResponse
          * @description court-ready integrity report for an asset.
+         *
+         *     a read-only summary of stored state: ingest hashes, verification
+         *     recency, and the recorded custody chain. generating it never
+         *     re-verifies the asset or writes custody entries.
          */
         IntegrityReportResponse: {
             /**
@@ -3857,6 +3868,10 @@ export interface components {
             custody_chain: components["schemas"]["loom__schemas__integrity__CustodyEntryResponse"][];
             /** File Size Bytes */
             file_size_bytes: number;
+            /** Last Verification Ok */
+            last_verification_ok: boolean | null;
+            /** Last Verified At */
+            last_verified_at: string | null;
             /** Media Type */
             media_type: string;
             /** Mime Type */
@@ -3868,6 +3883,10 @@ export interface components {
              * Format: date-time
              */
             report_generated_at: string;
+            /** Sha256 Hash */
+            sha256_hash: string;
+            /** Sha512 Hash */
+            sha512_hash: string;
             /** Storage Key */
             storage_key: string;
             /**
@@ -3880,7 +3899,8 @@ export interface components {
              * Format: uuid
              */
             uploaded_by: string;
-            verification: components["schemas"]["IntegrityResult"];
+            /** Verification History */
+            verification_history: components["schemas"]["loom__schemas__integrity__CustodyEntryResponse"][];
         };
         /**
          * IntegrityResult
@@ -3900,6 +3920,8 @@ export interface components {
             file_size: number;
             /** Filename */
             filename: string;
+            /** Passed */
+            readonly passed: boolean;
             /** Sha256 Match */
             sha256_match: boolean;
             /** Sha512 Match */
@@ -5085,9 +5107,7 @@ export interface components {
              */
             actor_id: string;
             /** Detail */
-            detail?: {
-                [key: string]: string;
-            } | null;
+            detail?: unknown | null;
             /**
              * Id
              * Format: uuid

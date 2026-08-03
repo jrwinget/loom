@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 
 class IntegrityResult(BaseModel):
@@ -20,6 +20,7 @@ class IntegrityResult(BaseModel):
     sha512_match: bool
     verified_at: datetime
 
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def passed(self) -> bool:
         return self.sha256_match and self.sha512_match
@@ -56,7 +57,12 @@ class CustodyEntryResponse(BaseModel):
 
 
 class IntegrityReportResponse(BaseModel):
-    """court-ready integrity report for an asset."""
+    """court-ready integrity report for an asset.
+
+    a read-only summary of stored state: ingest hashes, verification
+    recency, and the recorded custody chain. generating it never
+    re-verifies the asset or writes custody entries.
+    """
 
     asset_id: UUID
     case_id: UUID
@@ -67,7 +73,11 @@ class IntegrityReportResponse(BaseModel):
     file_size_bytes: int
     uploaded_by: UUID
     uploaded_at: datetime
-    verification: IntegrityResult
+    sha256_hash: str
+    sha512_hash: str
+    last_verified_at: datetime | None
+    last_verification_ok: bool | None
+    verification_history: list[CustodyEntryResponse]
     custody_chain: list[CustodyEntryResponse]
     report_generated_at: datetime
 
