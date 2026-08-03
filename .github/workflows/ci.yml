@@ -285,10 +285,15 @@ jobs:
         run: uv run alembic upgrade head
 
       # models == alembic head implies the lite create_all schema and
-      # the server migration schema agree
-      - name: Schema parity (models vs migrations)
+      # the server migration schema agree; the purge test needs the
+      # migrated postgres (append-only triggers) so it lives here too
+      - name: Schema parity + postgres purge (models vs migrations)
         working-directory: backend
-        run: uv run pytest tests/integration/test_schema_parity.py -v
+        run: >
+          uv run pytest
+          tests/integration/test_schema_parity.py
+          tests/integration/test_case_purge_pg.py
+          -v
 
   perf-benchmarks:
     name: Perf Benchmarks
