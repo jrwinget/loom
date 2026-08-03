@@ -14,6 +14,7 @@ from temporalio import activity
 from loom.metrics import ingest_workflow_duration
 from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.models.export_bundle import ExportBundle
+from loom.models.user import User
 from loom.workflows.shared import get_db_session, get_storage_backend
 
 logger = logging.getLogger(__name__)
@@ -279,14 +280,28 @@ async def _build_portable_bundle(
         tmp_path.unlink(missing_ok=True)
 
 
+async def _resolve_preparer(session: Any, user_id: Any) -> str:
+    """human name for the bundle cover and § 1746 declaration.
+
+    display_name → email → the raw uuid, so the cover never shows
+    an opaque identifier when anything better exists.
+    """
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        return str(user_id)
+    return user.display_name or user.email or str(user_id)
+
+
 async def _build_court_bundle(
     session: Any,
     export: Any,
     case_id: str,
 ) -> list[dict[str, Any]] | None:
-    """build the court-admissible bundle (cover + exhibit index +
-    custody log + optional report/originals + MANIFEST.sha256 +
-    optional signature) and upload.
+    """build the court-admissible bundle (cover + declaration +
+    exhibit index + custody log + optional report/originals +
+    verifier assets + MANIFEST.sha256 + optional signature) and
+    upload.
     """
     import asyncio
 
@@ -307,7 +322,7 @@ async def _build_court_bundle(
             options,
             storage,
             tmp_path,
-            preparer=str(export.created_by),
+            preparer=await _resolve_preparer(session, export.created_by),
             signing_key_pem=getattr(settings, "bundle_signing_key", None),
         )
         output_key = f"exports/{export.id}/court_bundle.zip"

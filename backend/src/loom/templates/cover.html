@@ -110,11 +110,14 @@
   Every file in this bundle is listed in <code>MANIFEST.sha256</code>
   with its SHA-256 digest. The value above is the SHA-256 of the
   concatenated manifest of every file other than this cover page.
-  Recompute with <code>sha256sum *.pdf MANIFEST.sha256</code> to
-  verify nothing has been altered since generation. If a detached
-  signature (<code>MANIFEST.sha256.sig</code>) is present, verify it
-  against the preparer's Ed25519 public key before relying on the
-  manifest.
+  To verify nothing has been altered since generation, open
+  <code>verify.html</code> in a browser, run
+  <code>python3 verify.py</code>, or run
+  <code>sha256sum -c MANIFEST.sha256</code> — see
+  <code>VERIFY_README.txt</code> for plain-language instructions.
+  If a detached signature (<code>MANIFEST.sha256.sig</code>) is
+  present, verify it against the preparer's Ed25519 public key
+  before relying on the manifest.
 </div>
 
 </body>

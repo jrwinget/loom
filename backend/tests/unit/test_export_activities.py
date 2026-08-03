@@ -1,12 +1,17 @@
 """tests for export activity implementations."""
 
 import inspect
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
 import pytest
 
-from loom.workflows.export_activities import build_export
+from loom.workflows.export_activities import (
+    _build_court_bundle,
+    _resolve_preparer,
+    build_export,
+)
 
 _EXPORT_ID = "01912345-6789-7abc-8def-0123456789ab"
 _CASE_ID = "01912345-6789-7abc-8def-0123456789ef"
@@ -202,3 +207,72 @@ class TestBuildExportActivity:
         assert entry.detail["format"] == "zip"
         assert entry.detail["verified"] is True
         assert export.status == "complete"
+
+
+def _session_returning_user(user: MagicMock | None) -> AsyncMock:
+    session = AsyncMock()
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = user
+    session.execute.return_value = result
+    return session
+
+
+class TestResolvePreparer:
+    """the court-bundle cover and declaration must carry a human
+    name, not the raw created_by uuid."""
+
+    async def test_prefers_display_name(self) -> None:
+        user = MagicMock()
+        user.display_name = "Jane Analyst"
+        user.email = "jane@example.org"
+        session = _session_returning_user(user)
+
+        name = await _resolve_preparer(session, UUID(_CASE_ID))
+        assert name == "Jane Analyst"
+
+    async def test_falls_back_to_email(self) -> None:
+        user = MagicMock()
+        user.display_name = ""
+        user.email = "jane@example.org"
+        session = _session_returning_user(user)
+
+        name = await _resolve_preparer(session, UUID(_CASE_ID))
+        assert name == "jane@example.org"
+
+    async def test_falls_back_to_uuid_when_user_missing(self) -> None:
+        session = _session_returning_user(None)
+
+        name = await _resolve_preparer(session, UUID(_CASE_ID))
+        assert name == _CASE_ID
+
+    @patch("loom.services.streaming_upload.upload_tmp_dir")
+    @patch("loom.config.get_settings")
+    @patch("loom.workflows.export_activities.get_storage_backend")
+    @patch(
+        "loom.services.court_bundle.build_court_bundle",
+        new_callable=AsyncMock,
+    )
+    async def test_court_bundle_builder_passes_resolved_name(
+        self,
+        mock_build: AsyncMock,
+        mock_storage: MagicMock,
+        mock_settings: MagicMock,
+        mock_tmp_dir: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        export = _make_export(fmt="court_bundle")
+        export.created_by = UUID(_CASE_ID)
+        export.options = {}
+
+        user = MagicMock()
+        user.display_name = "Jane Analyst"
+        user.email = "jane@example.org"
+        session = _session_returning_user(user)
+
+        mock_build.return_value = ("f" * 64, [])
+        mock_settings.return_value = MagicMock(bundle_signing_key=None)
+        mock_tmp_dir.return_value = tmp_path
+
+        await _build_court_bundle(session, export, _CASE_ID)
+
+        assert mock_build.call_args.kwargs["preparer"] == "Jane Analyst"
