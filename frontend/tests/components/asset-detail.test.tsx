@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { AssetDetail } from '@/components/asset/asset-detail';
 import type { Asset } from '@/types/asset';
@@ -32,13 +33,41 @@ const mockCustodyData = {
       ip_address: null,
       timestamp: '2026-03-15T16:05:00Z',
     },
+    {
+      id: 'c3',
+      asset_id: 'asset-1',
+      action: 'integrity_verification',
+      actor_id: 'user-1',
+      detail: { result: 'passed', sha256_match: true },
+      ip_address: null,
+      timestamp: '2026-03-16T09:00:00Z',
+    },
+    {
+      id: 'c4',
+      asset_id: 'asset-1',
+      action: 'exported',
+      actor_id: 'user-1',
+      detail: { export_name: 'Production Set', verified: true },
+      ip_address: null,
+      timestamp: '2026-03-17T09:00:00Z',
+    },
   ],
-  total: 2,
+  total: 4,
 };
 vi.mock('@/hooks/use-custody', () => ({
   useAssetCustody: () => ({
     data: mockCustodyData,
     isLoading: false,
+  }),
+}));
+
+const mockVerify = vi.fn();
+const mockDownloadReport = vi.fn();
+vi.mock('@/hooks/use-integrity', () => ({
+  useVerifyAsset: () => ({ mutate: mockVerify, isPending: false }),
+  useDownloadIntegrityReport: () => ({
+    mutate: mockDownloadReport,
+    isPending: false,
   }),
 }));
 
@@ -57,6 +86,8 @@ const mockAsset: Asset = {
   captureTime: '2026-03-15T14:30:00Z',
   clockOffsetSeconds: null,
   clockConfidence: null,
+  lastVerifiedAt: null,
+  lastVerificationOk: null,
   createdAt: '2026-03-15T16:00:00Z',
   updatedAt: '2026-03-15T16:05:00Z',
 };
@@ -125,8 +156,11 @@ describe('AssetDetail', () => {
   it('shows custody chain entries', () => {
     renderDetail();
     expect(screen.getByText('Chain of custody')).toBeInTheDocument();
-    expect(screen.getByText('upload')).toBeInTheDocument();
-    expect(screen.getByText('process complete')).toBeInTheDocument();
+    // known actions read as statements; unmapped ones degrade to the
+    // de-slugged action name
+    const timeline = screen.getByTestId('custody-timeline');
+    expect(timeline).toHaveTextContent('Uploaded');
+    expect(timeline).toHaveTextContent('process complete');
   });
 
   it('shows custody timeline data-testid', () => {
@@ -201,5 +235,64 @@ describe('AssetDetail', () => {
   it('shows no failure text for a healthy asset', () => {
     renderDetail();
     expect(screen.queryByTestId('processing-error')).not.toBeInTheDocument();
+  });
+
+  it('reports an asset that has never been verified', () => {
+    renderDetail();
+    expect(screen.getByTestId('verification-chip')).toHaveTextContent(
+      'Never verified',
+    );
+  });
+
+  it('dates a passing verification', () => {
+    renderDetail({
+      ...mockAsset,
+      lastVerifiedAt: '2026-07-24T12:00:00Z',
+      lastVerificationOk: true,
+    });
+    expect(screen.getByTestId('verification-chip')).toHaveTextContent(
+      /Verified Jul 24, 2026/,
+    );
+  });
+
+  it('flags a failed verification loudly', () => {
+    renderDetail({
+      ...mockAsset,
+      lastVerifiedAt: '2026-07-24T12:00:00Z',
+      lastVerificationOk: false,
+    });
+    expect(screen.getByTestId('verification-chip')).toHaveTextContent(
+      /FAILED/,
+    );
+  });
+
+  it('verifies the asset on demand', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(screen.getByTestId('verify-asset-btn'));
+
+    expect(mockVerify).toHaveBeenCalledWith('asset-1');
+  });
+
+  it('downloads the integrity report on demand', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(screen.getByTestId('integrity-report-btn'));
+
+    expect(mockDownloadReport).toHaveBeenCalledWith('asset-1');
+  });
+
+  it('reads an integrity check as a plain statement', () => {
+    renderDetail();
+    const timeline = screen.getByTestId('custody-timeline');
+    expect(timeline).toHaveTextContent('Integrity verified — hashes match');
+  });
+
+  it('names the bundle an asset was exported in', () => {
+    renderDetail();
+    const timeline = screen.getByTestId('custody-timeline');
+    expect(timeline).toHaveTextContent('Exported in bundle "Production Set"');
   });
 });

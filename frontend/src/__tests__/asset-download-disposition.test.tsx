@@ -20,6 +20,11 @@ vi.mock('@/hooks/use-custody', () => ({
   useAssetCustody: () => ({ data: undefined, isLoading: false }),
 }));
 
+vi.mock('@/hooks/use-integrity', () => ({
+  useVerifyAsset: () => ({ mutate: vi.fn(), isPending: false }),
+  useDownloadIntegrityReport: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
 import { AssetDetail } from '@/components/asset/asset-detail';
 import type { Asset } from '@/types/asset';
 

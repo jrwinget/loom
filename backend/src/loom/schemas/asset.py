@@ -36,6 +36,8 @@ class AssetResponse(BaseModel):
     capture_location_lon: float | None = None
     clock_offset_seconds: float | None = None
     clock_confidence: float | None = None
+    last_verified_at: datetime | None = None
+    last_verification_ok: bool | None = None
     processing_status: str
     processing_error: str | None = None
     created_at: datetime
