@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet, useParams } from 'react-router-dom';
+import { CaseHoldBanner } from '@/components/case/case-hold-banner';
 import { useCase } from '@/hooks/use-case';
 
 // every page that lives under a case shares this toolbar so the case
@@ -60,6 +61,7 @@ export function CaseLayout(): React.ReactElement {
           )}
         </div>
       </div>
+      {caseData && <CaseHoldBanner caseData={caseData} />}
       <nav
         aria-label="Case sections"
         className="border-border flex gap-1 border-b"

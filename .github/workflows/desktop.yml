@@ -730,6 +730,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          (cd artifacts && sha256sum -- * > ../SHA256SUMS)
+          # the merged artifact tree keeps each platform's bundle
+          # subdirectory (appimage/, dmg/, msi/, ...), so walk it and
+          # emit basenames — the format the verify command in
+          # docs/desktop-lite.md checks against downloaded files
+          : > SHA256SUMS
+          find artifacts -type f -print0 | LC_ALL=C sort -z \
+            | while IFS= read -r -d '' f; do
+              (cd "$(dirname "$f")" && sha256sum -- "$(basename "$f")") \
+                >> SHA256SUMS
+            done
+          test -s SHA256SUMS
           cat SHA256SUMS
           gh release upload "${GITHUB_REF_NAME}" SHA256SUMS --clobber

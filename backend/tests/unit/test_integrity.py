@@ -95,8 +95,8 @@ def _make_session(
             scalars_mock = MagicMock()
             scalars_mock.all.return_value = assets
             result_mock.scalars.return_value = scalars_mock
-        elif custody_entries is not None:
-            # custody chain query
+        elif custody_entries is not None and call_count[0] > 1:
+            # custody chain query follows the asset fetch
             scalars_mock = MagicMock()
             scalars_mock.all.return_value = custody_entries
             result_mock.scalars.return_value = scalars_mock
@@ -285,6 +285,38 @@ class TestVerifyAssetIntegrity:
         assert entry.detail["sha256_match"] is False
 
     @pytest.mark.asyncio
+    async def test_sets_recency_fields_on_pass(self) -> None:
+        """a passing run stamps the asset's recency columns."""
+        asset = _make_asset()
+        asset.last_verified_at = None
+        asset.last_verification_ok = None
+        session = _make_session(asset=asset)
+        storage = _make_storage()
+
+        result = await verify_asset_integrity(
+            session, storage, _ASSET_ID, _USER_ID
+        )
+
+        assert asset.last_verification_ok is True
+        assert asset.last_verified_at == result.verified_at
+
+    @pytest.mark.asyncio
+    async def test_sets_recency_fields_on_fail(self) -> None:
+        """a failing run also stamps the recency columns."""
+        asset = _make_asset(sha256="a" * 64)
+        asset.last_verified_at = None
+        asset.last_verification_ok = None
+        session = _make_session(asset=asset)
+        storage = _make_storage()
+
+        result = await verify_asset_integrity(
+            session, storage, _ASSET_ID, _USER_ID
+        )
+
+        assert asset.last_verification_ok is False
+        assert asset.last_verified_at == result.verified_at
+
+    @pytest.mark.asyncio
     async def test_ip_address_recorded(self) -> None:
         """ip address is stored in custody entry."""
         asset = _make_asset()
@@ -442,58 +474,135 @@ class TestVerifyCaseIntegrity:
         assert result.failed_count == 1
 
 
+def _make_custody_entry(
+    entry_id: str,
+    action: str,
+    detail: dict | None,
+    day: int = 1,
+) -> MagicMock:
+    entry = MagicMock()
+    entry.id = UUID(entry_id)
+    entry.action = action
+    entry.actor_id = UUID(_USER_ID)
+    entry.detail = detail
+    entry.ip_address = None
+    entry.timestamp = datetime(2025, 1, day, tzinfo=UTC)
+    return entry
+
+
 class TestGenerateIntegrityReport:
-    """generate_integrity_report produces court-ready output."""
+    """generate_integrity_report summarizes stored state."""
 
     @pytest.mark.asyncio
     async def test_report_includes_all_sections(self) -> None:
-        """report contains verification, custody, metadata."""
+        """report contains stored hashes, recency, custody."""
         asset = _make_asset()
+        asset.last_verified_at = datetime(2025, 1, 2, tzinfo=UTC)
+        asset.last_verification_ok = True
 
-        custody_entry = MagicMock()
-        custody_entry.id = UUID("00000000-0000-0000-0000-000000000050")
-        custody_entry.action = "upload"
-        custody_entry.actor_id = UUID(_USER_ID)
-        custody_entry.detail = {"action": "file_uploaded"}
-        custody_entry.ip_address = "10.0.0.1"
-        custody_entry.timestamp = datetime(2025, 1, 1, tzinfo=UTC)
-
-        session = AsyncMock()
-        call_count = [0]
-
-        async def execute_side_effect(query):
-            call_count[0] += 1
-            result_mock = MagicMock()
-            if call_count[0] == 1:
-                # verify_asset_integrity fetches asset
-                result_mock.scalar_one_or_none.return_value = asset
-            elif call_count[0] == 2:
-                # report fetches asset metadata
-                result_mock.scalar_one.return_value = asset
-            else:
-                # custody chain query
-                scalars_mock = MagicMock()
-                scalars_mock.all.return_value = [custody_entry]
-                result_mock.scalars.return_value = scalars_mock
-            return result_mock
-
-        session.execute = AsyncMock(side_effect=execute_side_effect)
-        session.add = MagicMock()
-        session.flush = AsyncMock()
-        storage = _make_storage()
-
-        report = await generate_integrity_report(
-            session, storage, _ASSET_ID, _USER_ID
+        upload_entry = _make_custody_entry(
+            "00000000-0000-0000-0000-000000000050",
+            "upload",
+            {"action": "file_uploaded"},
         )
+        verification_entry = _make_custody_entry(
+            "00000000-0000-0000-0000-000000000051",
+            "integrity_verification",
+            {"result": "pass", "sha256_match": True},
+            day=2,
+        )
+        session = _make_session(
+            asset=asset,
+            custody_entries=[upload_entry, verification_entry],
+        )
+
+        report = await generate_integrity_report(session, _ASSET_ID)
 
         assert report.asset_id == UUID(_ASSET_ID)
         assert report.case_id == UUID(_CASE_ID)
         assert report.original_filename == "protest_video.mp4"
-        assert report.verification.sha256_match is True
-        assert report.verification.sha512_match is True
-        assert len(report.custody_chain) >= 1
-        assert report.custody_chain[0].action == "upload"
+        assert report.sha256_hash == asset.sha256_hash
+        assert report.sha512_hash == asset.sha512_hash
+        assert report.last_verified_at == asset.last_verified_at
+        assert report.last_verification_ok is True
+        assert [e.action for e in report.custody_chain] == [
+            "upload",
+            "integrity_verification",
+        ]
+        assert [e.action for e in report.verification_history] == [
+            "integrity_verification"
+        ]
         assert report.report_generated_at is not None
+
+    @pytest.mark.asyncio
+    async def test_report_is_read_only(self) -> None:
+        """generating a report must not mutate evidence state."""
+        asset = _make_asset()
+        asset.last_verified_at = None
+        asset.last_verification_ok = None
+        session = _make_session(asset=asset, custody_entries=[])
+
+        report = await generate_integrity_report(session, _ASSET_ID)
+
+        session.add.assert_not_called()
+        session.flush.assert_not_called()
+        assert report.last_verified_at is None
+        assert report.last_verification_ok is None
+        assert report.verification_history == []
+
+    @pytest.mark.asyncio
+    async def test_report_missing_asset_raises(self) -> None:
+        """missing asset raises IntegrityError."""
+        session = _make_session(asset=None)
+
+        with pytest.raises(IntegrityError, match="not found"):
+            await generate_integrity_report(session, _ASSET_ID)
+
+    @pytest.mark.asyncio
+    async def test_report_tolerates_real_detail_payloads(self) -> None:
+        """custody details carry bools and lists, not just strings.
+
+        verify_asset_integrity writes sha256_match as a bool and
+        bundle imports embed the source custody chain as a list; the
+        report must serialize both instead of 500ing.
+        """
+        asset = _make_asset()
+        asset.last_verified_at = datetime(2025, 1, 2, tzinfo=UTC)
+        asset.last_verification_ok = True
+        sha256, sha512 = _computed_hashes()
+
+        verification_entry = _make_custody_entry(
+            "00000000-0000-0000-0000-000000000051",
+            "integrity_verification",
+            {
+                "result": "pass",
+                "sha256_match": True,
+                "sha512_match": True,
+                "computed_sha256": sha256,
+                "computed_sha512": sha512,
+            },
+            day=2,
+        )
+        imported_entry = _make_custody_entry(
+            "00000000-0000-0000-0000-000000000052",
+            "imported",
+            {
+                "action": "imported_from_bundle",
+                "source_custody_chain": [{"action": "upload"}],
+            },
+            day=3,
+        )
+        session = _make_session(
+            asset=asset,
+            custody_entries=[verification_entry, imported_entry],
+        )
+
+        report = await generate_integrity_report(session, _ASSET_ID)
+
+        details = [e.detail for e in report.custody_chain]
+        assert {"sha256_match": True}.items() <= details[0].items()
+        assert details[1]["source_custody_chain"] == [{"action": "upload"}]
+        assert report.model_dump()["custody_chain"][0]["detail"] is not None
 
 
 class TestIntegrityResultSchema:
@@ -518,6 +627,31 @@ class TestIntegrityResultSchema:
         data = result.model_dump()
         assert data["sha256_match"] is True
         assert data["asset_id"] == UUID(_ASSET_ID)
+
+    def test_passed_is_serialized(self) -> None:
+        """passed is a computed field visible to api clients."""
+        now = datetime.now(UTC)
+        kwargs = dict(
+            asset_id=UUID(_ASSET_ID),
+            filename="test.mp4",
+            storage_key="key/test.mp4",
+            file_size=1024,
+            stored_sha256="a" * 64,
+            computed_sha256="a" * 64,
+            stored_sha512="b" * 128,
+            computed_sha512="b" * 128,
+            verified_at=now,
+        )
+        passing = IntegrityResult(
+            sha256_match=True, sha512_match=True, **kwargs
+        )
+        assert passing.passed is True
+        assert passing.model_dump()["passed"] is True
+
+        failing = IntegrityResult(
+            sha256_match=True, sha512_match=False, **kwargs
+        )
+        assert failing.model_dump()["passed"] is False
 
     def test_case_integrity_result_serialization(self) -> None:
         """CaseIntegrityResult serializes correctly."""

@@ -129,33 +129,26 @@ async def verify_case_assets(
 async def get_integrity_report(
     case_id: str,
     asset_id: str,
-    request: Request,
     token_payload: dict[str, Any] = Depends(  # noqa: B008
         require_authenticated
     ),
     session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
         get_db_session
     ),
-    storage: StorageBackend = Depends(  # noqa: B008
-        get_storage_backend
-    ),
 ) -> IntegrityReportResponse:
-    """generate a court-ready integrity report for an asset."""
+    """summarize stored integrity state for an asset.
+
+    read-only: never re-verifies or writes custody entries, so it is
+    safe behind viewer access.
+    """
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id, "viewer")
 
-    ip_address = request.client.host if request.client else None
-
     try:
-        report = await generate_integrity_report(
-            db, storage, asset_id, user_id, ip_address
-        )
+        return await generate_integrity_report(db, asset_id)
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
-
-    await db.commit()
-    return report

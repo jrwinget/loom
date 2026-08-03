@@ -8,7 +8,7 @@ import pytest
 from fastapi import HTTPException
 
 from loom.models.event_cluster import EventCluster, EventClusterItem
-from loom.models.timeline import TimelineEvent
+from loom.models.timeline import TimelineEvent, TimelineEventEvidence
 from loom.services.clustering import (
     accept_cluster,
     compute_absolute_times,
@@ -29,15 +29,30 @@ _BASE = datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC)
 
 def _mock_asset(
     asset_id: UUID,
-    capture_time: datetime,
+    capture_time: datetime | None,
     filename: str = "test.mp4",
+    clock_offset: float | None = None,
 ) -> MagicMock:
     """build a mock asset."""
     asset = MagicMock()
     asset.id = asset_id
     asset.capture_time = capture_time
     asset.original_filename = filename
+    asset.clock_offset_seconds = clock_offset
     return asset
+
+
+def _mock_cluster_item(
+    asset_id: UUID,
+    start: datetime,
+    end: datetime | None,
+) -> MagicMock:
+    """build a mock cluster item."""
+    item = MagicMock(spec=EventClusterItem)
+    item.asset_id = asset_id
+    item.absolute_time_start = start
+    item.absolute_time_end = end
+    return item
 
 
 def _mock_segment(
@@ -366,6 +381,212 @@ class TestAcceptCluster:
         assert any(isinstance(o, TimelineEvent) for o in added_objects)
         assert cluster.status == "accepted"
 
+    async def test_links_evidence_for_distinct_assets(self) -> None:
+        """accepting links each distinct member asset as supports."""
+        cluster = MagicMock(spec=EventCluster)
+        cluster.id = UUID(_CLUSTER_ID)
+        cluster.case_id = UUID(_CASE_ID)
+        cluster.time_window_start = _BASE
+        cluster.time_window_end = _BASE + timedelta(minutes=5)
+        cluster.status = "proposed"
+
+        asset_a = _mock_asset(_ASSET_A, _BASE)
+        asset_b = _mock_asset(_ASSET_B, _BASE, clock_offset=5.0)
+        items = [
+            _mock_cluster_item(
+                _ASSET_A,
+                _BASE + timedelta(seconds=10),
+                _BASE + timedelta(seconds=20),
+            ),
+            _mock_cluster_item(
+                _ASSET_A,
+                _BASE + timedelta(seconds=30),
+                _BASE + timedelta(seconds=40),
+            ),
+            _mock_cluster_item(
+                _ASSET_B,
+                _BASE + timedelta(seconds=3),
+                None,
+            ),
+        ]
+
+        event_id = UUID("00000000-0000-0000-0000-00000000ee01")
+        session = AsyncMock()
+        call_count = 0
+
+        async def mock_execute(query: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            m = MagicMock()
+            if call_count == 1:
+                # _load_cluster
+                m.scalar_one_or_none.return_value = cluster
+            elif call_count == 2:
+                # cluster items
+                m.scalars.return_value.all.return_value = items
+            elif call_count == 3:
+                # member assets
+                m.scalars.return_value.all.return_value = [
+                    asset_a,
+                    asset_b,
+                ]
+            else:
+                # get_cluster final load + its items
+                m.scalar_one_or_none.return_value = cluster
+                m.scalars.return_value.all.return_value = []
+            return m
+
+        session.execute = AsyncMock(side_effect=mock_execute)
+
+        def mock_add(obj: object) -> None:
+            if isinstance(obj, TimelineEvent) and obj.id is None:
+                obj.id = event_id
+
+        session.add = MagicMock(side_effect=mock_add)
+        session.flush = AsyncMock()
+        session.commit = AsyncMock()
+        session.refresh = AsyncMock()
+
+        nested_cm = AsyncMock()
+        nested_cm.__aenter__ = AsyncMock(return_value=None)
+        nested_cm.__aexit__ = AsyncMock(return_value=False)
+        session.begin_nested = MagicMock(return_value=nested_cm)
+
+        await accept_cluster(
+            session,
+            _CLUSTER_ID,
+            _CASE_ID,
+            "Event Title",
+            "desc",
+            _USER_ID,
+        )
+
+        added = [c[0][0] for c in session.add.call_args_list]
+        links = [o for o in added if isinstance(o, TimelineEventEvidence)]
+        # one link per distinct asset, not per item
+        assert len(links) == 2
+        by_asset = {link.asset_id: link for link in links}
+        assert set(by_asset) == {_ASSET_A, _ASSET_B}
+        for link in links:
+            assert link.event_id == event_id
+            assert link.relationship == "supports"
+            assert link.linked_by == UUID(_USER_ID)
+            assert link.notes is not None
+            assert _CLUSTER_ID in link.notes
+        # asset a: capture at _BASE, no offset -> union of item ranges
+        assert by_asset[_ASSET_A].clip_start == 10.0
+        assert by_asset[_ASSET_A].clip_end == 40.0
+        # asset b: offset pushes start negative -> clamped to zero,
+        # open-ended item leaves clip_end unset
+        assert by_asset[_ASSET_B].clip_start == 0.0
+        assert by_asset[_ASSET_B].clip_end is None
+
+    async def test_links_without_capture_time_have_no_clip(self) -> None:
+        """assets lacking capture_time still link, without clip range."""
+        cluster = MagicMock(spec=EventCluster)
+        cluster.id = UUID(_CLUSTER_ID)
+        cluster.case_id = UUID(_CASE_ID)
+        cluster.time_window_start = _BASE
+        cluster.time_window_end = _BASE + timedelta(minutes=5)
+        cluster.status = "proposed"
+
+        asset = _mock_asset(_ASSET_A, None)
+        items = [
+            _mock_cluster_item(
+                _ASSET_A,
+                _BASE + timedelta(seconds=10),
+                _BASE + timedelta(seconds=20),
+            ),
+        ]
+
+        session = AsyncMock()
+        call_count = 0
+
+        async def mock_execute(query: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            m = MagicMock()
+            if call_count == 1:
+                m.scalar_one_or_none.return_value = cluster
+            elif call_count == 2:
+                m.scalars.return_value.all.return_value = items
+            elif call_count == 3:
+                m.scalars.return_value.all.return_value = [asset]
+            else:
+                m.scalar_one_or_none.return_value = cluster
+                m.scalars.return_value.all.return_value = []
+            return m
+
+        session.execute = AsyncMock(side_effect=mock_execute)
+        session.add = MagicMock()
+        session.flush = AsyncMock()
+        session.commit = AsyncMock()
+        session.refresh = AsyncMock()
+
+        nested_cm = AsyncMock()
+        nested_cm.__aenter__ = AsyncMock(return_value=None)
+        nested_cm.__aexit__ = AsyncMock(return_value=False)
+        session.begin_nested = MagicMock(return_value=nested_cm)
+
+        await accept_cluster(
+            session,
+            _CLUSTER_ID,
+            _CASE_ID,
+            "Event Title",
+            None,
+            _USER_ID,
+        )
+
+        added = [c[0][0] for c in session.add.call_args_list]
+        links = [o for o in added if isinstance(o, TimelineEventEvidence)]
+        assert len(links) == 1
+        assert links[0].clip_start is None
+        assert links[0].clip_end is None
+
+    async def test_failure_before_commit_skips_commit(self) -> None:
+        """a failure inside the savepoint never reaches commit."""
+        cluster = MagicMock(spec=EventCluster)
+        cluster.id = UUID(_CLUSTER_ID)
+        cluster.case_id = UUID(_CASE_ID)
+        cluster.time_window_start = _BASE
+        cluster.time_window_end = _BASE + timedelta(minutes=5)
+        cluster.status = "proposed"
+
+        session = AsyncMock()
+        call_count = 0
+
+        async def mock_execute(query: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                m = MagicMock()
+                m.scalar_one_or_none.return_value = cluster
+                return m
+            raise RuntimeError("boom")
+
+        session.execute = AsyncMock(side_effect=mock_execute)
+        session.add = MagicMock()
+        session.flush = AsyncMock()
+        session.commit = AsyncMock()
+
+        nested_cm = AsyncMock()
+        nested_cm.__aenter__ = AsyncMock(return_value=None)
+        nested_cm.__aexit__ = AsyncMock(return_value=False)
+        session.begin_nested = MagicMock(return_value=nested_cm)
+
+        with pytest.raises(RuntimeError, match="boom"):
+            await accept_cluster(
+                session,
+                _CLUSTER_ID,
+                _CASE_ID,
+                "Event Title",
+                None,
+                _USER_ID,
+            )
+
+        session.begin_nested.assert_called_once()
+        session.commit.assert_not_called()
+
 
 class TestRejectCluster:
     """reject_cluster changes status."""
@@ -387,6 +608,8 @@ class TestRejectCluster:
         await reject_cluster(session, _CLUSTER_ID, _CASE_ID, _USER_ID)
         assert cluster.status == "rejected"
         assert cluster.reviewed_by == UUID(_USER_ID)
+        # rejection creates no timeline event and no evidence links
+        session.add.assert_not_called()
 
     async def test_raises_404_for_missing_cluster(self) -> None:
         """raises HTTPException when cluster not found."""

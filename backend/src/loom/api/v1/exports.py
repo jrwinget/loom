@@ -76,8 +76,20 @@ async def create_export_endpoint(
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id, "editor")
 
+    # exclude unset/None fields: builders resolve their own defaults
+    # via options.get(key, default), and a stored None would clobber
+    # them
+    options = body.model_dump(
+        mode="json", exclude={"name", "format"}, exclude_none=True
+    )
+    if body.include_analysis is None:
+        # per-format default: a court bundle is an evidence-only
+        # production unless counsel opts the analysis layer in;
+        # other formats keep their historical full contents
+        options["include_analysis"] = body.format != "court_bundle"
+
     export = await create_export_record(
-        db, case_id, body.name, body.format, user_id
+        db, case_id, body.name, body.format, user_id, options=options
     )
 
     try:

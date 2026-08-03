@@ -787,7 +787,10 @@ export interface paths {
         };
         /**
          * Get Integrity Report
-         * @description generate a court-ready integrity report for an asset.
+         * @description summarize stored integrity state for an asset.
+         *
+         *     read-only: never re-verifies or writes custody entries, so it is
+         *     safe behind viewer access.
          */
         get: operations["get_integrity_report_api_v1_cases__case_id__assets__asset_id__integrity_report_get"];
         put?: never;
@@ -1712,6 +1715,54 @@ export interface paths {
         get: operations["get_geo_events_endpoint_api_v1_cases__case_id__geo_events_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Case Hold Endpoint
+         * @description place a litigation hold on a case (owner only).
+         *
+         *     while held, purging the case and deleting its assets are refused —
+         *     frcp 37(e) posture: evidence destruction must be impossible during
+         *     pending or anticipated litigation. the hold and its audit entry
+         *     land in the same commit.
+         */
+        post: operations["set_case_hold_endpoint_api_v1_cases__case_id__hold_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/hold/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release Case Hold Endpoint
+         * @description release a litigation hold (owner only).
+         *
+         *     a reason is required and recorded in the audit trail; the case's
+         *     hold fields are cleared in the same commit.
+         */
+        post: operations["release_case_hold_endpoint_api_v1_cases__case_id__hold_release_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2701,6 +2752,10 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Last Verification Ok */
+            last_verification_ok?: boolean | null;
+            /** Last Verified At */
+            last_verified_at?: string | null;
             /** Media Type */
             media_type: string;
             /** Metadata Extracted */
@@ -2864,6 +2919,11 @@ export interface components {
              */
             verified_at: string;
         };
+        /** CaseHoldRequest */
+        CaseHoldRequest: {
+            /** Reason */
+            reason: string;
+        };
         /**
          * CaseIntegrityResult
          * @description aggregate result of verifying all assets in a case.
@@ -2960,6 +3020,14 @@ export interface components {
              * @default 0
              */
             event_count: number;
+            /** Hold Active */
+            hold_active: boolean;
+            /** Hold Reason */
+            hold_reason: string | null;
+            /** Hold Set At */
+            hold_set_at: string | null;
+            /** Hold Set By */
+            hold_set_by: string | null;
             /**
              * Id
              * Format: uuid
@@ -3620,8 +3688,18 @@ export interface components {
             date_range_start?: string | null;
             /** Event Ids */
             event_ids?: string[] | null;
+            /** Executive Summary */
+            executive_summary?: string | null;
             /** Format */
             format: string;
+            /** Include Analysis */
+            include_analysis?: boolean | null;
+            /** Include Contradictions */
+            include_contradictions?: boolean | null;
+            /** Include Custody */
+            include_custody?: boolean | null;
+            /** Include Evidence */
+            include_evidence?: boolean | null;
             /**
              * Include Originals
              * @default false
@@ -3667,6 +3745,8 @@ export interface components {
             manifest?: unknown | null;
             /** Name */
             name: string;
+            /** Options */
+            options?: unknown | null;
             /** Sha256 Hash */
             sha256_hash: string | null;
             /** Status */
@@ -3841,6 +3921,10 @@ export interface components {
         /**
          * IntegrityReportResponse
          * @description court-ready integrity report for an asset.
+         *
+         *     a read-only summary of stored state: ingest hashes, verification
+         *     recency, and the recorded custody chain. generating it never
+         *     re-verifies the asset or writes custody entries.
          */
         IntegrityReportResponse: {
             /**
@@ -3857,6 +3941,10 @@ export interface components {
             custody_chain: components["schemas"]["loom__schemas__integrity__CustodyEntryResponse"][];
             /** File Size Bytes */
             file_size_bytes: number;
+            /** Last Verification Ok */
+            last_verification_ok: boolean | null;
+            /** Last Verified At */
+            last_verified_at: string | null;
             /** Media Type */
             media_type: string;
             /** Mime Type */
@@ -3868,6 +3956,10 @@ export interface components {
              * Format: date-time
              */
             report_generated_at: string;
+            /** Sha256 Hash */
+            sha256_hash: string;
+            /** Sha512 Hash */
+            sha512_hash: string;
             /** Storage Key */
             storage_key: string;
             /**
@@ -3880,7 +3972,8 @@ export interface components {
              * Format: uuid
              */
             uploaded_by: string;
-            verification: components["schemas"]["IntegrityResult"];
+            /** Verification History */
+            verification_history: components["schemas"]["loom__schemas__integrity__CustodyEntryResponse"][];
         };
         /**
          * IntegrityResult
@@ -3900,6 +3993,8 @@ export interface components {
             file_size: number;
             /** Filename */
             filename: string;
+            /** Passed */
+            readonly passed: boolean;
             /** Sha256 Match */
             sha256_match: boolean;
             /** Sha512 Match */
@@ -4623,8 +4718,9 @@ export interface components {
             /**
              * Status
              * @default draft
+             * @enum {string}
              */
-            status: string;
+            status: "draft" | "confirmed" | "disputed";
             /**
              * Time Precision
              * @default approximate
@@ -4784,7 +4880,7 @@ export interface components {
             /** Location Lon */
             location_lon?: number | null;
             /** Status */
-            status?: string | null;
+            status?: ("draft" | "confirmed" | "disputed") | null;
             /** Time Precision */
             time_precision?: string | null;
             /** Title */
@@ -5085,9 +5181,7 @@ export interface components {
              */
             actor_id: string;
             /** Detail */
-            detail?: {
-                [key: string]: string;
-            } | null;
+            detail?: unknown | null;
             /**
              * Id
              * Format: uuid
@@ -8119,6 +8213,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GeoEventResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_case_hold_endpoint_api_v1_cases__case_id__hold_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseHoldRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_case_hold_endpoint_api_v1_cases__case_id__hold_release_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseHoldRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseResponse"];
                 };
             };
             /** @description Validation Error */

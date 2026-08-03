@@ -19,9 +19,8 @@ const statusOptions: Array<{
 }> = [
   { value: 'all', label: 'All' },
   { value: 'draft', label: 'Draft' },
-  { value: 'proposed', label: 'Proposed' },
-  { value: 'accepted', label: 'Accepted' },
-  { value: 'rejected', label: 'Rejected' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'disputed', label: 'Disputed' },
 ];
 
 const zoomOptions: Array<{

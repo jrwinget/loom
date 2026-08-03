@@ -1,6 +1,6 @@
 [project]
 name = "loom"
-version = "0.2.7"
+version = "0.3.0"
 description = "Evidence operating system for civil-rights legal teams"
 readme = "README.md"
 license = { text = "MIT" }
@@ -163,6 +163,9 @@ known-first-party = ["loom"]
 # not a logger; and they intentionally use S-flagged subprocess
 # patterns with controlled, non-shell argv lists.
 "scripts/**/*.py" = ["T20", "S603", "S607"]
+# verify.py ships inside every court bundle and runs standalone for
+# opposing counsel/chambers -- stdout is its user interface
+"src/loom/templates/verify.py" = ["T20"]
 
 [tool.mypy]
 python_version = "3.12"

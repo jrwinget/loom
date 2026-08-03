@@ -62,13 +62,13 @@ hand-written types honest against the wire.
 
 ## Tests
 
-- Backend: `pytest` with `pytest-asyncio` (≥90% coverage gate)
+- Backend: `pytest` with `pytest-asyncio` (≥86% coverage gate)
 - Frontend: Vitest with React Testing Library + MSW
   (≥90% coverage gate)
 - E2E: Playwright
 
 Run `make test` before pushing. CI rejects PRs that drop
-coverage below 90% on either side.
+backend coverage below 86% or frontend coverage below 90%.
 
 ## Branching model
 
@@ -145,8 +145,8 @@ regenerated.
 Dependabot runs weekly (Monday) against **`dev`** for the
 backend (uv), frontend (npm), desktop shell (npm + cargo),
 and GitHub Actions. Non-major bumps are grouped per
-ecosystem, auto-approved, and squash-auto-merged once the
-required checks pass. Major bumps wait for manual review.
+ecosystem and squash-auto-merged once the required checks
+pass. Major bumps wait for manual review.
 
 ## Commits and pull requests
 

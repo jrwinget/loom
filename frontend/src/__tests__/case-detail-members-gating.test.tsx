@@ -24,8 +24,17 @@ vi.mock('@/hooks/use-case', () => ({
     isPending: false,
   }),
 }));
+// the danger zone also renders the litigation hold controls
+vi.mock('@/hooks/use-case-hold', () => ({
+  useSetHold: () => ({ mutate: vi.fn(), isPending: false }),
+  useReleaseHold: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 vi.mock('@/hooks/use-audit', () => ({
   useCaseAudit: () => ({ data: { items: [] } }),
+}));
+// the overview also renders the integrity card
+vi.mock('@/hooks/use-integrity', () => ({
+  useVerifyCase: () => ({ mutate: vi.fn(), isPending: false, data: undefined }),
 }));
 vi.mock('@/hooks/use-first-run', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/hooks/use-first-run')>();

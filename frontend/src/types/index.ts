@@ -15,6 +15,10 @@ export interface Case {
   eventCount: number;
   createdAt: string;
   updatedAt: string;
+  holdActive: boolean;
+  holdReason: string | null;
+  holdSetBy: string | null;
+  holdSetAt: string | null;
 }
 
 export interface CaseMember {

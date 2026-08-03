@@ -127,6 +127,8 @@ async def test_verify_single_asset(
     data = resp.json()
     assert data["sha256_match"] is True
     assert data["sha512_match"] is True
+    # passed is a computed field and must reach api clients
+    assert data["passed"] is True
 
 
 async def test_verify_asset_not_found(
@@ -246,7 +248,6 @@ async def test_integrity_report(
 ) -> None:
     """get integrity report for an asset."""
     app = _create_app(mock_settings)
-    verification = _make_integrity_result(passed=True)
     report = IntegrityReportResponse(
         asset_id=_ASSET_ID,
         case_id=_CASE_ID,
@@ -257,7 +258,11 @@ async def test_integrity_report(
         file_size_bytes=1024,
         uploaded_by=_ADMIN_ID,
         uploaded_at=_NOW,
-        verification=verification,
+        sha256_hash="a" * 64,
+        sha512_hash="b" * 128,
+        last_verified_at=_NOW,
+        last_verification_ok=True,
+        verification_history=[],
         custody_chain=[],
         report_generated_at=_NOW,
     )
@@ -291,7 +296,8 @@ async def test_integrity_report(
     assert resp.status_code == 200
     data = resp.json()
     assert data["original_filename"] == "evidence.mp4"
-    assert data["verification"]["sha256_match"] is True
+    assert data["last_verification_ok"] is True
+    assert data["sha256_hash"] == "a" * 64
 
 
 async def test_integrity_report_not_found(

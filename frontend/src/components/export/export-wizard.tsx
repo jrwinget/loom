@@ -40,15 +40,35 @@ const FORMAT_OPTIONS: {
   },
 ];
 
+// formats where the user chooses what ships. portable bundles always
+// carry everything (that is their contract), pdf reports are
+// inherently the analysis layer, and json manifests are full-fidelity
+// data exports — so neither toggle applies to them.
+const LAYERED_FORMATS: ReadonlySet<ExportFormat> = new Set([
+  'zip',
+  'court_bundle',
+]);
+
+// court bundles are evidence-only productions unless counsel opts
+// the analysis layer (work product) in
+function analysisDefault(format: ExportFormat): boolean {
+  return format !== 'court_bundle';
+}
+
 export function ExportWizard(props: ExportWizardProps): React.ReactElement {
   const { caseId, open, onOpenChange } = props;
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [format, setFormat] = useState<ExportFormat>('zip');
   const [includeOriginals, setIncludeOriginals] = useState(false);
+  const [includeAnalysis, setIncludeAnalysis] = useState(
+    analysisDefault('zip'),
+  );
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const createExport = useCreateExport(caseId);
+
+  const isLayered = LAYERED_FORMATS.has(format);
 
   // server enforces this too; checking client-side keeps the
   // user out of the failed-mutation toast loop.
@@ -62,16 +82,25 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
     setName('');
     setFormat('zip');
     setIncludeOriginals(false);
+    setIncludeAnalysis(analysisDefault('zip'));
     setDateStart('');
     setDateEnd('');
+  }
+
+  function handleFormatChange(next: ExportFormat): void {
+    setFormat(next);
+    setIncludeAnalysis(analysisDefault(next));
   }
 
   function handleSubmit(): void {
     const payload: CreateExportPayload = {
       name: name.trim(),
       format,
-      include_originals: includeOriginals,
     };
+    if (isLayered) {
+      payload.include_originals = includeOriginals;
+      payload.include_analysis = includeAnalysis;
+    }
     if (dateStart) {
       payload.date_range_start = new Date(dateStart).toISOString();
     }
@@ -132,7 +161,9 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
                 </span>
                 <select
                   value={format}
-                  onChange={(e) => setFormat(e.target.value as ExportFormat)}
+                  onChange={(e) =>
+                    handleFormatChange(e.target.value as ExportFormat)
+                  }
                   className="border-border bg-background text-foreground focus:ring-ring mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-hidden"
                 >
                   {FORMAT_OPTIONS.map((opt) => (
@@ -158,17 +189,65 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
 
           {step === 2 && (
             <div className="mt-4 space-y-3" data-testid="wizard-step-2">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={includeOriginals}
-                  onChange={(e) => setIncludeOriginals(e.target.checked)}
-                  className="border-border h-4 w-4 rounded border"
-                />
-                <span className="text-foreground text-sm">
-                  Include original files
-                </span>
-              </label>
+              {isLayered && (
+                <fieldset
+                  className="border-border rounded-md border p-3"
+                  data-testid="layer-controls"
+                >
+                  <legend className="text-foreground px-1 text-sm font-medium">
+                    Layers
+                  </legend>
+                  <p className="text-muted-foreground text-xs">
+                    Evidence layer (files, hashes, chain of custody) is always
+                    included.
+                  </p>
+                  <label className="mt-2 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={includeOriginals}
+                      onChange={(e) => setIncludeOriginals(e.target.checked)}
+                      className="border-border h-4 w-4 rounded border"
+                      data-testid="include-originals"
+                    />
+                    <span className="text-foreground text-sm">
+                      Include original files (verified at export time)
+                    </span>
+                  </label>
+                  <label className="mt-2 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={includeAnalysis}
+                      onChange={(e) => setIncludeAnalysis(e.target.checked)}
+                      className="border-border h-4 w-4 rounded border"
+                      data-testid="include-analysis"
+                    />
+                    <span className="text-foreground text-sm">
+                      Include analysis layer (timeline, annotations, notes)
+                    </span>
+                  </label>
+                  {includeAnalysis && (
+                    <p
+                      className="mt-2 text-xs text-amber-700 dark:text-amber-400"
+                      data-testid="work-product-warning"
+                    >
+                      The analysis layer is attorney work product. Do not serve
+                      it on opposing parties without review.
+                    </p>
+                  )}
+                  {!includeAnalysis && format === 'court_bundle' && (
+                    <p className="text-muted-foreground mt-2 text-xs">
+                      Evidence-only production: cover page, exhibit index,
+                      custody log, and manifest.
+                    </p>
+                  )}
+                </fieldset>
+              )}
+              {format === 'portable_bundle' && (
+                <p className="text-muted-foreground text-sm">
+                  Portable bundles always contain the whole case: originals,
+                  timeline, annotations, and the full custody trail.
+                </p>
+              )}
 
               <label className="block">
                 <span className="text-foreground text-sm font-medium">
@@ -239,10 +318,18 @@ export function ExportWizard(props: ExportWizardProps): React.ReactElement {
                   <strong>Format:</strong>{' '}
                   {FORMAT_OPTIONS.find((o) => o.value === format)?.label}
                 </p>
-                <p>
-                  <strong>Include Originals:</strong>{' '}
-                  {includeOriginals ? 'Yes' : 'No'}
-                </p>
+                {isLayered && (
+                  <>
+                    <p>
+                      <strong>Include Originals:</strong>{' '}
+                      {includeOriginals ? 'Yes' : 'No'}
+                    </p>
+                    <p>
+                      <strong>Analysis Layer:</strong>{' '}
+                      {includeAnalysis ? 'Included (work product)' : 'Excluded'}
+                    </p>
+                  </>
+                )}
                 {dateStart && (
                   <p>
                     <strong>Date Start:</strong> {dateStart}

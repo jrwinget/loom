@@ -26,11 +26,12 @@ identity resolution.
   (not extension), and stores the original byte-for-byte under WORM-style
   read-only semantics. Resumable uploads, batch ingest, and interrupted-job
   recovery are built in.
-- **Builds a chain of custody automatically.** Every action on every asset
-  (ingest, verify, rehash, proxy generation, annotation, redaction, export,
-  import, relocation, deletion) is recorded in an append-only audit trail
-  enforced at the database level. The trail can never be modified or back-dated,
-  even by an administrator.
+- **Builds a chain of custody automatically.** Custody-relevant events in an
+  asset's life — ingest and verification, export and import (including
+  URL-source provenance), relocation, soft-deletion and restore, clock-anchor
+  corrections, and any cloud-transcription egress — are recorded in an
+  append-only audit trail enforced at the database level. The trail can never
+  be modified or back-dated, even by an administrator.
 - **AI assists, humans decide.** Optional extras run locally: speech-to-text via
   faster-whisper, OCR via Tesseract, scene boundary detection via PySceneDetect,
   and perceptual-hash duplicate clustering. Suggestions never collapse
@@ -41,15 +42,22 @@ identity resolution.
   explicit relationship type (`supports`, `contradicts`, or `context`) so the
   timeline shows where stories agree and where they diverge. For legal work,
   uncertainty is information, not noise.
-- **Exports bundles designed for court use.** Each export is a signed package
-  containing originals, derivatives, annotations, timeline, and the full chain
-  of custody, plus a custodian certificate drafted in the form contemplated by
+- **Exports bundles designed for court use.** You choose what ships: the
+  evidence layer (files, hashes, chain of custody) always travels, original
+  media is opt-in and re-verified against its intake hash at export time, and
+  the analysis layer (timeline, annotations, notes) is excluded from court
+  bundles unless you opt in — it is attorney work product. A court bundle
+  carries a pre-filled declaration in the form contemplated by
   **FRE 902(13)/(14)** self-authentication and **IRE 902(11)** business-records
-  authentication. Reports are rendered as PDF/A-2b for archival; the manifest
-  is JSON-LD so any conforming verifier can re-check the hash lineage.
-  Whether a given bundle is admissible in a specific matter is for counsel
-  and the court to decide — Loom builds the artifacts, not the legal
-  argument.
+  authentication, for counsel to review and execute; it claims integrity within
+  Loom since ingest and makes no representation about a file's handling before
+  that. Reports render as PDF and the manifest is JSON, so the hash lineage can
+  be re-checked — and every bundle ships a verifier (a single HTML page, plus a
+  standard-library Python script) so opposing counsel or chambers can confirm
+  every hash without installing Loom. Manifests can additionally be signed with
+  an Ed25519 key when the deployment configures one. Whether a given bundle is
+  admissible in a specific matter is for counsel and the court to decide — Loom
+  builds the artifacts, not the legal argument.
 
 ## Download and install
 

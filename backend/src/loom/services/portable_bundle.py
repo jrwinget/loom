@@ -263,13 +263,16 @@ def _write_json_entry(zf: zipfile.ZipFile, name: str, payload: Any) -> str:
     return hashlib.sha256(body).hexdigest()
 
 
-def _stream_evidence_entry(
+def stream_evidence_entry(
     zf: zipfile.ZipFile,
     name: str,
     stream: Iterator[bytes],
 ) -> str:
     """copy an original into the zip in chunks, hashing as we go so
-    the file is never fully resident in memory."""
+    the file is never fully resident in memory.
+
+    public: the zip and court bundle builders reuse this for their
+    include-originals paths."""
     digest = hashlib.sha256()
     with zf.open(name, "w") as entry:
         for chunk in stream:
@@ -339,7 +342,7 @@ async def build_portable_bundle(
             _size, stream = storage.get_object_stream(
                 ORIGINALS_BUCKET, asset.storage_key
             )
-            digest = _stream_evidence_entry(zf, entry_name, stream)
+            digest = stream_evidence_entry(zf, entry_name, stream)
             # the manifest hash and the recorded asset hash must
             # agree — a mismatch here means storage corruption, and
             # the importer re-checks it against the row on the way in

@@ -358,10 +358,15 @@ jurisdiction.
 - **Derivatives** (proxies, transcripts, OCR, redactions):
   retained for the life of the original. They can be regenerated
   from the original.
-- **Audit log and chain-of-custody**: **append-only, indefinite
-  retention**. Enforced at the database level (ORM listeners +
-  Postgres triggers on the server profile; application-level
-  enforcement on SQLite).
+- **Audit log**: **append-only, indefinite retention**. Enforced
+  at the database level (ORM listeners + Postgres triggers on the
+  server profile; application-level enforcement on SQLite).
+- **Chain-of-custody**: **append-only for the life of the case**,
+  with the same database-level enforcement. Deliberate case
+  destruction (typed title confirmation + recorded reason) removes
+  custody rows along with the case's other data; the audit-log
+  tombstone — which is never deletable — remains the durable
+  record of what existed and why it was destroyed.
 - **Revoked JWTs**: retained for the max token lifetime (7 days)
   plus a 24-hour grace period, then purged.
 

@@ -25,7 +25,11 @@ from loom.models.annotation import Annotation
 from loom.models.asset import Asset
 from loom.models.case import Case
 from loom.models.chain_of_custody import ChainOfCustodyEntry
-from loom.models.timeline import TimelineEvent, TimelineEventEvidence
+from loom.models.timeline import (
+    EVENT_STATUS_VALUES,
+    TimelineEvent,
+    TimelineEventEvidence,
+)
 from loom.models.transcript import TranscriptSegment
 from loom.services.ingest import generate_storage_key
 from loom.services.portable_bundle import SignatureStatus
@@ -237,7 +241,14 @@ async def _recreate_events(
             event_time_start=_parse_dt(row["event_time_start"]),
             event_time_end=_parse_dt(row.get("event_time_end")),
             time_precision=row.get("time_precision", "approximate"),
-            status=row.get("status", "draft"),
+            # foreign bundles carry whatever status their writer
+            # produced; anything outside the model vocabulary would
+            # violate the check constraint and abort the import
+            status=(
+                row["status"]
+                if row.get("status") in EVENT_STATUS_VALUES
+                else "draft"
+            ),
             location_description=row.get("location_description"),
             location_lat=row.get("location_lat"),
             location_lon=row.get("location_lon"),

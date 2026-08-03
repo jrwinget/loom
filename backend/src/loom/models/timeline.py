@@ -14,6 +14,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from loom.models.base import Base, TimestampMixin, UUIDMixin
 
+# the single source of truth for event status. the check constraint
+# below, the api validators, and the bundle importer all derive from
+# this tuple; postgres is aligned to it by migration 020.
+EVENT_STATUS_VALUES = ("draft", "confirmed", "disputed")
+
 
 class TimelineEvent(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "timeline_events"
@@ -29,7 +34,9 @@ class TimelineEvent(UUIDMixin, TimestampMixin, Base):
             "event_time_start",
         ),
         CheckConstraint(
-            "status IN ('draft', 'confirmed', 'disputed')",
+            "status IN ({})".format(
+                ", ".join(f"'{v}'" for v in EVENT_STATUS_VALUES)
+            ),
             name="ck_timeline_events_status",
         ),
     )

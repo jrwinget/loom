@@ -103,6 +103,10 @@ export const queryKeys = {
     byAsset: (caseId: string, assetId: string) =>
       ['custody', caseId, assetId] as const,
   },
+  integrity: {
+    report: (caseId: string, assetId: string) =>
+      ['integrity', caseId, assetId, 'report'] as const,
+  },
   users: {
     me: ['users', 'me'] as const,
   },

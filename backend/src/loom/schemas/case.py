@@ -29,6 +29,20 @@ class CasePurgeRequest(BaseModel):
         return v
 
 
+class CaseHoldRequest(BaseModel):
+    # required for release too: the reason is recorded in the audit
+    # trail even when it is not stored on the case
+    reason: str = Field(min_length=1)
+
+    @field_validator("reason")
+    @classmethod
+    def reason_not_blank(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("reason must not be blank")
+        return stripped
+
+
 class CaseResponse(BaseModel):
     id: UUID
     name: str
@@ -39,6 +53,13 @@ class CaseResponse(BaseModel):
     updated_at: datetime
     asset_count: int = 0
     event_count: int = 0
+    # no defaults: every constructor site must state the hold fields
+    # explicitly so a missed site fails loudly instead of reporting
+    # "not held" for a held case
+    hold_active: bool
+    hold_reason: str | None
+    hold_set_by: UUID | None
+    hold_set_at: datetime | None
 
     model_config = {"from_attributes": True}
 

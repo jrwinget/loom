@@ -9,6 +9,11 @@ import type { Asset } from '@/types/asset';
 const WAVE_PLAYED = 'hsl(221.2, 83.2%, 53.3%)';
 const WAVE_REMAINING = 'hsl(215.4, 16.3%, 46.9%)';
 
+export interface PlayerMarks {
+  inPoint: number | null;
+  outPoint: number | null;
+}
+
 interface AssetViewerProps {
   asset: Asset;
   src: string;
@@ -16,6 +21,9 @@ interface AssetViewerProps {
   // workspace) can seek without querying the dom
   videoRef?: React.MutableRefObject<HTMLVideoElement | null>;
   onTimeUpdate?: (time: number) => void;
+  // surfaces the video in/out marks so hosts can prefill clip
+  // ranges (e.g. when linking evidence to a timeline event)
+  onMarksChange?: (marks: PlayerMarks) => void;
 }
 
 // frame numbers are only shown when the extracted metadata carries a
@@ -53,8 +61,16 @@ function VideoViewer(props: {
   fps?: number | null;
   externalRef?: React.MutableRefObject<HTMLVideoElement | null>;
   onTimeUpdate?: (time: number) => void;
+  onMarksChange?: (marks: PlayerMarks) => void;
 }): React.ReactElement {
-  const { src, filename, fps = null, externalRef, onTimeUpdate } = props;
+  const {
+    src,
+    filename,
+    fps = null,
+    externalRef,
+    onTimeUpdate,
+    onMarksChange,
+  } = props;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -87,11 +103,13 @@ function VideoViewer(props: {
 
   const markIn = useCallback(() => {
     setInPoint(currentTime);
-  }, [currentTime]);
+    onMarksChange?.({ inPoint: currentTime, outPoint });
+  }, [currentTime, outPoint, onMarksChange]);
 
   const markOut = useCallback(() => {
     setOutPoint(currentTime);
-  }, [currentTime]);
+    onMarksChange?.({ inPoint, outPoint: currentTime });
+  }, [currentTime, inPoint, onMarksChange]);
 
   // keyboard shortcuts
   useKeyboardShortcut('space', togglePlay, [togglePlay]);
@@ -611,7 +629,7 @@ function DocumentViewer(props: {
 }
 
 export function AssetViewer(props: AssetViewerProps): React.ReactElement {
-  const { asset, src, videoRef, onTimeUpdate } = props;
+  const { asset, src, videoRef, onTimeUpdate, onMarksChange } = props;
 
   switch (asset.mediaType) {
     case 'video':
@@ -622,6 +640,7 @@ export function AssetViewer(props: AssetViewerProps): React.ReactElement {
           fps={assetFrameRate(asset)}
           externalRef={videoRef}
           onTimeUpdate={onTimeUpdate}
+          onMarksChange={onMarksChange}
         />
       );
     case 'audio':

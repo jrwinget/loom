@@ -2,6 +2,10 @@ import type { Asset } from '@/types/asset';
 import { useAssetDownloadUrl } from '@/hooks/use-assets';
 import { useAssetCustody } from '@/hooks/use-custody';
 import type { CustodyEntry } from '@/hooks/use-custody';
+import {
+  useDownloadIntegrityReport,
+  useVerifyAsset,
+} from '@/hooks/use-integrity';
 
 interface AssetDetailProps {
   asset: Asset;
@@ -132,8 +136,85 @@ function ClockDriftBadge(
   );
 }
 
-function formatCustodyAction(action: string): string {
-  return action.replace(/_/g, ' ');
+// custody entries are read aloud in depositions; render them as
+// plain statements rather than raw action slugs
+const CUSTODY_PHRASES: Record<string, string> = {
+  upload: 'Uploaded',
+  ingest_verified: 'Verified after intake — hashes match',
+  url_submitted: 'Submitted by URL',
+  url_ingest: 'Retrieved from source URL',
+  wayback_snapshot: 'Archive snapshot captured',
+  imported: 'Imported from a portable bundle',
+  soft_deleted: 'Marked deleted (recoverable)',
+  restored: 'Restored from deleted state',
+  cloud_transcription: 'Audio sent to a third-party transcription API',
+  clock_anchor_corrected: 'Display clock offset applied by a person',
+  data_dir_relocated: 'Storage location moved and re-verified',
+};
+
+function formatCustodyAction(action: string, detail?: unknown): string {
+  if (action === 'integrity_verification') {
+    const passed =
+      detail !== null &&
+      typeof detail === 'object' &&
+      (detail as Record<string, unknown>)['result'] !== 'failed';
+    return passed
+      ? 'Integrity verified — hashes match'
+      : 'Integrity check FAILED';
+  }
+  if (action === 'exported') {
+    const name =
+      detail !== null && typeof detail === 'object'
+        ? (detail as Record<string, unknown>)['export_name']
+        : undefined;
+    return typeof name === 'string'
+      ? `Exported in bundle "${name}"`
+      : 'Exported in a bundle';
+  }
+  return CUSTODY_PHRASES[action] ?? action.replace(/_/g, ' ');
+}
+
+interface VerificationChipProps {
+  lastVerifiedAt: string | null;
+  lastVerificationOk: boolean | null;
+}
+
+function VerificationChip(props: VerificationChipProps): React.ReactElement {
+  const { lastVerifiedAt, lastVerificationOk } = props;
+  const base =
+    'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ';
+
+  if (lastVerifiedAt === null || lastVerificationOk === null) {
+    return (
+      <span
+        data-testid="verification-chip"
+        className={base + 'bg-muted text-muted-foreground'}
+      >
+        Never verified
+      </span>
+    );
+  }
+  const when = formatDate(lastVerifiedAt);
+  return lastVerificationOk ? (
+    <span
+      data-testid="verification-chip"
+      className={
+        base +
+        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+      }
+    >
+      Verified {when}
+    </span>
+  ) : (
+    <span
+      data-testid="verification-chip"
+      className={
+        base + 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+      }
+    >
+      FAILED {when}
+    </span>
+  );
 }
 
 function CustodyTimeline(props: {
@@ -148,7 +229,7 @@ function CustodyTimeline(props: {
           />
           <div>
             <p className="text-foreground text-xs font-medium">
-              {formatCustodyAction(entry.action)}
+              {formatCustodyAction(entry.action, entry.detail)}
             </p>
             <p className="text-muted-foreground text-xs">
               {formatDate(entry.timestamp)}
@@ -168,6 +249,8 @@ export function AssetDetail(props: AssetDetailProps): React.ReactElement {
     caseId,
     asset.id,
   );
+  const verifyAsset = useVerifyAsset(caseId);
+  const downloadReport = useDownloadIntegrityReport(caseId);
 
   const processingClass =
     processingColors[asset.processingStatus] ?? processingColors['pending'];
@@ -189,6 +272,10 @@ export function AssetDetail(props: AssetDetailProps): React.ReactElement {
         >
           {asset.processingStatus}
         </span>
+        <VerificationChip
+          lastVerifiedAt={asset.lastVerifiedAt}
+          lastVerificationOk={asset.lastVerificationOk}
+        />
       </div>
 
       {asset.processingStatus === 'failed' && asset.processingError && (
@@ -217,6 +304,29 @@ export function AssetDetail(props: AssetDetailProps): React.ReactElement {
           offsetSeconds={asset.clockOffsetSeconds}
           confidence={asset.clockConfidence}
         />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => verifyAsset.mutate(asset.id)}
+          disabled={verifyAsset.isPending}
+          data-testid="verify-asset-btn"
+          className="border-border hover:bg-accent rounded-md border px-3 py-1.5 text-xs disabled:opacity-50"
+        >
+          {verifyAsset.isPending ? 'Verifying…' : 'Verify now'}
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadReport.mutate(asset.id)}
+          disabled={downloadReport.isPending}
+          data-testid="integrity-report-btn"
+          className="border-border hover:bg-accent rounded-md border px-3 py-1.5 text-xs disabled:opacity-50"
+        >
+          {downloadReport.isPending
+            ? 'Preparing…'
+            : 'Download integrity report'}
+        </button>
       </div>
 
       <div>

@@ -49,7 +49,7 @@ from loom.security.rbac import (
 from loom.services.asset import get_asset as get_asset_svc
 from loom.services.asset import list_assets as list_assets_svc
 from loom.services.asset import restore_asset, soft_delete_asset
-from loom.services.case import check_case_access
+from loom.services.case import check_case_access, get_case
 from loom.services.clock_drift import apply_clock_anchor
 from loom.services.hashing import compute_hashes_from_bytes
 from loom.services.ingest import (
@@ -783,6 +783,15 @@ async def delete_asset(
     db: AsyncSession = session  # type: ignore[assignment]
     user_id = get_current_user_id(token_payload)
     await _check_access(db, case_id, user_id, "editor")
+
+    # litigation hold is a preservation lock: even a soft delete is
+    # refused while the case is held
+    case = await get_case(db, case_id)
+    if case is not None and case.hold_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="case is under litigation hold",
+        )
 
     # verify asset belongs to this case
     asset = await get_asset_svc(db, case_id, asset_id)

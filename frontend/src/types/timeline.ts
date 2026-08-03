@@ -46,7 +46,7 @@ export interface CreateEventPayload {
   location_lat?: number;
   location_lon?: number;
   location_confidence?: string;
-  status?: string;
+  status?: EventStatus;
 }
 
 export interface UpdateEventPayload {
@@ -55,7 +55,7 @@ export interface UpdateEventPayload {
   event_time_start?: string;
   event_time_end?: string;
   time_precision?: string;
-  status?: string;
+  status?: EventStatus;
 }
 
 export interface LinkEvidencePayload {
@@ -64,10 +64,24 @@ export interface LinkEvidencePayload {
   derivative_id?: string;
   clip_start?: number;
   clip_end?: number;
-  relationship: string;
+  relationship: EvidenceRelationship;
   notes?: string;
 }
 
-export type EventStatus = 'draft' | 'proposed' | 'accepted' | 'rejected';
+export type EventStatus = 'draft' | 'confirmed' | 'disputed';
+
+export const EVENT_STATUSES: readonly EventStatus[] = [
+  'draft',
+  'confirmed',
+  'disputed',
+];
+
+export type EvidenceRelationship = 'supports' | 'contradicts' | 'context';
+
+export const EVIDENCE_RELATIONSHIPS: readonly EvidenceRelationship[] = [
+  'supports',
+  'contradicts',
+  'context',
+];
 
 export type ZoomLevel = 'hours' | 'days' | 'weeks';
