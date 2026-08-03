@@ -1,18 +1,67 @@
 """unit tests for timeline schema validation."""
 
 from datetime import UTC, datetime
+from typing import get_args
 
 import pytest
 from pydantic import ValidationError
 
+from loom.models.timeline import EVENT_STATUS_VALUES
 from loom.schemas.timeline import (
     EVIDENCE_RELATIONSHIPS,
     TIME_PRECISIONS,
+    EventStatus,
     EvidenceLinkCreate,
     TimelineEventCreate,
 )
 
 _NOW = datetime(2025, 6, 1, tzinfo=UTC)
+
+
+def test_status_literal_matches_model_vocabulary() -> None:
+    """schema literal stays in lockstep with the model tuple."""
+    assert set(get_args(EventStatus)) == set(EVENT_STATUS_VALUES)
+    assert EVENT_STATUS_VALUES == ("draft", "confirmed", "disputed")
+
+
+def test_event_create_accepts_model_statuses() -> None:
+    """every model status value is accepted on create."""
+    for status in EVENT_STATUS_VALUES:
+        event = TimelineEventCreate(
+            title="Test",
+            event_time_start=_NOW,
+            status=status,
+        )
+        assert event.status == status
+
+
+def test_event_create_rejects_legacy_statuses() -> None:
+    """pre-migration statuses are rejected by validation."""
+    for status in ("proposed", "accepted", "rejected"):
+        with pytest.raises(ValidationError, match="status"):
+            TimelineEventCreate(
+                title="Test",
+                event_time_start=_NOW,
+                status=status,
+            )
+
+
+def test_event_update_accepts_model_statuses() -> None:
+    """every model status value is accepted on update."""
+    from loom.schemas.timeline import TimelineEventUpdate
+
+    for status in EVENT_STATUS_VALUES:
+        update = TimelineEventUpdate(status=status)
+        assert update.status == status
+
+
+def test_event_update_rejects_legacy_statuses() -> None:
+    """pre-migration statuses are rejected on update."""
+    from loom.schemas.timeline import TimelineEventUpdate
+
+    for status in ("proposed", "accepted", "rejected"):
+        with pytest.raises(ValidationError, match="status"):
+            TimelineEventUpdate(status=status)
 
 
 def test_event_create_valid() -> None:
@@ -131,11 +180,11 @@ def test_event_update_valid_fields() -> None:
     from loom.schemas.timeline import TimelineEventUpdate
 
     update = TimelineEventUpdate(
-        status="accepted",
+        status="confirmed",
         time_precision="exact",
         location_confidence="verified",
     )
-    assert update.status == "accepted"
+    assert update.status == "confirmed"
     assert update.time_precision == "exact"
     assert update.location_confidence == "verified"
 

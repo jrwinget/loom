@@ -16,7 +16,7 @@ from loom.models.annotation import Annotation
 from loom.models.asset import Asset
 from loom.models.event_cluster import EventCluster, EventClusterItem
 from loom.models.ocr import OcrRegion
-from loom.models.timeline import TimelineEvent
+from loom.models.timeline import TimelineEvent, TimelineEventEvidence
 from loom.models.transcript import TranscriptSegment
 from loom.services.graph_utils import connected_components
 
@@ -258,6 +258,35 @@ async def propose_clusters(
     return result
 
 
+def _asset_clip_range(
+    asset: Asset | None,
+    items: list[EventClusterItem],
+) -> tuple[float | None, float | None]:
+    """best-effort clip offsets (seconds) for an asset's items.
+
+    offsets are relative to the asset's effective capture start
+    (capture_time shifted by clock_offset_seconds) and clamped to
+    zero; without a capture_time no clip range can be derived.
+    """
+    if asset is None or asset.capture_time is None:
+        return None, None
+
+    effective_start = asset.capture_time + timedelta(
+        seconds=asset.clock_offset_seconds or 0.0
+    )
+    starts = [
+        (i.absolute_time_start - effective_start).total_seconds() for i in items
+    ]
+    ends = [
+        (i.absolute_time_end - effective_start).total_seconds()
+        for i in items
+        if i.absolute_time_end is not None
+    ]
+    clip_start = max(0.0, min(starts))
+    clip_end = max(0.0, max(ends)) if ends else None
+    return clip_start, clip_end
+
+
 async def accept_cluster(
     session: AsyncSession,
     cluster_id: str,
@@ -268,8 +297,10 @@ async def accept_cluster(
 ) -> EventCluster:
     """accept a cluster, creating a timeline event.
 
-    uses a savepoint so event creation + cluster update
-    are atomic.
+    uses a savepoint so event creation, evidence linking, and the
+    cluster update are atomic. every distinct asset among the
+    cluster's items is linked as supporting evidence so the event
+    is born sourced.
     """
     cluster = await _load_cluster(session, cluster_id, case_id)
 
@@ -287,6 +318,38 @@ async def accept_cluster(
         )
         session.add(event)
         await session.flush()
+
+        items_result = await session.execute(
+            select(EventClusterItem).where(
+                EventClusterItem.cluster_id == cluster.id,
+            )
+        )
+        items_by_asset: dict[UUID, list[EventClusterItem]] = {}
+        for item in items_result.scalars().all():
+            items_by_asset.setdefault(item.asset_id, []).append(item)
+
+        assets_by_id: dict[UUID, Asset] = {}
+        if items_by_asset:
+            assets_result = await session.execute(
+                select(Asset).where(Asset.id.in_(items_by_asset))
+            )
+            assets_by_id = {a.id: a for a in assets_result.scalars().all()}
+
+        for asset_id, asset_items in items_by_asset.items():
+            clip_start, clip_end = _asset_clip_range(
+                assets_by_id.get(asset_id), asset_items
+            )
+            session.add(
+                TimelineEventEvidence(
+                    event_id=event.id,
+                    asset_id=asset_id,
+                    clip_start=clip_start,
+                    clip_end=clip_end,
+                    relationship="supports",
+                    notes=f"linked on acceptance of cluster {cluster.id}",
+                    linked_by=UUID(user_id),
+                )
+            )
 
         cluster.event_id = event.id
         cluster.status = "accepted"
