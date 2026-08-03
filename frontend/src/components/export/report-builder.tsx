@@ -42,6 +42,9 @@ export function ReportBuilder(props: ReportBuilderProps): React.ReactElement {
     const payload: CreateExportPayload = {
       name: `Evidence Report ${new Date().toISOString().slice(0, 10)}`,
       format: 'pdf_report',
+      include_evidence: includeEvidence,
+      include_contradictions: includeContradictions,
+      include_custody: includeCustody,
     };
 
     if (dateStart) {
@@ -53,9 +56,22 @@ export function ReportBuilder(props: ReportBuilderProps): React.ReactElement {
     if (!allEvents && selectedEventIds.size > 0) {
       payload.event_ids = Array.from(selectedEventIds);
     }
+    if (summary.trim()) {
+      payload.executive_summary = summary.trim();
+    }
 
     createExport.mutate(payload);
-  }, [dateStart, dateEnd, allEvents, selectedEventIds, createExport]);
+  }, [
+    dateStart,
+    dateEnd,
+    allEvents,
+    selectedEventIds,
+    includeEvidence,
+    includeContradictions,
+    includeCustody,
+    summary,
+    createExport,
+  ]);
 
   return (
     <div data-testid="report-builder" className="space-y-6">

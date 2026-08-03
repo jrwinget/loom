@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import * as Tabs from '@radix-ui/react-tabs';
 import { QueryError } from '@/components/layout/query-error';
 import { ExportWizard } from '@/components/export/export-wizard';
+import { ExportContentsPanel } from '@/components/export/export-contents-panel';
 import { ReportBuilder } from '@/components/export/report-builder';
 import { ReportPreview } from '@/components/export/report-preview';
 import { useDownloadExport, useExports } from '@/hooks/use-exports';
@@ -82,39 +83,42 @@ export function ExportPage(): React.ReactElement {
               {exports.map((exp) => (
                 <div
                   key={exp.id}
-                  className="border-border flex items-center justify-between rounded-md border p-4"
+                  className="border-border rounded-md border p-4"
                   data-testid={`export-row-${exp.id}`}
                 >
-                  <div>
-                    <p className="text-foreground font-medium">{exp.name}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {exp.format} — created{' '}
-                      {new Date(exp.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        STATUS_COLORS[exp.status] ?? ''
-                      }`}
-                    >
-                      {exp.status}
-                    </span>
-                    {exp.status === 'complete' && exp.storageKey && (
-                      <button
-                        type="button"
-                        onClick={() => downloadExport.mutate(exp.id)}
-                        disabled={downloadExport.isPending}
-                        className="text-primary text-sm hover:underline disabled:opacity-50"
-                        data-testid={`export-download-${exp.id}`}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-foreground font-medium">{exp.name}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {exp.format} — created{' '}
+                        {new Date(exp.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          STATUS_COLORS[exp.status] ?? ''
+                        }`}
                       >
-                        {downloadExport.isPending &&
-                        downloadExport.variables === exp.id
-                          ? 'Preparing…'
-                          : 'Download'}
-                      </button>
-                    )}
+                        {exp.status}
+                      </span>
+                      {exp.status === 'complete' && exp.storageKey && (
+                        <button
+                          type="button"
+                          onClick={() => downloadExport.mutate(exp.id)}
+                          disabled={downloadExport.isPending}
+                          className="text-primary text-sm hover:underline disabled:opacity-50"
+                          data-testid={`export-download-${exp.id}`}
+                        >
+                          {downloadExport.isPending &&
+                          downloadExport.variables === exp.id
+                            ? 'Preparing…'
+                            : 'Download'}
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  <ExportContentsPanel bundle={exp} />
                 </div>
               ))}
             </div>
