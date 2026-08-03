@@ -1,9 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard';
-import { AssetViewer } from '@/components/asset/asset-viewer';
+import { AssetViewer, type PlayerMarks } from '@/components/asset/asset-viewer';
 import { TranscriptPanel } from './transcript-panel';
 import { SceneBrowser } from './scene-browser';
 import { SearchBar } from './search-bar';
+import { LinkToEventDialog } from './link-to-event-dialog';
 import type { Asset } from '@/types/asset';
 import type {
   TranscriptSegment,
@@ -42,6 +43,13 @@ export function ReviewWorkspace(
 
   const [currentTime, setCurrentTime] = useState(0);
   const [focusedPanel, setFocusedPanel] = useState<FocusedPanel>('video');
+  // player in/out marks flow up from the viewer to prefill the
+  // clip range when linking this asset to a timeline event
+  const [marks, setMarks] = useState<PlayerMarks>({
+    inPoint: null,
+    outPoint: null,
+  });
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   // the asset viewer forwards its <video> element here so seeking
   // works without querying the dom
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
@@ -124,9 +132,31 @@ export function ReviewWorkspace(
               src={assetSrc}
               videoRef={videoElementRef}
               onTimeUpdate={handleTimeUpdate}
+              onMarksChange={setMarks}
             />
+            <button
+              type="button"
+              data-testid="link-to-event-btn"
+              onClick={() => setLinkDialogOpen(true)}
+              className={
+                'border-border text-muted-foreground mt-2 rounded-md ' +
+                'hover:bg-accent border px-3 py-1 text-xs'
+              }
+            >
+              Link to event…
+            </button>
           </div>
         </section>
+
+        {linkDialogOpen && (
+          <LinkToEventDialog
+            caseId={caseId}
+            assetId={asset.id}
+            clipStart={marks.inPoint ?? undefined}
+            clipEnd={marks.outPoint ?? undefined}
+            onClose={() => setLinkDialogOpen(false)}
+          />
+        )}
 
         {/* center: transcript */}
         <section

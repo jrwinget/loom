@@ -267,6 +267,89 @@ async def test_update_event(
     assert data["title"] == "Updated title"
 
 
+async def test_update_event_status_new_vocabulary(
+    mock_settings: Settings,
+) -> None:
+    """status can move to confirmed then disputed end-to-end."""
+    app = _create_app(mock_settings)
+
+    event = _make_event()
+
+    async def fake_update_event(db, event_id, data):
+        event.status = data["status"]
+        return event
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            _SVC_CASE,
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC_TL}.get_event",
+            new_callable=AsyncMock,
+            return_value=event,
+        ),
+        patch(
+            f"{_SVC_TL}.update_event",
+            new=AsyncMock(side_effect=fake_update_event),
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            for target in ("confirmed", "disputed"):
+                resp = await ac.patch(
+                    f"/api/v1/cases/{_CASE_ID}/events/{_EVENT_ID}",
+                    json={"status": target},
+                    headers=_auth_header(token),
+                )
+                assert resp.status_code == 200
+                assert resp.json()["status"] == target
+
+
+async def test_update_event_rejects_legacy_status(
+    mock_settings: Settings,
+) -> None:
+    """legacy statuses are refused before hitting the db."""
+    app = _create_app(mock_settings)
+
+    with (
+        patch(
+            "loom.security.auth.get_settings",
+            return_value=mock_settings,
+        ),
+        patch(
+            _SVC_CASE,
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            f"{_SVC_TL}.get_event",
+            new_callable=AsyncMock,
+            return_value=_make_event(),
+        ),
+    ):
+        token = create_access_token(str(_ADMIN_ID), "admin")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as ac:
+            resp = await ac.patch(
+                f"/api/v1/cases/{_CASE_ID}/events/{_EVENT_ID}",
+                json={"status": "proposed"},
+                headers=_auth_header(token),
+            )
+
+    assert resp.status_code == 422
+
+
 async def test_link_evidence(
     mock_settings: Settings,
 ) -> None:

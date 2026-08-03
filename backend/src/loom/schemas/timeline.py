@@ -1,9 +1,16 @@
 from datetime import datetime
+from typing import Literal, get_args
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-EVENT_STATUSES = ("draft", "proposed", "accepted", "rejected")
+from loom.models.timeline import EVENT_STATUS_VALUES
+
+# the literal carries the enum into the openapi schema; the model
+# tuple owns the vocabulary, so fail at import time on any drift
+EventStatus = Literal["draft", "confirmed", "disputed"]
+assert set(get_args(EventStatus)) == set(EVENT_STATUS_VALUES)
+
 TIME_PRECISIONS = ("exact", "approximate", "estimated")
 LOCATION_CONFIDENCES = ("verified", "approximate", "unknown")
 EVIDENCE_RELATIONSHIPS = ("supports", "contradicts", "context")
@@ -19,16 +26,7 @@ class TimelineEventCreate(BaseModel):
     location_lat: float | None = None
     location_lon: float | None = None
     location_confidence: str = "unknown"
-    status: str = "draft"
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, v: str) -> str:
-        if v not in EVENT_STATUSES:
-            raise ValueError(
-                f"status must be one of: {', '.join(EVENT_STATUSES)}"
-            )
-        return v
+    status: EventStatus = "draft"
 
     @field_validator("time_precision")
     @classmethod
@@ -60,16 +58,7 @@ class TimelineEventUpdate(BaseModel):
     location_lat: float | None = None
     location_lon: float | None = None
     location_confidence: str | None = None
-    status: str | None = None
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, v: str | None) -> str | None:
-        if v is not None and v not in EVENT_STATUSES:
-            raise ValueError(
-                f"status must be one of: {', '.join(EVENT_STATUSES)}"
-            )
-        return v
+    status: EventStatus | None = None
 
     @field_validator("time_precision")
     @classmethod

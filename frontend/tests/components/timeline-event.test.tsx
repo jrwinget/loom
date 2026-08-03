@@ -18,7 +18,7 @@ const mockEvent: TimelineEvent = {
   locationLat: 40.7128,
   locationLon: -74.006,
   locationConfidence: 'high',
-  status: 'proposed',
+  status: 'draft',
   createdBy: 'user-1',
   createdAt: '2026-03-15T18:00:00Z',
   updatedAt: '2026-03-15T18:00:00Z',
@@ -86,17 +86,24 @@ describe('TimelineEventCard', () => {
   });
 
   it('shows status badge', () => {
-    renderCard({ status: 'proposed' });
+    renderCard({ status: 'draft' });
     const badge = screen.getByTestId('event-status-badge');
-    expect(badge).toHaveTextContent('proposed');
-    expect(badge.className).toContain('blue');
+    expect(badge).toHaveTextContent('draft');
+    expect(badge.className).toContain('gray');
   });
 
-  it('shows accepted status with green styling', () => {
-    renderCard({ status: 'accepted' });
+  it('shows confirmed status with green styling', () => {
+    renderCard({ status: 'confirmed' });
     const badge = screen.getByTestId('event-status-badge');
-    expect(badge).toHaveTextContent('accepted');
+    expect(badge).toHaveTextContent('confirmed');
     expect(badge.className).toContain('green');
+  });
+
+  it('shows disputed status with amber styling', () => {
+    renderCard({ status: 'disputed' });
+    const badge = screen.getByTestId('event-status-badge');
+    expect(badge).toHaveTextContent('disputed');
+    expect(badge.className).toContain('amber');
   });
 
   it('handles click and passes event', async () => {

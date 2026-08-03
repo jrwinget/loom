@@ -1,12 +1,16 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 import { ReviewWorkspace } from '@/components/review/review-workspace';
 import type { Asset } from '@/types/asset';
 
-// mock keyboard shortcut
+// capture keyboard shortcuts so tests can trigger them directly
+const shortcuts = vi.hoisted(() => new Map<string, () => void>());
+
 vi.mock('@/hooks/use-keyboard', () => ({
-  useKeyboardShortcut: vi.fn(),
+  useKeyboardShortcut: (key: string, cb: () => void) => {
+    shortcuts.set(key, cb);
+  },
 }));
 
 // mock search hook
@@ -15,6 +19,15 @@ vi.mock('@/hooks/use-search', () => ({
     data: { results: [], total: 0, facets: {} },
     isLoading: false,
   }),
+}));
+
+vi.mock('@/lib/api-client', () => ({
+  apiClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 
 function makeAsset(overrides: Partial<Asset> = {}): Asset {
@@ -190,5 +203,41 @@ describe('ReviewWorkspace', () => {
 
     const video = screen.getByTestId('video-element') as HTMLVideoElement;
     expect(video.currentTime).toBe(4);
+  });
+
+  it('opens the link-to-event dialog prefilled from the player marks', async () => {
+    const { apiClient } = await import('@/lib/api-client');
+    vi.mocked(apiClient.get).mockResolvedValue({
+      items: [{ id: 'evt-1', title: 'Protest at City Hall' }],
+      total: 1,
+    });
+
+    renderWithQuery(
+      <ReviewWorkspace
+        caseId="case-1"
+        asset={makeAsset()}
+        assetSrc="/test.mp4"
+        segments={[]}
+        scenes={[]}
+      />,
+    );
+
+    const video = screen.getByTestId('video-element') as HTMLVideoElement;
+    video.currentTime = 7;
+    fireEvent.timeUpdate(video);
+    act(() => shortcuts.get('i')?.());
+    video.currentTime = 15;
+    fireEvent.timeUpdate(video);
+    act(() => shortcuts.get('o')?.());
+
+    fireEvent.click(screen.getByTestId('link-to-event-btn'));
+
+    expect(screen.getByTestId('link-to-event-dialog')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Clip start (s)'),
+    ).toHaveValue(7);
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Clip end (s)'),
+    ).toHaveValue(15);
   });
 });

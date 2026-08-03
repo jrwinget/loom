@@ -61,15 +61,11 @@ describe('TimelineCanvas', () => {
       }),
       makeEvent({
         id: 'e2',
-        status: 'proposed',
+        status: 'confirmed',
       }),
       makeEvent({
         id: 'e3',
-        status: 'accepted',
-      }),
-      makeEvent({
-        id: 'e4',
-        status: 'rejected',
+        status: 'disputed',
       }),
     ];
     render(
@@ -82,11 +78,10 @@ describe('TimelineCanvas', () => {
     const badges = screen.getAllByTestId(
       'event-status-badge',
     );
-    expect(badges).toHaveLength(4);
+    expect(badges).toHaveLength(3);
     expect(badges[0].className).toContain('gray');
-    expect(badges[1].className).toContain('blue');
-    expect(badges[2].className).toContain('green');
-    expect(badges[3].className).toContain('red');
+    expect(badges[1].className).toContain('green');
+    expect(badges[2].className).toContain('amber');
   });
 
   it('shows empty state when no events', () => {
