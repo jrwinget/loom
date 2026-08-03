@@ -6,9 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.dependencies import get_db_session, get_storage_backend
+from loom.models.case import Case
 from loom.models.user import User
 from loom.schemas.case import (
     CaseCreate,
+    CaseHoldRequest,
     CaseListResponse,
     CaseMemberCreate,
     CaseMemberResponse,
@@ -22,15 +24,40 @@ from loom.services.case import (
     check_case_access,
     create_case,
     get_case,
+    get_case_counts,
     list_cases,
     list_members,
     purge_case,
+    release_case_hold,
     remove_member,
+    set_case_hold,
     update_case,
 )
 from loom.services.storage_backends import StorageBackend
 
 router = APIRouter(prefix="/cases", tags=["cases"])
+
+
+def _case_response(
+    case: Case,
+    asset_count: int,
+    event_count: int,
+) -> CaseResponse:
+    return CaseResponse(
+        id=case.id,
+        name=case.name,
+        description=case.description,
+        status=case.status,
+        created_by=case.created_by,
+        created_at=case.created_at,
+        updated_at=case.updated_at,
+        asset_count=asset_count,
+        event_count=event_count,
+        hold_active=case.hold_active,
+        hold_reason=case.hold_reason,
+        hold_set_by=case.hold_set_by,
+        hold_set_at=case.hold_set_at,
+    )
 
 
 @router.post(
@@ -52,17 +79,7 @@ async def create_case_endpoint(
     user_id = get_current_user_id(token_payload)
 
     case = await create_case(db, body.name, body.description, user_id)
-    return CaseResponse(
-        id=case.id,
-        name=case.name,
-        description=case.description,
-        status=case.status,
-        created_by=case.created_by,
-        created_at=case.created_at,
-        updated_at=case.updated_at,
-        asset_count=0,
-        event_count=0,
-    )
+    return _case_response(case, asset_count=0, event_count=0)
 
 
 @router.get("", response_model=CaseListResponse)
@@ -83,14 +100,8 @@ async def list_cases_endpoint(
 
     cases, total = await list_cases(db, user_id, role, skip, limit)
     items = [
-        CaseResponse(
-            id=c.id,
-            name=c.name,
-            description=c.description,
-            status=c.status,
-            created_by=c.created_by,
-            created_at=c.created_at,
-            updated_at=c.updated_at,
+        _case_response(
+            c,
             asset_count=getattr(c, "asset_count", 0),
             event_count=getattr(c, "event_count", 0),
         )
@@ -127,15 +138,8 @@ async def get_case_endpoint(
             detail="case not found",
         )
 
-    return CaseResponse(
-        id=case.id,
-        name=case.name,
-        description=case.description,
-        status=case.status,
-        created_by=case.created_by,
-        created_at=case.created_at,
-        updated_at=case.updated_at,
-    )
+    asset_count, event_count = await get_case_counts(db, case.id)
+    return _case_response(case, asset_count, event_count)
 
 
 @router.patch("/{case_id}", response_model=CaseResponse)
@@ -164,15 +168,8 @@ async def update_case_endpoint(
 
     data = body.model_dump(exclude_unset=True)
     case = await update_case(db, case_id, data)
-    return CaseResponse(
-        id=case.id,
-        name=case.name,
-        description=case.description,
-        status=case.status,
-        created_by=case.created_by,
-        created_at=case.created_at,
-        updated_at=case.updated_at,
-    )
+    asset_count, event_count = await get_case_counts(db, case.id)
+    return _case_response(case, asset_count, event_count)
 
 
 @router.delete(
@@ -218,6 +215,14 @@ async def purge_case_endpoint(
             detail="case not found",
         )
 
+    # checked before the lifecycle guard so the hold message wins:
+    # a preservation lock outranks "close the case first"
+    if case.hold_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="case is under litigation hold",
+        )
+
     if case.status not in ("closed", "archived"):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -231,6 +236,93 @@ async def purge_case_endpoint(
         )
 
     await purge_case(db, case, body.reason.strip(), user_id, storage)
+
+
+async def _load_case_for_hold(
+    db: AsyncSession,
+    case_id: str,
+    user_id: str,
+) -> Case:
+    has_access = await check_case_access(
+        db, case_id, user_id, required_role="owner"
+    )
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="insufficient case access",
+        )
+
+    case = await get_case(db, case_id)
+    if not case:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="case not found",
+        )
+    return case
+
+
+@router.post("/{case_id}/hold", response_model=CaseResponse)
+async def set_case_hold_endpoint(
+    case_id: str,
+    body: CaseHoldRequest,
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_authenticated
+    ),
+    session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
+        get_db_session
+    ),
+) -> CaseResponse:
+    """place a litigation hold on a case (owner only).
+
+    while held, purging the case and deleting its assets are refused —
+    frcp 37(e) posture: evidence destruction must be impossible during
+    pending or anticipated litigation. the hold and its audit entry
+    land in the same commit.
+    """
+    db: AsyncSession = session  # type: ignore[assignment]
+    user_id = get_current_user_id(token_payload)
+
+    case = await _load_case_for_hold(db, case_id, user_id)
+    if case.hold_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="case is already under litigation hold",
+        )
+
+    case = await set_case_hold(db, case, body.reason, user_id)
+    asset_count, event_count = await get_case_counts(db, case.id)
+    return _case_response(case, asset_count, event_count)
+
+
+@router.post("/{case_id}/hold/release", response_model=CaseResponse)
+async def release_case_hold_endpoint(
+    case_id: str,
+    body: CaseHoldRequest,
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_authenticated
+    ),
+    session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
+        get_db_session
+    ),
+) -> CaseResponse:
+    """release a litigation hold (owner only).
+
+    a reason is required and recorded in the audit trail; the case's
+    hold fields are cleared in the same commit.
+    """
+    db: AsyncSession = session  # type: ignore[assignment]
+    user_id = get_current_user_id(token_payload)
+
+    case = await _load_case_for_hold(db, case_id, user_id)
+    if not case.hold_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="case is not under litigation hold",
+        )
+
+    case = await release_case_hold(db, case, body.reason, user_id)
+    asset_count, event_count = await get_case_counts(db, case.id)
+    return _case_response(case, asset_count, event_count)
 
 
 @router.post(

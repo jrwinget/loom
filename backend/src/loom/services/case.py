@@ -1,4 +1,5 @@
 import asyncio
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -112,6 +113,80 @@ async def get_case(
     """get a single case by id."""
     result = await session.execute(select(Case).where(Case.id == UUID(case_id)))
     return result.scalar_one_or_none()
+
+
+async def get_case_counts(
+    session: AsyncSession,
+    case_id: UUID,
+) -> tuple[int, int]:
+    """count a case's assets and timeline events."""
+    asset_result = await session.execute(
+        select(func.count(Asset.id)).where(Asset.case_id == case_id)
+    )
+    event_result = await session.execute(
+        select(func.count(TimelineEvent.id)).where(
+            TimelineEvent.case_id == case_id
+        )
+    )
+    return asset_result.scalar_one(), event_result.scalar_one()
+
+
+async def set_case_hold(
+    session: AsyncSession,
+    case: Case,
+    reason: str,
+    actor_id: str,
+) -> Case:
+    """place a litigation hold on a case.
+
+    the audit entry lands in the same commit as the flag change so a
+    held case can never exist without its record.
+    """
+    case.hold_active = True
+    case.hold_reason = reason
+    case.hold_set_by = UUID(actor_id)
+    case.hold_set_at = datetime.now(UTC)
+    session.add(
+        AuditLogEntry(
+            actor_id=actor_id,
+            action="case_hold_set",
+            resource_type="cases",
+            resource_id=case.id,
+            detail={"reason": reason},
+        )
+    )
+    await session.commit()
+    await session.refresh(case)
+    return case
+
+
+async def release_case_hold(
+    session: AsyncSession,
+    case: Case,
+    reason: str,
+    actor_id: str,
+) -> Case:
+    """release a litigation hold.
+
+    the release reason is recorded only in the audit trail; the case's
+    hold fields are cleared in the same commit.
+    """
+    case.hold_active = False
+    case.hold_reason = None
+    case.hold_set_by = None
+    case.hold_set_at = None
+    session.add(
+        AuditLogEntry(
+            actor_id=actor_id,
+            action="case_hold_released",
+            resource_type="cases",
+            resource_id=case.id,
+            detail={"reason": reason},
+        )
+    )
+    await session.commit()
+    await session.refresh(case)
+    return case
 
 
 _UPDATABLE_CASE_FIELDS: frozenset[str] = frozenset(
