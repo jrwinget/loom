@@ -38,14 +38,19 @@ _PLATFORM_KEYS = {
 
 def _download_verified(url: str, sha256: str, dest: Path) -> None:
     digest = hashlib.sha256()
-    # the url comes from the checked-in lockfile, not user input
-    with (
-        urllib.request.urlopen(url, timeout=600) as resp,  # noqa: S310
-        dest.open("wb") as fh,
-    ):
-        while chunk := resp.read(1024 * 1024):
-            fh.write(chunk)
-            digest.update(chunk)
+    try:
+        # the url comes from the checked-in lockfile, not user input
+        with (
+            urllib.request.urlopen(url, timeout=600) as resp,  # noqa: S310
+            dest.open("wb") as fh,
+        ):
+            while chunk := resp.read(1024 * 1024):
+                fh.write(chunk)
+                digest.update(chunk)
+    except OSError as err:
+        # name the url — a bare HTTPError traceback hides which
+        # pinned entry rotted
+        raise SystemExit(f"FAIL: {url}\n  {err}") from err
     actual = digest.hexdigest()
     if actual != sha256:
         raise SystemExit(
