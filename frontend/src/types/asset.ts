@@ -26,6 +26,10 @@ export interface Asset {
   // automatic agreement of exif/container/filename time sources.
   // null = too few sources to assess.
   clockConfidence: number | null;
+  // when the stored bytes were last re-hashed against the ingest
+  // digests, and whether they matched. null = never verified.
+  lastVerifiedAt: string | null;
+  lastVerificationOk: boolean | null;
   createdAt: string;
   updatedAt: string;
 }
