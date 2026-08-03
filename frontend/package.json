@@ -1,7 +1,7 @@
 {
   "name": "loom-frontend",
   "private": true,
-  "version": "0.2.7",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "copy-pdfjs-assets": "node scripts/copy-pdfjs-assets.mjs",
