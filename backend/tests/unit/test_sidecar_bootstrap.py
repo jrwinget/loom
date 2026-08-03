@@ -18,6 +18,7 @@ these tests pin two contracts:
 from __future__ import annotations
 
 import asyncio
+import json
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -202,7 +203,10 @@ def test_bootstrap_upgrades_stale_lite_schema(
     assert rev not in (None, "012"), f"still stamped at {rev}"
 
 
-@pytest.mark.parametrize("stale_stamp", ["012", "013", "016", "017", "018"])
+@pytest.mark.parametrize(
+    "stale_stamp",
+    ["012", "013", "016", "017", "018", "019", "020"],
+)
 def test_bootstrap_replays_field_stamps_on_materialized_schema(
     _lite_settings: Settings, stale_stamp: str
 ) -> None:
@@ -328,6 +332,84 @@ def test_bootstrap_replays_018_when_index_already_exists(
         conn.close()
     assert index_row is not None, "index dropped during replay"
     assert rev != "017", f"still stamped at {rev}"
+
+
+def test_bootstrap_replays_021_backfills_capture_time(
+    _lite_settings: Settings,
+) -> None:
+    """migration 021 must promote capture_time_utc on replay.
+
+    ingest never wrote the typed capture_time column before the
+    promotion fix, so lite installs carry assets whose capture time
+    exists only inside metadata_extracted. stamping back to 020 and
+    booting again replays 021, which must fill the column from the
+    json — and leave unparseable rows NULL without crashing.
+    """
+    filled_id = "0191234567897abc8def0123456789aa"
+    garbage_id = "0191234567897abc8def0123456789bb"
+    db_path = _db_file(_lite_settings.database_url)
+    get_settings.cache_clear()
+    with patch("loom.config.get_settings", return_value=_lite_settings):
+        bootstrap_schema_if_lite()
+
+        conn = sqlite3.connect(db_path)
+        try:
+            # raw sqlite3 leaves foreign keys off, so the seeded rows
+            # don't need parent cases/users — 021 only reads assets
+            for asset_id, meta in (
+                (
+                    filled_id,
+                    {"capture_time_utc": "2023-01-05T12:00:00-07:00"},
+                ),
+                (
+                    garbage_id,
+                    {"capture_time_utc": "not a timestamp"},
+                ),
+            ):
+                conn.execute(
+                    "INSERT INTO assets ("
+                    " id, case_id, original_filename, storage_key,"
+                    " media_type, mime_type, file_size_bytes,"
+                    " sha256_hash, sha512_hash, upload_status,"
+                    " uploaded_by, processing_status, metadata_extracted"
+                    ") VALUES (?, ?, 'clip.mp4', ?, 'video', 'video/mp4',"
+                    " 4, 'sha256', 'sha512', 'complete', ?, 'complete', ?)",
+                    (
+                        asset_id,
+                        "0191234567897abc8def0123456789ca",
+                        f"case/{asset_id}/clip.mp4",
+                        "0191234567897abc8def0123456789ce",
+                        json.dumps(meta),
+                    ),
+                )
+            conn.execute("UPDATE alembic_version SET version_num = '020'")
+            conn.commit()
+        finally:
+            conn.close()
+
+        bootstrap_schema_if_lite()
+
+    conn = sqlite3.connect(db_path)
+    try:
+        filled = conn.execute(
+            "SELECT capture_time FROM assets WHERE id = ?",
+            (filled_id,),
+        ).fetchone()[0]
+        garbage = conn.execute(
+            "SELECT capture_time FROM assets WHERE id = ?",
+            (garbage_id,),
+        ).fetchone()[0]
+        rev = conn.execute(
+            "SELECT version_num FROM alembic_version"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert filled is not None, "capture_time not backfilled"
+    assert filled.startswith("2023-01-05 19:00:00"), (
+        f"expected utc-normalized capture_time, got {filled!r}"
+    )
+    assert garbage is None, f"unparseable row should stay NULL: {garbage!r}"
+    assert rev != "020", f"still stamped at {rev}"
 
 
 def test_bootstrap_is_noop_on_server_profile(tmp_path: Path) -> None:

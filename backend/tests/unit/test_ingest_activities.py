@@ -5,6 +5,8 @@ with the expected arguments and handle errors properly.
 """
 
 import inspect
+from datetime import datetime
+from typing import Any
 from unittest.mock import (
     AsyncMock,
     MagicMock,
@@ -47,6 +49,43 @@ def _make_asset(
     asset.processing_status = "pending"
     asset.metadata_raw = None
     asset.metadata_extracted = None
+    asset.capture_time = None
+    return asset
+
+
+async def _run_extract(
+    mock_extract: MagicMock,
+    mock_session_ctx: MagicMock,
+    mock_storage: MagicMock,
+    normalized: dict[str, Any],
+) -> MagicMock:
+    """run extract_asset_metadata against a mocked asset."""
+    asset = _make_asset()
+    mock_extract.return_value = {
+        "error": None,
+        "raw": {},
+        "normalized": normalized,
+    }
+
+    session = AsyncMock()
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = asset
+    session.execute.return_value = result
+
+    ctx = AsyncMock()
+    ctx.__aenter__.return_value = session
+    mock_session_ctx.return_value = ctx
+
+    mock_storage.return_value = MagicMock()
+
+    with patch("loom.workflows.ingest_activities.tempfile") as mock_tmp:
+        mock_tmp.TemporaryDirectory.return_value.__enter__ = MagicMock(
+            return_value="/tmp/test"  # noqa: S108
+        )
+        mock_tmp.TemporaryDirectory.return_value.__exit__ = MagicMock(
+            return_value=False
+        )
+        await extract_asset_metadata(_ASSET_ID)
     return asset
 
 
@@ -199,6 +238,70 @@ class TestExtractAssetMetadata:
 
         assert metadata["raw"] == {"width": 1920}
         session.commit.assert_awaited_once()
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (
+                "2023-01-05T12:00:00.000000Z",
+                datetime(2023, 1, 5, 12, 0, 0),
+            ),
+            (
+                "2023-01-05T12:00:00-07:00",
+                datetime(2023, 1, 5, 19, 0, 0),
+            ),
+        ],
+    )
+    @patch("loom.workflows.ingest_activities.get_storage_backend")
+    @patch("loom.workflows.ingest_activities.get_db_session")
+    @patch("loom.workflows.ingest_activities.extract_metadata_from_file")
+    async def test_promotes_capture_time_to_typed_column(
+        self,
+        mock_extract: MagicMock,
+        mock_session_ctx: MagicMock,
+        mock_storage: MagicMock,
+        value: str,
+        expected: datetime,
+    ) -> None:
+        """capture_time_utc is parsed and stored as naive utc."""
+        asset = await _run_extract(
+            mock_extract,
+            mock_session_ctx,
+            mock_storage,
+            {"capture_time_utc": value},
+        )
+
+        assert asset.capture_time == expected
+        assert asset.capture_time.tzinfo is None
+
+    @pytest.mark.parametrize(
+        "normalized",
+        [
+            {"capture_time_utc": "not a timestamp"},
+            {"capture_time_utc": 12345},
+            {"capture_time_utc": None},
+            {"width": 1920},
+        ],
+    )
+    @patch("loom.workflows.ingest_activities.get_storage_backend")
+    @patch("loom.workflows.ingest_activities.get_db_session")
+    @patch("loom.workflows.ingest_activities.extract_metadata_from_file")
+    async def test_leaves_capture_time_null_when_unparseable(
+        self,
+        mock_extract: MagicMock,
+        mock_session_ctx: MagicMock,
+        mock_storage: MagicMock,
+        normalized: dict[str, Any],
+    ) -> None:
+        """garbage or absent capture_time_utc must not crash ingest."""
+        asset = await _run_extract(
+            mock_extract,
+            mock_session_ctx,
+            mock_storage,
+            normalized,
+        )
+
+        assert asset.capture_time is None
 
 
 class TestMarkAssetComplete:
