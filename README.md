@@ -42,14 +42,22 @@ identity resolution.
   explicit relationship type (`supports`, `contradicts`, or `context`) so the
   timeline shows where stories agree and where they diverge. For legal work,
   uncertainty is information, not noise.
-- **Exports bundles designed for court use.** Each export is a signed package
-  containing originals, derivatives, annotations, timeline, and the full chain
-  of custody, plus a pre-filled declaration in the form contemplated by
+- **Exports bundles designed for court use.** You choose what ships: the
+  evidence layer (files, hashes, chain of custody) always travels, original
+  media is opt-in and re-verified against its intake hash at export time, and
+  the analysis layer (timeline, annotations, notes) is excluded from court
+  bundles unless you opt in — it is attorney work product. A court bundle
+  carries a pre-filled declaration in the form contemplated by
   **FRE 902(13)/(14)** self-authentication and **IRE 902(11)** business-records
-  authentication. Reports are rendered as PDF; the manifest is JSON, so the
-  hash lineage can be re-checked. Whether a given bundle is admissible in a
-  specific matter is for counsel and the court to decide — Loom builds the
-  artifacts, not the legal argument.
+  authentication, for counsel to review and execute; it claims integrity within
+  Loom since ingest and makes no representation about a file's handling before
+  that. Reports render as PDF and the manifest is JSON, so the hash lineage can
+  be re-checked — and every bundle ships a verifier (a single HTML page, plus a
+  standard-library Python script) so opposing counsel or chambers can confirm
+  every hash without installing Loom. Manifests can additionally be signed with
+  an Ed25519 key when the deployment configures one. Whether a given bundle is
+  admissible in a specific matter is for counsel and the court to decide — Loom
+  builds the artifacts, not the legal argument.
 
 ## Download and install
 
