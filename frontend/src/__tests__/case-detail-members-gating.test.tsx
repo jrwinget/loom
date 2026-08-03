@@ -27,6 +27,10 @@ vi.mock('@/hooks/use-case', () => ({
 vi.mock('@/hooks/use-audit', () => ({
   useCaseAudit: () => ({ data: { items: [] } }),
 }));
+// the overview also renders the integrity card
+vi.mock('@/hooks/use-integrity', () => ({
+  useVerifyCase: () => ({ mutate: vi.fn(), isPending: false, data: undefined }),
+}));
 vi.mock('@/hooks/use-first-run', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/hooks/use-first-run')>();
   return { ...actual, useFirstRunStatus: vi.fn() };
