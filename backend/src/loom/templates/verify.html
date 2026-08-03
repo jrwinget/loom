@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Loom Court Bundle Verifier</title>
+<!--
+  self-contained integrity checker for a loom court bundle.
+  no network access, no external dependencies, no build step —
+  open this file directly from the extracted bundle (file://).
+
+  browsers block reading sibling files from file:// pages, so the
+  user selects the bundle files below; hashing runs locally with
+  the WebCrypto API, which is available on file:// pages because
+  they are a secure context in chrome, firefox, and safari.
+-->
+<style>
+  body {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: #1a1a1a;
+    line-height: 1.5;
+    max-width: 860px;
+    margin: 40px auto;
+    padding: 0 16px;
+  }
+  h1 {
+    font-size: 24px;
+    border-bottom: 3px double #333;
+    padding-bottom: 8px;
+  }
+  .intro { color: #444; }
+  .pickers {
+    margin: 24px 0;
+    padding: 16px;
+    border: 1px solid #ccc;
+    background: #fafafa;
+  }
+  .pickers label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  .pickers .hint { font-weight: 400; color: #666; font-size: 13px; }
+  #verdict {
+    display: none;
+    margin: 24px 0;
+    padding: 18px;
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+  }
+  #verdict.pass { display: block; background: #e6f4e6; color: #1b5e20;
+    border: 2px solid #1b5e20; }
+  #verdict.fail { display: block; background: #fdeaea; color: #b71c1c;
+    border: 2px solid #b71c1c; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 16px 0;
+  }
+  th, td {
+    border: 1px solid #bbb;
+    padding: 5px 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #f3f3f3; }
+  td.hash {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 11px;
+    word-break: break-all;
+    color: #444;
+  }
+  tr.ok td.status { color: #1b5e20; font-weight: 600; }
+  tr.bad td.status { color: #b71c1c; font-weight: 700; }
+  tr.warn td.status { color: #8a6d00; font-weight: 600; }
+  #signature, #note {
+    margin: 16px 0;
+    padding: 12px;
+    border: 1px solid #ccc;
+    background: #f8f8f8;
+    font-size: 14px;
+  }
+  code {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 12px;
+    background: #eee;
+    padding: 1px 4px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Loom Court Bundle Verifier</h1>
+
+<p class="intro">
+  This page checks that every file in the bundle still matches the
+  SHA-256 fingerprint recorded in <code>MANIFEST.sha256</code> when
+  the bundle was produced. Everything runs inside your browser on
+  this computer — nothing is uploaded and no internet connection is
+  used or needed.
+</p>
+
+<div class="pickers">
+  <label>
+    Select the extracted bundle folder
+    <span class="hint">(preferred — includes the exhibits subfolder)</span>
+    <input type="file" id="dirInput" webkitdirectory multiple>
+  </label>
+  <label>
+    Or select all bundle files
+    <span class="hint">(fallback if your browser cannot select a
+    folder; choose every file, including MANIFEST.sha256)</span>
+    <input type="file" id="filesInput" multiple>
+  </label>
+  <label>
+    Optional: preparer's Ed25519 public key (.pem) to check the
+    manifest signature
+    <input type="file" id="pubkeyInput" accept=".pem,.pub,.txt">
+  </label>
+</div>
+
+<div id="verdict"></div>
+<div id="signature" hidden></div>
+<div id="results"></div>
+
+<div id="note">
+  If this page does not work in your browser, run
+  <code>python3 verify.py</code> from the bundle folder instead, or
+  see <code>VERIFY_README.txt</code> for other options.
+</div>
+
+<script>
+"use strict";
+
+const MANIFEST_NAME = "MANIFEST.sha256";
+const SIGNATURE_NAME = "MANIFEST.sha256.sig";
+
+// path of a selected file relative to the bundle root: folder
+// selections prefix the folder name itself, so drop the first
+// segment; plain multi-file selections have no folder structure.
+function relPath(file) {
+  if (file.webkitRelativePath) {
+    return file.webkitRelativePath.split("/").slice(1).join("/");
+  }
+  return file.name;
+}
+
+async function sha256Hex(file) {
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// sha256sum format: "<64 hex chars>  <path>" per line
+function parseManifest(text) {
+  const entries = new Map();
+  for (const line of text.split("\n")) {
+    const match = line.match(/^([0-9a-fA-F]{64})[ \t]+\*?(.+)$/);
+    if (match) {
+      entries.set(match[2].trim(), match[1].toLowerCase());
+    }
+  }
+  return entries;
+}
+
+function showVerdict(ok, summary) {
+  const verdict = document.getElementById("verdict");
+  verdict.className = ok ? "pass" : "fail";
+  verdict.textContent = ok
+    ? "VERIFIED — every listed file matches the manifest. " + summary
+    : "VERIFICATION FAILED — " + summary;
+}
+
+function renderTable(rows) {
+  const classes = { match: "ok", MISMATCH: "bad", missing: "bad",
+    unlisted: "warn" };
+  let html = "<table><thead><tr><th>File</th><th>Status</th>" +
+    "<th>SHA-256 (expected / computed)</th></tr></thead><tbody>";
+  for (const row of rows) {
+    html += `<tr class="${classes[row.status]}">` +
+      `<td>${escapeHtml(row.path)}</td>` +
+      `<td class="status">${row.status}</td>` +
+      `<td class="hash">${row.expected || "—"}<br>` +
+      `${row.actual || "—"}</td></tr>`;
+  }
+  document.getElementById("results").innerHTML = html +
+    "</tbody></table>";
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function pemToBytes(text) {
+  const base64 = text
+    .replace(/-----(BEGIN|END)[A-Z0-9 ]+-----/g, "")
+    .replace(/\s+/g, "");
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function ed25519Supported() {
+  // chrome/edge 137+, firefox 130+, safari 17+
+  try {
+    await crypto.subtle.generateKey("Ed25519", false, ["sign", "verify"]);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+async function checkSignature(fileMap, manifestFile) {
+  const box = document.getElementById("signature");
+  box.hidden = false;
+  const sigFile = fileMap.get(SIGNATURE_NAME);
+  if (!sigFile) {
+    box.textContent = "This bundle carries no manifest signature " +
+      "(that is optional); the file fingerprints above are still " +
+      "authoritative.";
+    return;
+  }
+  const pubkeyFile = document.getElementById("pubkeyInput").files[0];
+  if (!pubkeyFile) {
+    box.textContent = "A manifest signature (MANIFEST.sha256.sig) " +
+      "is present. Select the preparer's public key above to check " +
+      "it, or use verify.py / openssl as described in " +
+      "VERIFY_README.txt.";
+    return;
+  }
+  if (!(await ed25519Supported())) {
+    box.textContent = "This browser cannot check Ed25519 signatures " +
+      "(needs Chrome/Edge 137+, Firefox 130+, or Safari 17+). Use " +
+      "verify.py or openssl as described in VERIFY_README.txt.";
+    return;
+  }
+  try {
+    const key = await crypto.subtle.importKey(
+      "spki",
+      pemToBytes(await pubkeyFile.text()),
+      "Ed25519",
+      false,
+      ["verify"]
+    );
+    const valid = await crypto.subtle.verify(
+      "Ed25519",
+      key,
+      await sigFile.arrayBuffer(),
+      await manifestFile.arrayBuffer()
+    );
+    box.textContent = valid
+      ? "Signature: VALID — the manifest was signed by the holder " +
+        "of the selected public key."
+      : "Signature: INVALID — the manifest does not match the " +
+        "signature. Treat this bundle as altered.";
+  } catch (err) {
+    box.textContent = "Could not check the signature (" + err + "). " +
+      "Use verify.py or openssl as described in VERIFY_README.txt.";
+  }
+}
+
+async function verify(files) {
+  if (files.length === 0) {
+    return;
+  }
+  const fileMap = new Map();
+  for (const file of files) {
+    fileMap.set(relPath(file), file);
+  }
+  const manifestFile = fileMap.get(MANIFEST_NAME);
+  if (!manifestFile) {
+    showVerdict(false, "no " + MANIFEST_NAME + " in the selection. " +
+      "Select the whole extracted bundle folder.");
+    return;
+  }
+  const manifest = parseManifest(await manifestFile.text());
+
+  const rows = [];
+  let failures = 0;
+  for (const path of [...manifest.keys()].sort()) {
+    const expected = manifest.get(path);
+    const file = fileMap.get(path);
+    if (!file) {
+      rows.push({ path, status: "missing", expected, actual: null });
+      failures++;
+      continue;
+    }
+    const actual = await sha256Hex(file);
+    if (actual === expected) {
+      rows.push({ path, status: "match", expected, actual });
+    } else {
+      rows.push({ path, status: "MISMATCH", expected, actual });
+      failures++;
+    }
+  }
+  for (const path of [...fileMap.keys()].sort()) {
+    if (!manifest.has(path) && path !== MANIFEST_NAME &&
+        path !== SIGNATURE_NAME) {
+      rows.push({ path, status: "unlisted", expected: null,
+        actual: null });
+    }
+  }
+
+  renderTable(rows);
+  showVerdict(
+    failures === 0,
+    failures === 0
+      ? `${manifest.size} files checked.`
+      : `${failures} of ${manifest.size} listed files missing or ` +
+        "altered."
+  );
+  await checkSignature(fileMap, manifestFile);
+}
+
+for (const id of ["dirInput", "filesInput", "pubkeyInput"]) {
+  document.getElementById(id).addEventListener("change", () => {
+    const files = document.getElementById("dirInput").files.length
+      ? document.getElementById("dirInput").files
+      : document.getElementById("filesInput").files;
+    verify(Array.from(files));
+  });
+}
+</script>
+
+</body>
+</html>

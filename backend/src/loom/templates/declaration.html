@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ case.name }} — Declaration of Authenticity</title>
+<style>
+  @page { size: letter; margin: 1in; }
+  body {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: #1a1a1a;
+    line-height: 1.5;
+    font-size: 11pt;
+  }
+  h1 {
+    font-size: 16pt;
+    border-bottom: 3px double #333;
+    padding-bottom: 8px;
+  }
+  .meta {
+    margin: 24px 0;
+    font-size: 10.5pt;
+  }
+  .meta-row {
+    display: flex;
+    padding: 4px 0;
+    border-bottom: 1px solid #eee;
+  }
+  .meta-label {
+    width: 160px;
+    font-weight: 600;
+    color: #333;
+  }
+  .meta-value { flex: 1; color: #111; }
+  ol.statements { padding-left: 20px; }
+  ol.statements li { margin-bottom: 12px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    margin: 16px 0 24px;
+  }
+  th, td {
+    border: 1px solid #bbb;
+    padding: 5px 7px;
+    vertical-align: top;
+    text-align: left;
+  }
+  th { background: #f3f3f3; font-weight: 600; }
+  .ex-num { font-weight: 700; white-space: nowrap; width: 50px; }
+  .hash {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 8.5pt;
+    word-break: break-all;
+    color: #444;
+  }
+  .not-verified { color: #777; font-style: italic; }
+  .signature-block {
+    margin-top: 48px;
+    font-size: 11pt;
+  }
+  .sign-line {
+    margin: 22px 0;
+    white-space: pre;
+  }
+  .jurat { margin: 32px 0 8px; font-weight: 600; }
+  .counsel-note {
+    margin-top: 40px;
+    font-style: italic;
+    font-size: 10pt;
+    color: #555;
+    border-top: 1px solid #ccc;
+    padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<h1>{{ title }}</h1>
+
+<div class="meta">
+  <div class="meta-row">
+    <div class="meta-label">Case</div>
+    <div class="meta-value">{{ case.name }}</div>
+  </div>
+  <div class="meta-row">
+    <div class="meta-label">Prepared by</div>
+    <div class="meta-value">{{ preparer }}</div>
+  </div>
+  <div class="meta-row">
+    <div class="meta-label">Generated</div>
+    <div class="meta-value">{{ generated_at }}</div>
+  </div>
+</div>
+
+<ol class="statements">
+  {% for statement in statements %}
+  <li>{{ statement }}</li>
+  {% endfor %}
+</ol>
+
+<h2>Exhibits</h2>
+{% if rows %}
+<table>
+  <thead>
+    <tr>
+      <th class="ex-num">#</th>
+      <th>Filename</th>
+      <th>SHA-256 at intake</th>
+      <th>Within this system since ingest on</th>
+      <th>Export-time check</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td class="ex-num">E{{ row.number }}</td>
+      <td>{{ row.filename }}</td>
+      <td class="hash">{{ row.sha256 }}</td>
+      <td>{{ row.ingested or "see chain_of_custody.json" }}</td>
+      <td>
+        {% if row.verified_at %}
+          verified at {{ row.verified_at }}
+        {% else %}
+          <span class="not-verified">original not included in this
+          production; not re-verified at export</span>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No exhibits included in this bundle.</p>
+{% endif %}
+
+<div class="signature-block">
+  <div class="sign-line">Declarant name:  ________________________________</div>
+  <div class="sign-line">Title / role:    ________________________________</div>
+
+  <p class="jurat">{{ jurat }}</p>
+
+  <div class="sign-line">Executed on: ____________________</div>
+  <div class="sign-line">Signature:   ________________________________</div>
+</div>
+
+<div class="counsel-note">{{ counsel_note }}</div>
+
+</body>
+</html>

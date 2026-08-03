@@ -1,11 +1,13 @@
 import hashlib
 import zipfile
+from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
+from loom import __version__
 from loom.services.court_bundle import (
     _render_manifest_lines,
     build_court_bundle,
@@ -92,16 +94,23 @@ class TestBuildCourtBundle:
         self, tmp_path: Path
     ) -> None:
         """the default court bundle is an evidence-only production:
-        no report.pdf (attorney work product), but the custody log
-        travels with it. every manifest hash matches its file.
+        no report (attorney work product), but the custody log,
+        declaration, and standalone verifier travel with it. every
+        manifest hash matches its file.
         """
         session = MagicMock()
         dest = tmp_path / "bundle.zip"
 
-        with patch(
-            "loom.services.court_bundle.build_court_bundle_data",
-            new_callable=AsyncMock,
-            return_value=_stub_data(),
+        with (
+            patch(
+                "loom.services.court_bundle.build_court_bundle_data",
+                new_callable=AsyncMock,
+                return_value=_stub_data(),
+            ),
+            patch(
+                "loom.services.court_bundle.render_report_pdf",
+                side_effect=ImportError("forced html fallback"),
+            ),
         ):
             sha256, exported = await build_court_bundle(
                 session,
@@ -119,20 +128,31 @@ class TestBuildCourtBundle:
         with zipfile.ZipFile(dest) as zf:
             names = set(zf.namelist())
             assert {
-                "cover.pdf",
-                "exhibit_index.pdf",
+                "cover.html",
+                "declaration.html",
+                "declaration.txt",
+                "exhibit_index.html",
                 "chain_of_custody.json",
+                "verify.html",
+                "verify.py",
+                "VERIFY_README.txt",
                 "MANIFEST.sha256",
             }.issubset(names)
             assert "report.pdf" not in names
+            assert "report.html" not in names
 
             manifest = zf.read("MANIFEST.sha256").decode("utf-8")
+            listed = set()
             for line in manifest.strip().splitlines():
                 digest, path = line.split("  ", 1)
+                listed.add(path)
                 file_bytes = zf.read(path)
                 assert hashlib.sha256(file_bytes).hexdigest() == digest, (
                     f"manifest hash mismatch for {path}"
                 )
+            # every entry except the manifest itself is listed, so
+            # the shipped verifiers can attest to the whole bundle
+            assert listed == names - {"MANIFEST.sha256"}
 
     @pytest.mark.asyncio
     async def test_analysis_opt_in_ships_work_product_report(
@@ -168,8 +188,10 @@ class TestBuildCourtBundle:
 
         with zipfile.ZipFile(dest) as zf:
             names = set(zf.namelist())
-            assert "report.pdf" in names
-            report = zf.read("report.pdf").decode("utf-8")
+            # honest naming: the html fallback is named .html
+            assert "report.html" in names
+            assert "report.pdf" not in names
+            report = zf.read("report.html").decode("utf-8")
         # html fallback bytes carry the banner text
         assert "ATTORNEY WORK PRODUCT" in report
 
@@ -216,9 +238,14 @@ class TestBuildCourtBundle:
                 dest_path=dest,
             )
 
-        assert exported == [
-            {"id": str(asset.id), "sha256": sha, "exhibit_number": 1}
-        ]
+        assert len(exported) == 1
+        item = exported[0]
+        assert item["id"] == str(asset.id)
+        assert item["sha256"] == sha
+        assert item["exhibit_number"] == 1
+        # streaming re-verification is timestamped so the §1746
+        # declaration can attest when each original was re-checked
+        assert item["verified_at"]
         with zipfile.ZipFile(dest) as zf:
             assert zf.read("exhibits/E001_evidence.mp4") == payload
             manifest = zf.read("MANIFEST.sha256").decode("utf-8")
@@ -350,3 +377,183 @@ class TestBuildCourtBundle:
         # court bundle always forces custody inclusion
         assert captured_options["include_custody"] is True
         assert captured_options["anything"] is True  # preserves caller opts
+
+
+class TestHonestEntryNaming:
+    @pytest.mark.asyncio
+    async def test_pdf_names_when_renderer_available(
+        self, tmp_path: Path
+    ) -> None:
+        """when weasyprint renders real pdfs the entries keep .pdf
+        names; declaration.txt ships regardless."""
+        session = MagicMock()
+        dest = tmp_path / "bundle.zip"
+
+        with (
+            patch(
+                "loom.services.court_bundle.build_court_bundle_data",
+                new_callable=AsyncMock,
+                return_value=_stub_data(),
+            ),
+            patch(
+                "loom.services.court_bundle.render_report_pdf",
+                return_value=b"%PDF-1.7 fake",
+            ),
+        ):
+            await build_court_bundle(
+                session,
+                _CASE_ID,
+                options={},
+                storage=MagicMock(),
+                dest_path=dest,
+            )
+
+        with zipfile.ZipFile(dest) as zf:
+            names = set(zf.namelist())
+        assert {"cover.pdf", "exhibit_index.pdf", "declaration.pdf"} <= names
+        assert "declaration.txt" in names
+        assert not {"cover.html", "exhibit_index.html", "declaration.html"} & (
+            names
+        )
+
+    @pytest.mark.asyncio
+    async def test_html_fallback_is_named_html(self, tmp_path: Path) -> None:
+        """a file whose bytes are html must never be named .pdf —
+        chambers opening a broken 'pdf' undermines the production."""
+        session = MagicMock()
+        dest = tmp_path / "bundle.zip"
+
+        with (
+            patch(
+                "loom.services.court_bundle.build_court_bundle_data",
+                new_callable=AsyncMock,
+                return_value=_stub_data(),
+            ),
+            patch(
+                "loom.services.court_bundle.render_report_pdf",
+                side_effect=ImportError("forced html fallback"),
+            ),
+        ):
+            await build_court_bundle(
+                session,
+                _CASE_ID,
+                options={},
+                storage=MagicMock(),
+                dest_path=dest,
+            )
+
+        with zipfile.ZipFile(dest) as zf:
+            names = set(zf.namelist())
+        assert "declaration.html" in names
+        assert "declaration.pdf" not in names
+        assert not {"cover.pdf", "exhibit_index.pdf"} & names
+
+
+class TestDeclaration:
+    async def _declaration_text(
+        self,
+        tmp_path: Path,
+        options: dict | None = None,
+        storage: MagicMock | None = None,
+        exhibits: list | None = None,
+    ) -> str:
+        session = MagicMock()
+        dest = tmp_path / "bundle.zip"
+
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch(
+                    "loom.services.court_bundle.build_court_bundle_data",
+                    new_callable=AsyncMock,
+                    return_value=_stub_data(),
+                )
+            )
+            stack.enter_context(
+                patch(
+                    "loom.services.court_bundle.render_report_pdf",
+                    side_effect=ImportError("forced html fallback"),
+                )
+            )
+            if exhibits is not None:
+                stack.enter_context(
+                    patch(
+                        "loom.services.court_bundle._fetch_exhibits",
+                        new_callable=AsyncMock,
+                        return_value=exhibits,
+                    )
+                )
+            await build_court_bundle(
+                session,
+                _CASE_ID,
+                options=options or {},
+                storage=storage or MagicMock(),
+                dest_path=dest,
+            )
+
+        with zipfile.ZipFile(dest) as zf:
+            return zf.read("declaration.txt").decode("utf-8")
+
+    @pytest.mark.asyncio
+    async def test_declaration_states_the_pre_filled_facts(
+        self, tmp_path: Path
+    ) -> None:
+        text = await self._declaration_text(tmp_path)
+
+        # § 1746 form
+        assert "penalty of perjury" in text
+        assert "28 U.S.C. § 1746" in text
+        assert "FRE 902(13)" in text
+        # software + version
+        assert "Loom" in text
+        assert __version__ in text
+        # per-exhibit intake hash
+        assert "a" * 64 in text
+        assert "evidence.mp4" in text
+        # blank declarant block for counsel to complete
+        assert "Signature" in text
+        assert "____" in text
+        assert "Executed on" in text
+
+    @pytest.mark.asyncio
+    async def test_declaration_never_overclaims_custody(
+        self, tmp_path: Path
+    ) -> None:
+        """custody scope is 'within this system since ingest' — a
+        scene-to-court custody claim would be used against counsel."""
+        text = await self._declaration_text(tmp_path)
+
+        assert "within this system since" in text
+        assert "since collection" not in text
+        assert "at the scene" not in text
+
+    @pytest.mark.asyncio
+    async def test_declaration_records_export_time_verification(
+        self, tmp_path: Path
+    ) -> None:
+        """included originals get a per-exhibit verification result
+        and timestamp; excluded ones are honestly marked."""
+        payload = b"original evidence bytes"
+        sha = hashlib.sha256(payload).hexdigest()
+
+        asset = MagicMock()
+        asset.id = uuid4()
+        asset.original_filename = "evidence.mp4"
+        asset.storage_key = "case/evidence.mp4"
+        asset.sha256_hash = sha
+
+        storage = MagicMock()
+        storage.get_object_stream.return_value = (
+            len(payload),
+            iter([payload]),
+        )
+
+        text = await self._declaration_text(
+            tmp_path,
+            options={"include_originals": True},
+            storage=storage,
+            exhibits=[asset],
+        )
+        assert "verified at" in text
+
+        text_without = await self._declaration_text(tmp_path)
+        assert "not re-verified" in text_without
