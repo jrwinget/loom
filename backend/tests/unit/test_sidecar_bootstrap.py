@@ -205,7 +205,7 @@ def test_bootstrap_upgrades_stale_lite_schema(
 
 @pytest.mark.parametrize(
     "stale_stamp",
-    ["012", "013", "016", "017", "018", "019", "020"],
+    ["012", "013", "016", "017", "018", "019", "020", "021"],
 )
 def test_bootstrap_replays_field_stamps_on_materialized_schema(
     _lite_settings: Settings, stale_stamp: str

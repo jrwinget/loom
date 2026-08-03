@@ -26,6 +26,7 @@ import loom.config
 from loom.models.asset import Asset
 from loom.models.audit import AuditLogEntry
 from loom.models.case import Case
+from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.security.auth import create_access_token
 from loom.security.rate_limit import limiter
 from loom.workflows import shared
@@ -172,6 +173,16 @@ async def test_purge_writes_tombstone_then_destroys(
     stored = lite_env / "buckets" / "loom-originals" / storage_key
     assert stored.exists()
 
+    # ingest recorded custody; purge must cascade it away (the audit
+    # tombstone, not custody, is the durable record of destruction)
+    async with shared.get_db_session() as session:
+        custody = await session.execute(
+            select(ChainOfCustodyEntry).where(
+                ChainOfCustodyEntry.asset_id == UUID(asset_id)
+            )
+        )
+        assert custody.scalars().first() is not None
+
     await _close_case(lite_client, headers, case_id)
 
     resp = await lite_client.request(
@@ -208,6 +219,12 @@ async def test_purge_writes_tombstone_then_destroys(
             select(Asset).where(Asset.case_id == UUID(case_id))
         )
         assert assets_left.scalars().first() is None
+        custody_left = await session.execute(
+            select(ChainOfCustodyEntry).where(
+                ChainOfCustodyEntry.asset_id == UUID(asset_id)
+            )
+        )
+        assert custody_left.scalars().first() is None
 
     assert not stored.exists()
 

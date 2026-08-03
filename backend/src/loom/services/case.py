@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.asset import Asset
@@ -240,6 +240,13 @@ async def purge_case(
     deleting a file is irreversible and not transactional, so doing it
     last means a failure there leaves a reap-able orphan file rather
     than an original destroyed with no committed audit record.
+
+    on postgres the append-only triggers from migration 011 also fire
+    for the cascade deletes this purge relies on, so the transaction
+    sets the ``loom.allow_purge`` flag that migration 022's gated
+    trigger function checks. SET LOCAL scopes the permission to this
+    transaction only; direct custody mutations outside a purge — and
+    audit_log rows always — remain rejected.
     """
     result = await session.execute(
         select(Asset).where(Asset.case_id == case.id)
@@ -269,6 +276,10 @@ async def purge_case(
         )
     )
     await session.flush()
+
+    if session.get_bind().dialect.name == "postgresql":
+        # transaction-local: the flag dies with the commit below.
+        await session.execute(text("SET LOCAL loom.allow_purge = 'on'"))
 
     await session.delete(case)
     await session.commit()
