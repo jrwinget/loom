@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from loom.config import get_settings
+from loom.db import install_sqlite_fk_enforcement
 from loom.services.storage_backends import (
     StorageBackend,
     build_storage_backend,
@@ -43,6 +44,7 @@ def _get_engine() -> "AsyncEngine":
             pool_pre_ping=settings.db_pool_pre_ping,
             pool_timeout=settings.db_pool_timeout,
         )
+        install_sqlite_fk_enforcement(_engine, settings.database_url)
     return _engine
 
 

@@ -1,4 +1,6 @@
-.PHONY: dev test lint up down build deploy clean help backup restore verify-backup hooks
+.PHONY: dev test test-backend test-frontend lint lint-backend \
+	lint-frontend format migrate typegen up down build deploy clean \
+	help backup restore verify-backup hooks
 
 help: ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -22,8 +24,8 @@ test: test-backend test-frontend ## run all tests
 test-backend: ## run backend tests
 	cd backend && uv run pytest --cov=loom --cov-report=term-missing
 
-test-frontend: ## run frontend tests
-	cd frontend && pnpm test
+test-frontend: ## run frontend tests with the coverage gate ci enforces
+	cd frontend && pnpm test:coverage
 
 lint: lint-backend lint-frontend ## run all linters
 
@@ -32,8 +34,9 @@ lint-backend: ## lint and type-check backend
 	cd backend && uv run ruff format --check src tests
 	cd backend && uv run mypy src
 
-lint-frontend: ## lint and type-check frontend
+lint-frontend: ## lint, format-check, and type-check frontend
 	cd frontend && pnpm lint
+	cd frontend && pnpm format:check
 	cd frontend && pnpm typecheck
 
 hooks: ## install git hooks (pre-commit lint, pre-push version sync)

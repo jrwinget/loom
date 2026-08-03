@@ -74,6 +74,8 @@ docker/nginx/certs/
 tmp/
 .claude/
 CLAUDE.md
+# diagnostics exports saved to the repo root during testing
+loom-diagnostics*.zip
 
 # fetched host binaries (scripts/fetch-desktop-binaries.py); only
 # the placeholder README is tracked

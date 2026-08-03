@@ -6,9 +6,14 @@
 #   - v0.2.0: the openapi schema embeds the version, so a bump
 #     without a regenerate drifts the checked-in contract,
 #   - v0.2.1: the macos updater archive was missing, and the fix
-#     meant delete-release + re-tag by hand.
+#     meant delete-release + re-tag by hand,
+#   - v0.2.7: squash-merging a release PR leaves main and dev
+#     diverged on the version-embedding files; the back-merge
+#     skipped after v0.2.6 made the v0.2.7 release PR conflict on
+#     all seven of them, silently starving it of pull_request ci
+#     (issue #391).
 #
-# two subcommands:
+# three subcommands:
 #   prepare <version>  bump all five version files, regenerate the
 #                      version-embedding contract, verify the release
 #                      notes exist, and leave a release/<version>
@@ -19,10 +24,21 @@
 #                      main carries the version, then create and push
 #                      the annotated tag that triggers the installer
 #                      + updater-manifest build.
+#   reconcile <version>
+#                      after the release is published: merge
+#                      origin/main back into dev and push, so the
+#                      squash-merged version bump doesn't leave the
+#                      next release PR conflicting on the
+#                      version-embedding files. caveat: dev's branch
+#                      protection requires linear history, so pushing
+#                      this merge commit relies on the operator's
+#                      admin bypass — every main→dev reconcile merge
+#                      to date has landed that way.
 #
 # usage:
 #   scripts/cut-release.sh prepare 0.2.2
 #   scripts/cut-release.sh tag 0.2.2
+#   scripts/cut-release.sh reconcile 0.2.2
 set -euo pipefail
 
 repo_root=$(git rev-parse --show-toplevel)
@@ -118,6 +134,51 @@ cmd_tag() {
     echo "publish the notes body with:"
     echo "  gh release create $tag --verify-tag --title $tag \\"
     echo "    --notes-file $notes"
+    echo "then merge main back into dev so the next release PR"
+    echo "doesn't conflict on the version files:"
+    echo "  scripts/cut-release.sh reconcile $version"
+}
+
+cmd_reconcile() {
+    local version="$1"
+    require_semver "$version"
+    local tag="v$version"
+
+    [[ -z "$(git status --porcelain)" ]] \
+        || die "working tree is dirty; commit or stash first"
+
+    git fetch --quiet origin main dev --tags
+
+    git rev-parse -q --verify "refs/tags/$tag" >/dev/null \
+        || die "tag $tag does not exist on origin — run" \
+            "'cut-release.sh tag $version' first"
+
+    local main_version
+    main_version=$(git show origin/main:backend/pyproject.toml \
+        | grep -m1 '^version' \
+        | sed -E 's/version *= *"([^"]+)".*/\1/')
+    [[ "$main_version" == "$version" ]] || die \
+        "origin/main is at '$main_version', not '$version' — merge the" \
+        "release PR first"
+
+    git switch dev
+    git pull --ff-only origin dev
+
+    if ! git merge --no-ff origin/main \
+        -m "Merge main ($tag) back into dev"; then
+        git merge --abort
+        die "merging origin/main into dev conflicted — resolve by" \
+            "hand: git merge --no-ff origin/main, then for the" \
+            "version-embedding files keep dev's side only if dev is" \
+            "already past $version, otherwise take main's; commit" \
+            "and git push origin dev"
+    fi
+
+    # dev's branch protection requires linear history; pushing this
+    # merge commit relies on the operator's admin bypass.
+    git push origin dev
+
+    echo "merged $tag from main back into dev and pushed."
 }
 
 main() {
@@ -131,8 +192,13 @@ main() {
             [[ $# -eq 2 ]] || die "usage: cut-release.sh tag <version>"
             cmd_tag "$2"
             ;;
+        reconcile)
+            [[ $# -eq 2 ]] \
+                || die "usage: cut-release.sh reconcile <version>"
+            cmd_reconcile "$2"
+            ;;
         *)
-            die "usage: cut-release.sh {prepare|tag} <version>"
+            die "usage: cut-release.sh {prepare|tag|reconcile} <version>"
             ;;
     esac
 }

@@ -73,10 +73,12 @@ Permission summary:
 ## Audit trail and chain of custody
 
 `audit_log` records every mutation: actor, action, resource
-type/id, IP, user agent, request id, timestamp.
-`chain_of_custody_entries` records every action on every
-asset (ingest, verify, rehash, proxy generation, annotation,
-redaction, export, import, relocation, deletion).
+type/id, IP, user agent, timestamp.
+`chain_of_custody_entries` records the custody-relevant
+events in an asset's life: ingest and verification, URL
+provenance, bundle import, cloud-transcription egress,
+soft-delete and restore, storage relocation, and clock-anchor
+corrections.
 
 **Both tables are append-only at the database level**, not
 just by convention:
@@ -91,10 +93,17 @@ just by convention:
   ORM.
 
 Chain-of-custody entries include SHA-256 before/after where
-relevant and a signed statement (HMAC with the install's
-storage signing secret). This lineage is exported with every
-court bundle as both line-per-event CSV (paralegal-readable)
-and JSON-LD (machine-verifiable).
+relevant. Their integrity rests on the append-only
+enforcement above — ORM listeners on every profile, Postgres
+triggers on the server profile — plus the export path: the
+lineage ships with every court bundle as plain JSON inside a
+manifest whose hash is covered by the optional Ed25519
+signature (see [Bundle signing](#bundle-signing)).
+
+**Planned hardening:** per-row HMAC statements on custody
+entries (signed with an install-local secret) and capturing
+the request id on `audit_log` rows are planned but not yet
+implemented.
 
 ## Storage security
 

@@ -483,7 +483,7 @@ jobs:
           docker buildx build --load -t loom-frontend:scan frontend/
 
       - name: Trivy scan - backend
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: loom-backend:scan
           format: table
@@ -493,7 +493,7 @@ jobs:
           trivyignores: .trivyignore
 
       - name: Trivy scan - worker
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: loom-worker:scan
           format: table
@@ -503,7 +503,7 @@ jobs:
           trivyignores: .trivyignore
 
       - name: Trivy scan - frontend
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: loom-frontend:scan
           format: table
