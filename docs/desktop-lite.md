@@ -231,23 +231,21 @@ AI & models** (admin only) to choose how it runs:
   transcription is recorded in the asset's chain of custody (provider,
   model, endpoint).
 
-When you pick **Cloud**, choose a **provider**, then a **model**:
+When you pick **Cloud**, choose a **provider**, then a **model**. No
+frontier (hosted) provider is offered — every option is a server you run
+yourself:
 
-- **Frontier providers** — OpenAI and Google Gemini. Pick the provider,
-  then one of its transcription models from the list; the endpoint is set
-  for you. Paste your API key. (Anthropic is listed but disabled — the
-  Anthropic API does not accept audio input, so it cannot transcribe; for
-  an open-weights Anthropic audio model, use the self-hosted option.)
 - **Open-source / self-hosted** — run a model such as Whisper large-v3
-  (or `claude-audio`) on your own OpenAI-compatible server (vLLM,
-  whisper.cpp, …) and point Loom at its URL. A local or LAN address
-  (including `localhost`) is allowed here; an API key is optional.
+  on your own OpenAI-compatible server (Ollama, vLLM, TGI, LM Studio,
+  whisper.cpp-server, …) and point Loom at its URL. A loopback address
+  (`localhost`/`127.0.0.1`) is allowed here on this desktop profile; a
+  LAN address is allowed too but must use https. An API key is optional.
 - **Custom (OpenAI-compatible)** — any other endpoint implementing the
   OpenAI `/audio/transcriptions` API; supply the base URL, model, and key.
 
-Only the chosen provider ever receives audio, and only for assets you
-transcribe while Cloud is selected. Switch back to **On-device** at any
-time to keep everything local. OCR and scene detection have no cloud
+Only the endpoint you configure ever receives audio, and only for assets
+you transcribe while Cloud is selected. Switch back to **On-device** at
+any time to keep everything local. OCR and scene detection have no cloud
 option and always run on-device. Per-model behavior, limitations, and
 provenance are documented in [`ai-model-cards.md`](ai-model-cards.md).
 

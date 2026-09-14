@@ -46,12 +46,12 @@ derivatives) was removed — a fabricated or missing result on an
 evidence product is worse than a visible failure.
 
 ² Cloud transcription (Settings → AI) is opt-in and off by default. You
-pick a provider — OpenAI, Google Gemini, a self-hosted/open-source model,
-or any custom OpenAI-compatible endpoint — and a curated model; the
-asset's audio is sent there (no local ffmpeg needed, since these APIs
-accept audio and video directly), and the egress is recorded as a
+pick a provider — a self-hosted/open-source server you run yourself, or
+any custom OpenAI-compatible endpoint — and a curated model; the asset's
+audio is sent there (no local ffmpeg needed, since these APIs accept
+audio and video directly), and the egress is recorded as a
 `cloud_transcription` chain-of-custody entry (provider, model, endpoint).
-Anthropic is shown but disabled — its API can't transcribe audio. See
+No frontier (hosted) provider is offered. See
 [`ai-model-cards.md`](ai-model-cards.md) for per-provider detail.
 The desktop build bundles the on-device engines (faster-whisper,
 pytesseract, scene detection — no torch, no diarization) and, on
