@@ -2347,6 +2347,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/ai/text-generation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Text Gen Settings */
+        get: operations["get_text_gen_settings_api_v1_settings_ai_text_generation_get"];
+        /** Update Text Gen Settings */
+        put: operations["update_text_gen_settings_api_v1_settings_ai_text_generation_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/ai/text-generation/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Text Gen Providers
+         * @description the self-hosted/custom text-generation provider/model catalog.
+         */
+        get: operations["get_text_gen_providers_api_v1_settings_ai_text_generation_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/engines": {
         parameters: {
             query?: never;
@@ -2601,8 +2639,18 @@ export interface components {
             api_base_url: string;
             /** Api Key Set */
             api_key_set: boolean;
+            /**
+             * Key Decryptable
+             * @default true
+             */
+            key_decryptable: boolean;
             /** Provider */
             provider: string;
+            /**
+             * Provider Available
+             * @default true
+             */
+            provider_available: boolean;
             /** Transcription Engine */
             transcription_engine: string;
             /** Transcription Model */
@@ -4692,6 +4740,87 @@ export interface components {
             originals_bytes: number;
             /** Total Bytes */
             total_bytes: number;
+        };
+        /**
+         * TextGenProvider
+         * @description a self-hosted/custom text-generation provider and its curated
+         *     models, for the settings dropdowns. carries no secrets.
+         */
+        TextGenProvider: {
+            /** Base Url */
+            base_url: string;
+            /** Base Url Editable */
+            base_url_editable: boolean;
+            /** Group */
+            group: string;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Models */
+            models: components["schemas"]["TextGenProviderModel"][];
+            /** Note */
+            note: string;
+            /** Requires Api Key */
+            requires_api_key: boolean;
+        };
+        /** TextGenProviderModel */
+        TextGenProviderModel: {
+            /** Context Window */
+            context_window?: number | null;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
+        /** TextGenProvidersResponse */
+        TextGenProvidersResponse: {
+            /** Providers */
+            providers: components["schemas"]["TextGenProvider"][];
+        };
+        /**
+         * TextGenSettingsResponse
+         * @description text-generation config for the settings ui. the api key is never
+         *     returned — only whether one is stored.
+         */
+        TextGenSettingsResponse: {
+            /** Api Base Url */
+            api_base_url: string;
+            /** Api Key Set */
+            api_key_set: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Key Decryptable
+             * @default true
+             */
+            key_decryptable: boolean;
+            /** Model */
+            model: string;
+            /** Provider */
+            provider: string;
+            /**
+             * Provider Available
+             * @default true
+             */
+            provider_available: boolean;
+        };
+        /**
+         * TextGenSettingsUpdate
+         * @description partial update; omitted fields are left unchanged. send an
+         *     explicit value for ``api_key`` to set it.
+         */
+        TextGenSettingsUpdate: {
+            /** Api Base Url */
+            api_base_url?: string | null;
+            /** Api Key */
+            api_key?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Model */
+            model?: string | null;
+            /** Provider */
+            provider?: string | null;
         };
         /** TimelineEventCreate */
         TimelineEventCreate: {
@@ -9397,6 +9526,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AiProvidersResponse"];
+                };
+            };
+        };
+    };
+    get_text_gen_settings_api_v1_settings_ai_text_generation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextGenSettingsResponse"];
+                };
+            };
+        };
+    };
+    update_text_gen_settings_api_v1_settings_ai_text_generation_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextGenSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextGenSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_text_gen_providers_api_v1_settings_ai_text_generation_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextGenProvidersResponse"];
                 };
             };
         };
