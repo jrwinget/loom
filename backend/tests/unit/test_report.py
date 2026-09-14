@@ -88,6 +88,7 @@ class TestBuildReportData:
             empty_scalars,  # events query
             empty_scalars,  # assets query
             empty_scalars,  # annotations query
+            empty_scalars,  # narratives query
         ]
 
         from loom.services.report import build_report_data
@@ -115,6 +116,7 @@ class TestBuildReportData:
 
         session.execute.side_effect = [
             case_result,
+            empty_scalars,
             empty_scalars,
             empty_scalars,
             empty_scalars,
@@ -147,6 +149,7 @@ class TestBuildReportData:
 
         session.execute.side_effect = [
             case_result,
+            empty_scalars,
             empty_scalars,
             empty_scalars,
             empty_scalars,

@@ -13,6 +13,7 @@ from loom.models.annotation import Annotation
 from loom.models.asset import Asset
 from loom.models.case import Case
 from loom.models.chain_of_custody import ChainOfCustodyEntry
+from loom.models.narrative_draft import NarrativeDraft
 from loom.models.timeline import (
     TimelineEvent,
     TimelineEventEvidence,
@@ -166,7 +167,10 @@ async def build_report_data(
         event_data.append(ev_info)
 
     # annotations
-    ann_query = select(Annotation).where(Annotation.case_id == cid)
+    ann_query = select(Annotation).where(
+        Annotation.case_id == cid,
+        Annotation.deleted_at.is_(None),
+    )
     ann_result = await session.execute(ann_query)
     annotations = [
         {
@@ -176,6 +180,30 @@ async def build_report_data(
             "asset_id": (str(a.asset_id) if a.asset_id else None),
         }
         for a in ann_result.scalars().all()
+    ]
+
+    # ai-drafted narratives — only ever the human-reviewed-and-approved
+    # ones; a draft or a rejected narrative must never appear in a
+    # rendered report.
+    narrative_query = (
+        select(NarrativeDraft)
+        .where(
+            NarrativeDraft.case_id == cid,
+            NarrativeDraft.status == "approved",
+        )
+        .order_by(NarrativeDraft.reviewed_at.asc())
+    )
+    narrative_result = await session.execute(narrative_query)
+    narratives = [
+        {
+            "id": str(n.id),
+            "text": n.text,
+            "model_name": n.model_name,
+            "reviewed_at": (
+                n.reviewed_at.isoformat() if n.reviewed_at else None
+            ),
+        }
+        for n in narrative_result.scalars().all()
     ]
 
     # chain of custody (optional)
@@ -216,6 +244,7 @@ async def build_report_data(
         "case": case_info,
         "events": event_data,
         "annotations": annotations,
+        "narratives": narratives,
         "chain_of_custody": custody,
         "assets": asset_index,
         "generated_at": datetime.utcnow().isoformat(),

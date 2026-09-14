@@ -100,6 +100,20 @@
     margin-bottom: 16px;
     letter-spacing: 1px;
   }
+  .narrative {
+    border: 1px solid #8a5a1f;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+  }
+  .ai-drafted-badge {
+    display: inline-block;
+    border: 1px solid #8a5a1f;
+    color: #8a5a1f;
+    font-weight: bold;
+    font-size: 0.85em;
+    padding: 1px 6px;
+    margin-bottom: 6px;
+  }
 </style>
 </head>
 <body>
@@ -190,6 +204,16 @@
 </table>
 {% else %}
 <p>No assets in this case.</p>
+{% endif %}
+
+{% if narratives %}
+<h2>Case Narrative</h2>
+{% for narrative in narratives %}
+<div class="narrative">
+  <span class="ai-drafted-badge">AI-DRAFTED — REVIEWED {{ narrative.reviewed_at }}</span>
+  <p>{{ narrative.text }}</p>
+</div>
+{% endfor %}
 {% endif %}
 
 {% if chain_of_custody %}

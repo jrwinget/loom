@@ -197,6 +197,9 @@ class TestBuildExportManifest:
                 # annotations
                 m.scalars.return_value.all.return_value = [annotation]
             elif call_count == 4:
+                # narratives
+                m.scalars.return_value.all.return_value = []
+            elif call_count == 5:
                 # custody
                 m.scalars.return_value.all.return_value = [custody]
             return m
@@ -210,6 +213,7 @@ class TestBuildExportManifest:
         assert manifest["assets"][0]["original_filename"] == "vid.mp4"
         assert len(manifest["timeline_events"]) == 1
         assert len(manifest["annotations"]) == 1
+        assert manifest["narratives"] == []
         assert len(manifest["chain_of_custody"]) == 1
         assert manifest["include_originals"] is False
 
