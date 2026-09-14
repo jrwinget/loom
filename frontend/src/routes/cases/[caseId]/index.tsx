@@ -2,6 +2,7 @@ import * as Tabs from '@radix-ui/react-tabs';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CaseDangerZone } from '@/components/case/case-danger-zone';
 import { IntegrityCard } from '@/components/case/integrity-card';
+import { NarrativePanel } from '@/components/case/narrative-panel';
 import { QueryError } from '@/components/layout/query-error';
 import { useCase, useCaseMembers } from '@/hooks/use-case';
 import { useCaseAudit } from '@/hooks/use-audit';
@@ -147,6 +148,8 @@ export function CaseDetailPage(): React.ReactElement {
           </div>
 
           <IntegrityCard caseId={safeId} />
+
+          <NarrativePanel caseId={safeId} />
 
           <CaseDangerZone
             caseData={caseData}

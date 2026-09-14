@@ -36,6 +36,13 @@ vi.mock('@/hooks/use-audit', () => ({
 vi.mock('@/hooks/use-integrity', () => ({
   useVerifyCase: () => ({ mutate: vi.fn(), isPending: false, data: undefined }),
 }));
+// the overview also renders the case narrative panel
+vi.mock('@/hooks/use-narratives', () => ({
+  useNarratives: () => ({ data: [] }),
+  useGenerateNarrative: () => ({ mutate: vi.fn(), isPending: false }),
+  useApproveNarrative: () => ({ mutate: vi.fn(), isPending: false }),
+  useRejectNarrative: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 vi.mock('@/hooks/use-first-run', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/hooks/use-first-run')>();
   return { ...actual, useFirstRunStatus: vi.fn() };

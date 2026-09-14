@@ -13,6 +13,7 @@ from loom.models.annotation import Annotation
 from loom.models.asset import Asset
 from loom.models.chain_of_custody import ChainOfCustodyEntry
 from loom.models.export_bundle import ExportBundle
+from loom.models.narrative_draft import NarrativeDraft
 from loom.models.timeline import TimelineEvent
 from loom.services.portable_bundle import (
     BundleVerificationError,
@@ -117,6 +118,7 @@ async def build_export_manifest(
 
     events: list[TimelineEvent] = []
     annotations: list[Annotation] = []
+    narratives: list[NarrativeDraft] = []
     if include_analysis:
         # timeline events
         event_query = select(TimelineEvent).where(TimelineEvent.case_id == cid)
@@ -149,9 +151,20 @@ async def build_export_manifest(
         events = list(event_result.scalars().all())
 
         # annotations
-        ann_query = select(Annotation).where(Annotation.case_id == cid)
+        ann_query = select(Annotation).where(
+            Annotation.case_id == cid,
+            Annotation.deleted_at.is_(None),
+        )
         ann_result = await session.execute(ann_query)
         annotations = list(ann_result.scalars().all())
+
+        # ai-drafted narratives — approved only, ever.
+        narrative_query = select(NarrativeDraft).where(
+            NarrativeDraft.case_id == cid,
+            NarrativeDraft.status == "approved",
+        )
+        narrative_result = await session.execute(narrative_query)
+        narratives = list(narrative_result.scalars().all())
 
     # chain of custody (for assets in this case)
     asset_id_list = [a.id for a in assets]
@@ -171,11 +184,15 @@ async def build_export_manifest(
     if include_analysis:
         included["timeline_events"] = len(events)
         included["annotations"] = len(annotations)
+        included["narratives"] = len(narratives)
     else:
         excluded["timeline_events"] = (
             "analysis layer excluded (attorney work product)"
         )
         excluded["annotations"] = (
+            "analysis layer excluded (attorney work product)"
+        )
+        excluded["narratives"] = (
             "analysis layer excluded (attorney work product)"
         )
     if include_originals:
@@ -218,6 +235,19 @@ async def build_export_manifest(
                 "content": ann.content,
             }
             for ann in annotations
+        ],
+        "narratives": [
+            {
+                "id": str(n.id),
+                "asset_id": (str(n.asset_id) if n.asset_id else None),
+                "text": n.text,
+                "model_name": n.model_name,
+                "reviewed_by": (str(n.reviewed_by) if n.reviewed_by else None),
+                "reviewed_at": (
+                    n.reviewed_at.isoformat() if n.reviewed_at else None
+                ),
+            }
+            for n in narratives
         ],
         "chain_of_custody": [
             {

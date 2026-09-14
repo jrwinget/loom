@@ -13,7 +13,10 @@ RUN uv sync --frozen --no-dev
 # stage 2: runtime
 FROM python:3.12-slim
 
+# apt-get upgrade picks up debian os-level security patches that lag the
+# base-image rebuild cadence (mirrors the apk upgrade in frontend/Dockerfile).
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 1000 loom \

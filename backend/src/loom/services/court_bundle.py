@@ -56,6 +56,7 @@ from loom.models.annotation import Annotation
 from loom.models.asset import Asset
 from loom.models.case import Case
 from loom.models.chain_of_custody import ChainOfCustodyEntry
+from loom.models.narrative_draft import NarrativeDraft
 from loom.models.timeline import (
     TimelineEvent,
     TimelineEventEvidence,
@@ -205,7 +206,10 @@ async def build_court_bundle_data(
 
     # annotations kept for report.html parity
     ann_result = await session.execute(
-        select(Annotation).where(Annotation.case_id == cid)
+        select(Annotation).where(
+            Annotation.case_id == cid,
+            Annotation.deleted_at.is_(None),
+        )
     )
     annotations = [
         {
@@ -215,6 +219,28 @@ async def build_court_bundle_data(
             "asset_id": (str(a.asset_id) if a.asset_id else None),
         }
         for a in ann_result.scalars().all()
+    ]
+
+    # ai-drafted narratives — approved only, ever. an unreviewed draft
+    # or a rejected narrative must never enter a courtroom-ready bundle.
+    narrative_result = await session.execute(
+        select(NarrativeDraft)
+        .where(
+            NarrativeDraft.case_id == cid,
+            NarrativeDraft.status == "approved",
+        )
+        .order_by(NarrativeDraft.reviewed_at.asc())
+    )
+    narratives = [
+        {
+            "id": str(n.id),
+            "text": n.text,
+            "model_name": n.model_name,
+            "reviewed_at": (
+                n.reviewed_at.isoformat() if n.reviewed_at else None
+            ),
+        }
+        for n in narrative_result.scalars().all()
     ]
 
     # build the event list in the shape the existing report
@@ -261,6 +287,7 @@ async def build_court_bundle_data(
         "case": case_info,
         "events": event_data,
         "annotations": annotations,
+        "narratives": narratives,
         "chain_of_custody": custody,
         "exhibits": exhibit_rows,
         "preparer": preparer or "Unknown",

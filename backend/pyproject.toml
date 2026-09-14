@@ -79,7 +79,12 @@ observability = [
     "opentelemetry-instrumentation-sqlalchemy>=0.42b0",
 ]
 report = [
-    "weasyprint>=69.0",
+    # >=70.0 for PYSEC-2026-3940: write_pdf(xmp_metadata=..., stylesheets=...)
+    # built a fresh default URLFetcher instead of the document's configured
+    # one, silently bypassing a restrictive fetcher (arbitrary local file
+    # read / ssrf via those two parameters). loom doesn't pass either
+    # parameter today, but pin past the fix rather than rely on that.
+    "weasyprint>=70.0",
     "jinja2>=3.1.0",
 ]
 url-ingest = [
@@ -115,6 +120,20 @@ build-backend = "hatchling.build"
 # for the sidecar bundle to miss on user machines
 override-dependencies = [
     "opencv-python; sys_platform == 'never'",
+]
+
+# floors for transitive dependencies flagged by pip-audit with no direct
+# entry of our own to bump: pyannote.audio pulls in lightning/
+# pytorch-lightning (PYSEC-2026-3624/PYSEC-2026-3967 — a checkpoint-
+# loading rce, unreachable here since loom never calls
+# LightningModule.load_from_checkpoint on an untrusted file, but pinned
+# past the fix regardless), and pip-audit itself pulls in pip via
+# pip-api (PYSEC-2026-3721, a pip-download-only issue that doesn't apply
+# to a transitive scanner dependency, same reasoning).
+constraint-dependencies = [
+    "lightning>=2.6.6",
+    "pytorch-lightning>=2.6.6",
+    "pip>=26.2",
 ]
 
 [tool.hatch.build.targets.wheel]
