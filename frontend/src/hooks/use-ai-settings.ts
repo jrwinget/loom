@@ -9,6 +9,12 @@ export interface AiSettings {
   transcriptionModel: string;
   whisperModel: string;
   apiKeySet: boolean;
+  // false when `provider` names a catalog entry that no longer exists
+  // (e.g. a frontier provider that was removed).
+  providerAvailable: boolean;
+  // false when a stored api key can't be decrypted with the currently
+  // -available key (rotated/lost key, moved to a different machine).
+  keyDecryptable: boolean;
 }
 
 // sent verbatim (api-client does not transform request bodies), so the

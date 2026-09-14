@@ -11,11 +11,10 @@ import {
 } from '@/hooks/use-ai-settings';
 
 const GROUP_LABELS: Record<string, string> = {
-  frontier: 'Frontier providers',
   oss: 'Open-source / self-hosted',
   custom: 'Custom',
 };
-const GROUP_ORDER = ['frontier', 'oss', 'custom'];
+const GROUP_ORDER = ['oss', 'custom'];
 
 function AiSettingsForm(props: {
   initial: AiSettings;
@@ -138,6 +137,34 @@ function AiSettingsForm(props: {
           </span>
         </label>
       </fieldset>
+
+      {cloud && !initial.providerAvailable && (
+        <p
+          role="alert"
+          data-testid="provider-unavailable-banner"
+          className={
+            'rounded bg-red-100 px-3 py-2 text-xs text-red-900 ' +
+            'dark:bg-red-900 dark:text-red-100'
+          }
+        >
+          Your configured transcription provider is no longer supported;
+          on-device transcription is being used instead. Choose a new provider
+          below.
+        </p>
+      )}
+      {cloud && initial.providerAvailable && !initial.keyDecryptable && (
+        <p
+          role="alert"
+          data-testid="key-undecryptable-banner"
+          className={
+            'rounded bg-red-100 px-3 py-2 text-xs text-red-900 ' +
+            'dark:bg-red-900 dark:text-red-100'
+          }
+        >
+          The stored API key can&apos;t be read on this machine (it may have
+          been set up on a different install). Re-enter it below.
+        </p>
+      )}
 
       {cloud && (
         <div className="border-border space-y-4 rounded border p-4">

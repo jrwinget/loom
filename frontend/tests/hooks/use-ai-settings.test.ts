@@ -28,6 +28,8 @@ const settings: AiSettings = {
   transcriptionModel: 'whisper-1',
   whisperModel: 'base',
   apiKeySet: true,
+  providerAvailable: true,
+  keyDecryptable: true,
 };
 
 function createWrapper(): ({
