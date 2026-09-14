@@ -97,11 +97,17 @@ third-party provider you configure, and the egress is recorded in the
 asset's chain of custody. No package install is required — only your API
 key (and, for self-hosted, a server URL).
 
+No frontier-provider option is offered: every cloud transport is
+self-hosted or a custom endpoint you point at yourself (Ollama, vLLM,
+TGI, LM Studio, whisper.cpp-server, or anything else speaking the
+OpenAI-compatible `/audio/transcriptions` API). Loom never bundles or
+auto-starts an inference server — you run it, Loom just calls it.
+
 ### Where it is invoked
 
 - Service: `backend/src/loom/services/transcription.py`,
-  `transcribe_via_cloud` (dispatches by provider transport to
-  `_transcribe_openai_audio` or `_transcribe_gemini`).
+  `transcribe_via_cloud` (re-validates the endpoint immediately before
+  every request, then calls `_transcribe_openai_audio`).
 - Activity: `backend/src/loom/workflows/transcription_activities.py`,
   activity `store_transcript`, only when cloud is enabled.
 - Catalog: `backend/src/loom/services/ai_providers.py` is the single
@@ -111,14 +117,13 @@ key (and, for self-hosted, a server URL).
 
 | Group | Provider | Transport | Curated models |
 |---|---|---|---|
-| Frontier | OpenAI | `/audio/transcriptions` | gpt-4o-transcribe, gpt-4o-mini-transcribe, gpt-4o-transcribe-diarize, whisper-1 |
-| Frontier | Google Gemini | `:generateContent` | gemini-3.5-flash, gemini-2.5-flash, gemini-2.5-pro |
-| Frontier | Anthropic | — | listed but disabled — the Anthropic API does not accept audio input |
-| Open-source / self-hosted | your server | `/audio/transcriptions` | whisper-large-v3, whisper-large-v3-turbo, distil-whisper-large-v3, claude-audio |
+| Open-source / self-hosted | your server | `/audio/transcriptions` | whisper-large-v3, whisper-large-v3-turbo, distil-whisper-large-v3 |
 | Custom | your endpoint | `/audio/transcriptions` | free-form |
 
 Model IDs are curated in the catalog and updated as providers ship new
-ones; they are not discovered live.
+ones; they are not discovered live. A free-form model id is always
+accepted regardless of provider, so a self-hosted server exposing a
+model that isn't in the curated list still works.
 
 ### Provenance
 
@@ -129,19 +134,23 @@ on-device one and traceable to the exact provider and endpoint used.
 
 ### Known limitations
 
-- **Egress.** Audio leaves the machine. This is the only transcription
-  path that does, it is opt-in, and every send is logged to chain of
-  custody.
+- **Egress.** Audio leaves the machine to whatever endpoint you
+  configured. This is the only transcription path that does, it is
+  opt-in, and every send is logged to chain of custody.
 - **Segments vs. text.** OpenAI-compatible endpoints return timed
-  segments (`verbose_json`); the Gemini path returns prose, stored as a
-  single full-file segment with no per-line timestamps.
-- **Gemini file size.** The Gemini path inlines the file in the request
-  (~15 MB cap); larger files need an OpenAI-compatible provider or a
-  future files-API upload.
+  segments (`verbose_json`) when the server supports it; otherwise the
+  response is stored as a single full-file segment with no per-line
+  timestamps.
 - **No cloud diarization.** Speaker labels come from the on-device
-  pyannote step, which does not run for cloud transcripts (aside from a
-  provider's own diarized model, e.g. `gpt-4o-transcribe-diarize`).
-- Accuracy, language coverage, and rate limits are the provider's.
+  pyannote step, which does not run for cloud transcripts.
+- Accuracy, language coverage, and rate limits are whatever server you
+  pointed Loom at.
+- **Endpoint safety.** The configured base URL is re-validated on every
+  request (not just when saved): link-local, cloud-metadata, and other
+  reserved address ranges are always rejected; loopback targets are only
+  permitted on the single-machine desktop (`lite`) profile; any
+  non-loopback target must use https. See
+  `backend/src/loom/services/ai_config.py`.
 
 ### What it does NOT do
 

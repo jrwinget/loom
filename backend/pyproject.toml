@@ -30,6 +30,11 @@ dependencies = [
     "httpx>=0.27.0",
     "argon2-cffi>=23.1.0",
     "pyjwt[crypto]>=2.13.0",
+    # already pulled in transitively by pyjwt[crypto]; declared directly
+    # too because services/secret_box.py and the bundle-signing code
+    # import it themselves and shouldn't rely on another package's
+    # transitive pin for that.
+    "cryptography>=43.0.0",
     "slowapi>=0.1.10",
     # puremagic is a pure-python magic-bytes detector — no native
     # libmagic dependency. previously we used python-magic +

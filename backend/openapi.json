@@ -165,9 +165,19 @@
             "title": "Api Key Set",
             "type": "boolean"
           },
+          "key_decryptable": {
+            "default": true,
+            "title": "Key Decryptable",
+            "type": "boolean"
+          },
           "provider": {
             "title": "Provider",
             "type": "string"
+          },
+          "provider_available": {
+            "default": true,
+            "title": "Provider Available",
+            "type": "boolean"
           },
           "transcription_engine": {
             "title": "Transcription Engine",
@@ -5370,6 +5380,209 @@
           "on_system_drive"
         ],
         "title": "StorageUsage",
+        "type": "object"
+      },
+      "TextGenProvider": {
+        "description": "a self-hosted/custom text-generation provider and its curated\nmodels, for the settings dropdowns. carries no secrets.",
+        "properties": {
+          "base_url": {
+            "title": "Base Url",
+            "type": "string"
+          },
+          "base_url_editable": {
+            "title": "Base Url Editable",
+            "type": "boolean"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/TextGenProviderModel"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "requires_api_key": {
+            "title": "Requires Api Key",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "group",
+          "models",
+          "requires_api_key",
+          "base_url",
+          "base_url_editable",
+          "note"
+        ],
+        "title": "TextGenProvider",
+        "type": "object"
+      },
+      "TextGenProviderModel": {
+        "properties": {
+          "context_window": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Window"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "TextGenProviderModel",
+        "type": "object"
+      },
+      "TextGenProvidersResponse": {
+        "properties": {
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/TextGenProvider"
+            },
+            "title": "Providers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "providers"
+        ],
+        "title": "TextGenProvidersResponse",
+        "type": "object"
+      },
+      "TextGenSettingsResponse": {
+        "description": "text-generation config for the settings ui. the api key is never\nreturned \u2014 only whether one is stored.",
+        "properties": {
+          "api_base_url": {
+            "title": "Api Base Url",
+            "type": "string"
+          },
+          "api_key_set": {
+            "title": "Api Key Set",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "key_decryptable": {
+            "default": true,
+            "title": "Key Decryptable",
+            "type": "boolean"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_available": {
+            "default": true,
+            "title": "Provider Available",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "provider",
+          "api_base_url",
+          "model",
+          "api_key_set"
+        ],
+        "title": "TextGenSettingsResponse",
+        "type": "object"
+      },
+      "TextGenSettingsUpdate": {
+        "description": "partial update; omitted fields are left unchanged. send an\nexplicit value for ``api_key`` to set it.",
+        "properties": {
+          "api_base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Base Url"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          }
+        },
+        "title": "TextGenSettingsUpdate",
         "type": "object"
       },
       "TimelineEventCreate": {
@@ -13730,6 +13943,88 @@
           }
         },
         "summary": "Get Ai Providers",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/ai/text-generation": {
+      "get": {
+        "operationId": "get_text_gen_settings_api_v1_settings_ai_text_generation_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextGenSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Text Gen Settings",
+        "tags": [
+          "settings"
+        ]
+      },
+      "put": {
+        "operationId": "update_text_gen_settings_api_v1_settings_ai_text_generation_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextGenSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextGenSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Text Gen Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/ai/text-generation/providers": {
+      "get": {
+        "description": "the self-hosted/custom text-generation provider/model catalog.",
+        "operationId": "get_text_gen_providers_api_v1_settings_ai_text_generation_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextGenProvidersResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Text Gen Providers",
         "tags": [
           "settings"
         ]

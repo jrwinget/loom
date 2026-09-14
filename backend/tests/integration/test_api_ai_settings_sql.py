@@ -83,8 +83,43 @@ async def test_get_defaults_then_set_cloud(
     assert got.json()["transcription_engine"] == "local"
     assert got.json()["provider"] == ""
     assert got.json()["api_key_set"] is False
+    assert got.json()["provider_available"] is True
+    assert got.json()["key_decryptable"] is True
 
     put = await lite_client.put(
+        "/api/v1/settings/ai",
+        json={
+            "transcription_engine": "cloud",
+            "provider": "custom",
+            "api_key": "sk-secret",
+            "api_base_url": "https://transcribe.example.com/v1",
+            "transcription_model": "whisper-1",
+        },
+        headers=headers,
+    )
+    assert put.status_code == 200, put.text
+    body = put.json()
+    assert body["transcription_engine"] == "cloud"
+    assert body["provider"] == "custom"
+    assert body["api_base_url"] == "https://transcribe.example.com/v1"
+    assert body["api_key_set"] is True
+    # the key itself is never returned
+    assert "api_key" not in body
+
+    # persisted across requests, still masked, and still decryptable
+    again = await lite_client.get("/api/v1/settings/ai", headers=headers)
+    assert again.json()["transcription_engine"] == "cloud"
+    assert again.json()["provider"] == "custom"
+    assert again.json()["api_key_set"] is True
+    assert again.json()["key_decryptable"] is True
+
+
+@pytest.mark.asyncio
+async def test_put_with_retired_provider_is_rejected(
+    lite_client: httpx.AsyncClient,
+) -> None:
+    headers = await _admin_headers(lite_client)
+    resp = await lite_client.put(
         "/api/v1/settings/ai",
         json={
             "transcription_engine": "cloud",
@@ -94,21 +129,8 @@ async def test_get_defaults_then_set_cloud(
         },
         headers=headers,
     )
-    assert put.status_code == 200, put.text
-    body = put.json()
-    assert body["transcription_engine"] == "cloud"
-    assert body["provider"] == "openai"
-    # the base url is derived from the catalog for a hosted provider
-    assert body["api_base_url"] == "https://api.openai.com/v1"
-    assert body["api_key_set"] is True
-    # the key itself is never returned
-    assert "api_key" not in body
-
-    # persisted across requests, still masked
-    again = await lite_client.get("/api/v1/settings/ai", headers=headers)
-    assert again.json()["transcription_engine"] == "cloud"
-    assert again.json()["provider"] == "openai"
-    assert again.json()["api_key_set"] is True
+    assert resp.status_code == 400
+    assert "unknown ai provider" in resp.text.lower()
 
 
 @pytest.mark.asyncio
@@ -152,14 +174,48 @@ async def test_lists_providers(lite_client: httpx.AsyncClient) -> None:
     )
     assert resp.status_code == 200, resp.text
     by_id = {p["id"]: p for p in resp.json()["providers"]}
-    assert {"openai", "google", "anthropic", "oss", "custom"} <= set(by_id)
-    # anthropic is shown but disabled
-    assert by_id["anthropic"]["available"] is False
+    assert set(by_id) == {"oss", "custom"}
+    assert {"openai", "google", "anthropic"}.isdisjoint(by_id)
     # backend returns snake_case (the frontend api-client camelCases it)
-    assert by_id["openai"]["requires_api_key"] is True
-    assert any(
-        m["id"] == "gpt-4o-transcribe" for m in by_id["openai"]["models"]
-    )
+    assert by_id["oss"]["requires_api_key"] is False
+    assert any(m["id"] == "whisper-large-v3" for m in by_id["oss"]["models"])
+
+
+@pytest.mark.asyncio
+async def test_stale_frontier_config_reports_unavailable(
+    lite_env: Path,
+    lite_client: httpx.AsyncClient,
+) -> None:
+    # simulate an install that still has a pre-removal config saved
+    # directly (bypassing the settings api, as a restored backup would).
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from loom.models.app_setting import AppSetting
+
+    headers = await _admin_headers(lite_client)
+
+    engine = create_async_engine(f"sqlite+aiosqlite:///{lite_env}")
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as session:
+        session.add(
+            AppSetting(
+                key="ai",
+                value={
+                    "transcription_engine": "cloud",
+                    "provider": "openai",
+                    "api_base_url": "https://api.openai.com/v1",
+                    "api_key": "sk-stale",
+                    "transcription_model": "gpt-4o-transcribe",
+                    "whisper_model": "base",
+                },
+            )
+        )
+        await session.commit()
+    await engine.dispose()
+
+    resp = await lite_client.get("/api/v1/settings/ai", headers=headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["provider_available"] is False
 
 
 @pytest.mark.asyncio

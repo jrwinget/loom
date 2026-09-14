@@ -1,10 +1,10 @@
-"""unit tests for the cloud transcription provider catalog."""
+"""unit tests for the self-hosted transcription provider catalog."""
 
 import pytest
 
 from loom.services.ai_providers import (
-    GEMINI,
     OPENAI_AUDIO,
+    RETIRED_PROVIDER_IDS,
     get_provider,
     list_providers,
     requires_api_key,
@@ -15,45 +15,49 @@ from loom.services.ai_providers import (
 
 def test_catalog_has_the_expected_groups() -> None:
     ids = {p.id for p in list_providers()}
-    assert {"openai", "google", "anthropic", "oss", "custom"} <= ids
+    assert ids == {"oss", "custom"}
 
 
-def test_anthropic_is_listed_but_unavailable() -> None:
-    anthropic = get_provider("anthropic")
-    assert anthropic is not None
-    assert anthropic.available is False
-    assert anthropic.models == ()
+def test_frontier_providers_are_gone() -> None:
+    for retired in ("openai", "google", "anthropic"):
+        assert get_provider(retired) is None
 
 
 def test_transport_resolves_per_provider() -> None:
-    assert transport_for("google") == GEMINI
-    assert transport_for("openai") == OPENAI_AUDIO
-    # unknown/empty falls back to the OpenAI-compatible path
+    assert transport_for("oss") == OPENAI_AUDIO
+    assert transport_for("custom") == OPENAI_AUDIO
+    # unknown/empty/retired ids fall back to the OpenAI-compatible path
+    # (the id itself is still rejected as unknown by validate_selection)
     assert transport_for("") == OPENAI_AUDIO
     assert transport_for("nope") == OPENAI_AUDIO
+    assert transport_for("openai") == OPENAI_AUDIO
 
 
 def test_requires_api_key_defaults_true_for_unknown() -> None:
-    assert requires_api_key("openai") is True
     assert requires_api_key("oss") is False
+    assert requires_api_key("custom") is True
     assert requires_api_key("") is True
-
-
-def test_validate_selection_accepts_catalog_model() -> None:
-    validate_selection("openai", "gpt-4o-transcribe")  # no raise
+    # a retired id is "unknown" to the catalog now too
+    assert requires_api_key("openai") is True
 
 
 def test_validate_selection_accepts_free_form_for_custom() -> None:
     validate_selection("custom", "anything-goes")  # no raise
 
 
+def test_validate_selection_accepts_catalog_model_for_oss() -> None:
+    validate_selection("oss", "whisper-large-v3")  # no raise
+
+
 @pytest.mark.parametrize(
     ("provider", "model", "match"),
     [
-        ("nope", "x", "(?i)provider"),
-        ("anthropic", "x", "(?i)not available"),
-        ("openai", "made-up", "(?i)model"),
-        ("openai", "", "(?i)model"),
+        ("nope", "x", "(?i)unknown ai provider"),
+        ("openai", "gpt-4o-transcribe", "(?i)unknown ai provider"),
+        ("google", "gemini-2.5-flash", "(?i)unknown ai provider"),
+        ("anthropic", "claude", "(?i)unknown ai provider"),
+        ("oss", "made-up-model", "(?i)model"),
+        ("custom", "", "(?i)model"),
     ],
 )
 def test_validate_selection_rejects(
@@ -61,3 +65,8 @@ def test_validate_selection_rejects(
 ) -> None:
     with pytest.raises(ValueError, match=match):
         validate_selection(provider, model)
+
+
+def test_retired_provider_ids_are_not_in_the_catalog() -> None:
+    live_ids = {p.id for p in list_providers()}
+    assert live_ids.isdisjoint(RETIRED_PROVIDER_IDS)

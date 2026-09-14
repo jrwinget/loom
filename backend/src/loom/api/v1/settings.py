@@ -1,4 +1,5 @@
-"""runtime app settings — currently the AI engine config.
+"""runtime app settings — currently the AI transcription and
+text-generation engine configs.
 
 GET is available to any authenticated user (so the settings ui can
 render current state); PUT is admin-only because it changes a global,
@@ -19,10 +20,23 @@ from loom.schemas.ai_settings import (
     AiProvidersResponse,
     AiSettingsResponse,
     AiSettingsUpdate,
+    TextGenProvider,
+    TextGenProviderModel,
+    TextGenProvidersResponse,
+    TextGenSettingsResponse,
+    TextGenSettingsUpdate,
 )
 from loom.security.rbac import require_authenticated
-from loom.services.ai_config import AiConfig, load_ai_config, save_ai_config
+from loom.services.ai_config import (
+    AiConfig,
+    TextGenConfig,
+    load_ai_config,
+    load_text_gen_config,
+    save_ai_config,
+    save_text_gen_config,
+)
 from loom.services.ai_providers import list_providers
+from loom.services.text_generation_providers import list_text_gen_providers
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +50,9 @@ def _to_response(config: AiConfig) -> AiSettingsResponse:
         api_base_url=config.api_base_url,
         transcription_model=config.transcription_model,
         whisper_model=config.whisper_model,
-        api_key_set=bool(config.api_key),
+        api_key_set=bool(config.api_key) or not config.key_decryptable,
+        provider_available=config.provider_available,
+        key_decryptable=config.key_decryptable,
     )
 
 
@@ -107,3 +123,90 @@ async def update_ai_settings(
         ) from err
     await db.commit()
     return _to_response(config)
+
+
+def _text_gen_to_response(config: TextGenConfig) -> TextGenSettingsResponse:
+    return TextGenSettingsResponse(
+        enabled=config.enabled,
+        provider=config.provider,
+        api_base_url=config.api_base_url,
+        model=config.model,
+        api_key_set=bool(config.api_key) or not config.key_decryptable,
+        provider_available=config.provider_available,
+        key_decryptable=config.key_decryptable,
+    )
+
+
+@router.get(
+    "/ai/text-generation/providers", response_model=TextGenProvidersResponse
+)
+async def get_text_gen_providers(
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_authenticated
+    ),
+) -> TextGenProvidersResponse:
+    """the self-hosted/custom text-generation provider/model catalog."""
+    del token_payload
+    return TextGenProvidersResponse(
+        providers=[
+            TextGenProvider(
+                id=p.id,
+                label=p.label,
+                group=p.group,
+                models=[
+                    TextGenProviderModel(
+                        id=m.id, label=m.label, context_window=m.context_window
+                    )
+                    for m in p.models
+                ],
+                requires_api_key=p.requires_api_key,
+                base_url=p.base_url,
+                base_url_editable=p.base_url_editable,
+                note=p.note,
+            )
+            for p in list_text_gen_providers()
+        ]
+    )
+
+
+@router.get("/ai/text-generation", response_model=TextGenSettingsResponse)
+async def get_text_gen_settings(
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_authenticated
+    ),
+    session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
+        get_db_session
+    ),
+) -> TextGenSettingsResponse:
+    del token_payload
+    db: AsyncSession = session  # type: ignore[assignment]
+    return _text_gen_to_response(await load_text_gen_config(db))
+
+
+@router.put("/ai/text-generation", response_model=TextGenSettingsResponse)
+async def update_text_gen_settings(
+    body: TextGenSettingsUpdate,
+    token_payload: dict[str, Any] = Depends(  # noqa: B008
+        require_authenticated
+    ),
+    session: AsyncIterator[AsyncSession] = Depends(  # noqa: B008
+        get_db_session
+    ),
+) -> TextGenSettingsResponse:
+    db: AsyncSession = session  # type: ignore[assignment]
+    if token_payload.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="admin role required to change ai settings",
+        )
+    try:
+        config = await save_text_gen_config(
+            db, body.model_dump(exclude_unset=True)
+        )
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        ) from err
+    await db.commit()
+    return _text_gen_to_response(config)

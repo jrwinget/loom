@@ -1,4 +1,4 @@
-"""curated cloud transcription providers and their models.
+"""curated self-hosted cloud transcription providers and their models.
 
 single source of truth for the provider/model dropdowns: the settings
 ui fetches this via ``GET /settings/ai/providers`` and ``save_ai_config``
@@ -6,10 +6,8 @@ validates a (provider, model) pair against it. keeping the catalog here
 — rather than duplicating it in the frontend — is what stops the two
 from drifting. update model lists here when providers ship new ones.
 
-only providers that can actually transcribe audio today are marked
-``available``. anthropic is listed but disabled: the anthropic api does
-not accept audio input, so it has no transcription model (its
-open-weights "claude-audio" lives under the open-source group instead).
+only self-hosted/BYO-endpoint providers are offered: point loom at your
+own OpenAI-compatible transcription server (vllm, whisper.cpp, etc.).
 """
 
 from __future__ import annotations
@@ -18,9 +16,7 @@ from dataclasses import dataclass
 
 # transports map a provider to the wire protocol used to call it.
 # openai_audio -> POST {base}/audio/transcriptions (whisper-style)
-# gemini       -> POST {base}/models/{model}:generateContent
 OPENAI_AUDIO = "openai_audio"
-GEMINI = "gemini"
 
 
 @dataclass(frozen=True)
@@ -33,7 +29,7 @@ class ProviderModel:
 class Provider:
     id: str
     label: str
-    group: str  # "frontier" | "oss" | "custom"
+    group: str  # "oss" | "custom"
     transport: str
     base_url: str
     models: tuple[ProviderModel, ...]
@@ -47,48 +43,6 @@ class Provider:
 
 _PROVIDERS: tuple[Provider, ...] = (
     Provider(
-        id="openai",
-        label="OpenAI",
-        group="frontier",
-        transport=OPENAI_AUDIO,
-        base_url="https://api.openai.com/v1",
-        models=(
-            ProviderModel("gpt-4o-transcribe", "GPT-4o Transcribe"),
-            ProviderModel("gpt-4o-mini-transcribe", "GPT-4o mini Transcribe"),
-            ProviderModel(
-                "gpt-4o-transcribe-diarize", "GPT-4o Transcribe (diarized)"
-            ),
-            ProviderModel("whisper-1", "Whisper v2"),
-        ),
-    ),
-    Provider(
-        id="google",
-        label="Google Gemini",
-        group="frontier",
-        transport=GEMINI,
-        base_url="https://generativelanguage.googleapis.com/v1beta",
-        models=(
-            ProviderModel("gemini-3.5-flash", "Gemini 3.5 Flash"),
-            ProviderModel("gemini-2.5-flash", "Gemini 2.5 Flash"),
-            ProviderModel("gemini-2.5-pro", "Gemini 2.5 Pro"),
-        ),
-    ),
-    Provider(
-        id="anthropic",
-        label="Anthropic",
-        group="frontier",
-        transport=OPENAI_AUDIO,
-        base_url="",
-        models=(),
-        available=False,
-        note=(
-            "Audio transcription via the Anthropic API isn't available "
-            "yet — Claude models don't accept audio input. For an "
-            "open-weights Anthropic audio model, self-host it under the "
-            "open-source option."
-        ),
-    ),
-    Provider(
         id="oss",
         label="Open-source (self-hosted)",
         group="oss",
@@ -100,7 +54,6 @@ _PROVIDERS: tuple[Provider, ...] = (
             ProviderModel("whisper-large-v3", "Whisper large-v3"),
             ProviderModel("whisper-large-v3-turbo", "Whisper large-v3 turbo"),
             ProviderModel("distil-whisper-large-v3", "Distil-Whisper large-v3"),
-            ProviderModel("claude-audio", "claude-audio (Hugging Face)"),
         ),
         note=(
             "Point at your own OpenAI-compatible server (vLLM, "
@@ -118,6 +71,12 @@ _PROVIDERS: tuple[Provider, ...] = (
         note="Any OpenAI-compatible /audio/transcriptions endpoint.",
     ),
 )
+
+# providers that used to be offered and were withdrawn; a config saved
+# while one of these was active must be actively reconciled (see
+# ai_config.reconcile_retired_provider), never left to silently keep
+# calling the real endpoint under a catalog entry that no longer exists.
+RETIRED_PROVIDER_IDS = frozenset({"openai", "google", "anthropic"})
 
 _BY_ID = {p.id: p for p in _PROVIDERS}
 
