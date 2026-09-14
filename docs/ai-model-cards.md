@@ -163,6 +163,72 @@ on-device one and traceable to the exact provider and endpoint used.
 
 ---
 
+## Text generation (opt-in, BYO endpoint) — Case Narrative
+
+A second, independent AI capability alongside cloud transcription: an
+opt-in, admin-configured self-hosted or custom OpenAI-compatible chat
+endpoint, used to draft a plain-language narrative over **a case's own
+structured metadata** — chain-of-custody entries for an asset, or a
+case's audit log — never over evidentiary content. There is nothing for
+the model to hallucinate *about* beyond phrasing, since every claim in
+the draft is checkable against the very rows it summarized.
+
+### Where it is invoked
+
+- Settings: `backend/src/loom/services/ai_config.py`
+  (`TextGenConfig`, key `"ai_text_generation"`) and
+  `backend/src/loom/services/text_generation_providers.py` (catalog).
+- Generation: `backend/src/loom/services/narrative_generation.py`,
+  function `generate_narrative`.
+- API: `POST /cases/{case_id}/narratives` (case editor+),
+  `GET /cases/{case_id}/narratives`,
+  `POST /cases/{case_id}/narratives/{id}/approve|reject` (editor+).
+
+### What is sent, and what is not
+
+Only structured rows already rendered in Loom's own UI: a
+`ChainOfCustodyEntry` per asset, or `AuditLogEntry` rows scoped to a
+case (the same feed shown as "Recent Activity" on the case Overview
+tab). **Never** transcript text, OCR text, annotation content, or any
+other evidentiary material — the generation service's input type only
+accepts typed audit/custody rows, not an ORM object it could reach
+further into.
+
+### Human review gate
+
+Every draft starts as `status="draft"` — inert, not exportable. Only a
+dedicated approve/reject endpoint (never a generic update) can change
+that, and doing so is itself audited. **Only `status == "approved"`
+narratives are ever eligible for inclusion in a report, court bundle,
+or export manifest** — enforced in
+`backend/src/loom/services/report.py`,
+`backend/src/loom/services/court_bundle.py`, and
+`backend/src/loom/services/export.py`. The UI shows a persistent
+"AI-drafted" badge on every narrative, before and after review — it
+never disappears, so an AI-drafted narrative can never be mistaken for
+verified evidence.
+
+### Known limitations
+
+- Generation is refused while a case is under litigation hold.
+- Refused if text generation isn't configured, or if there are no
+  custody/audit entries to summarize.
+- Endpoint safety follows the same rules as cloud transcription
+  (request-time re-validation, banned address ranges, loopback
+  restricted to the `lite` profile, https required for non-loopback).
+- Not yet extended to transcript, OCR, or annotation content — doing so
+  would first require transcript-level redaction support, which does
+  not exist today (redactions only ever apply to derivative media).
+
+### What it does NOT do
+
+- Does not run unless an admin explicitly enables text generation and
+  a case editor+ triggers it.
+- Does not send transcript, OCR, or annotation content — ever.
+- Does not enter any export until a human explicitly approves it.
+
+---
+
 ## pyannote.audio — Speaker Diarization
 
 ### Package
