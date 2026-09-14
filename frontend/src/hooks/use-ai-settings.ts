@@ -95,3 +95,101 @@ export function useUpdateAiSettings(): ReturnType<
     },
   });
 }
+
+export interface TextGenSettings {
+  enabled: boolean;
+  provider: string;
+  apiBaseUrl: string;
+  model: string;
+  apiKeySet: boolean;
+  providerAvailable: boolean;
+  keyDecryptable: boolean;
+}
+
+// sent verbatim (api-client does not transform request bodies), so the
+// wire shape is snake_case to match the backend schema.
+export interface TextGenSettingsUpdate {
+  enabled?: boolean;
+  provider?: string;
+  api_base_url?: string;
+  model?: string;
+  api_key?: string;
+}
+
+export interface TextGenProviderModel {
+  id: string;
+  label: string;
+  contextWindow: number | null;
+}
+
+export interface TextGenProvider {
+  id: string;
+  label: string;
+  group: string;
+  models: TextGenProviderModel[];
+  requiresApiKey: boolean;
+  baseUrl: string;
+  baseUrlEditable: boolean;
+  note: string;
+}
+
+interface TextGenProvidersResponse {
+  providers: TextGenProvider[];
+}
+
+const textGenSettingsKey = ['settings', 'ai', 'text-generation'] as const;
+const textGenProvidersKey = [
+  'settings',
+  'ai',
+  'text-generation',
+  'providers',
+] as const;
+
+export function useTextGenSettings(): ReturnType<
+  typeof useQuery<TextGenSettings>
+> {
+  return useQuery({
+    queryKey: textGenSettingsKey,
+    queryFn: () =>
+      apiClient.get<TextGenSettings>('/settings/ai/text-generation'),
+  });
+}
+
+export function useTextGenProviders(): ReturnType<
+  typeof useQuery<TextGenProvider[]>
+> {
+  return useQuery({
+    queryKey: textGenProvidersKey,
+    queryFn: async () => {
+      const res = await apiClient.get<TextGenProvidersResponse>(
+        '/settings/ai/text-generation/providers',
+      );
+      return res.providers;
+    },
+    // the catalog is static for the life of the app
+    staleTime: Infinity,
+  });
+}
+
+export function useUpdateTextGenSettings(): ReturnType<
+  typeof useMutation<TextGenSettings, Error, TextGenSettingsUpdate>
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: TextGenSettingsUpdate) =>
+      apiClient.put<TextGenSettings>('/settings/ai/text-generation', patch),
+    onSuccess: (data) => {
+      queryClient.setQueryData(textGenSettingsKey, data);
+      useToastStore.getState().addToast({
+        type: 'success',
+        message: 'Text-generation settings saved',
+      });
+    },
+    onError: (error: Error) => {
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: error.message || 'Failed to save text-generation settings',
+      });
+    },
+  });
+}

@@ -6,8 +6,16 @@ import {
   useAiSettings,
   useAiProviders,
   useUpdateAiSettings,
+  useTextGenSettings,
+  useTextGenProviders,
+  useUpdateTextGenSettings,
 } from '@/hooks/use-ai-settings';
-import type { AiSettings, AiProvider } from '@/hooks/use-ai-settings';
+import type {
+  AiSettings,
+  AiProvider,
+  TextGenSettings,
+  TextGenProvider,
+} from '@/hooks/use-ai-settings';
 
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
@@ -137,6 +145,93 @@ describe('useUpdateAiSettings', () => {
       expect(addToast).toHaveBeenCalledWith({
         type: 'error',
         message: 'nope',
+      }),
+    );
+  });
+});
+
+const textGenSettings: TextGenSettings = {
+  enabled: false,
+  provider: '',
+  apiBaseUrl: '',
+  model: '',
+  apiKeySet: false,
+  providerAvailable: true,
+  keyDecryptable: true,
+};
+
+describe('useTextGenSettings', () => {
+  it('fetches the text-generation settings from the settings endpoint', async () => {
+    const { apiClient } = await import('@/lib/api-client');
+    vi.mocked(apiClient.get).mockResolvedValueOnce(textGenSettings);
+
+    const { result } = renderHook(() => useTextGenSettings(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(apiClient.get).toHaveBeenCalledWith('/settings/ai/text-generation');
+    expect(result.current.data).toEqual(textGenSettings);
+  });
+});
+
+describe('useTextGenProviders', () => {
+  it('unwraps the providers array from the response envelope', async () => {
+    const provider: TextGenProvider = {
+      id: 'oss',
+      label: 'Open-source (self-hosted)',
+      group: 'oss',
+      models: [{ id: 'gpt-oss-20b', label: 'gpt-oss-20b', contextWindow: 128000 }],
+      requiresApiKey: false,
+      baseUrl: '',
+      baseUrlEditable: true,
+      note: '',
+    };
+    const { apiClient } = await import('@/lib/api-client');
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ providers: [provider] });
+
+    const { result } = renderHook(() => useTextGenProviders(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(apiClient.get).toHaveBeenCalledWith(
+      '/settings/ai/text-generation/providers',
+    );
+    expect(result.current.data).toEqual([provider]);
+  });
+});
+
+describe('useUpdateTextGenSettings', () => {
+  it('sends the patch body verbatim to the settings endpoint', async () => {
+    const { apiClient } = await import('@/lib/api-client');
+    vi.mocked(apiClient.put).mockResolvedValueOnce(textGenSettings);
+
+    const { result } = renderHook(() => useUpdateTextGenSettings(), {
+      wrapper: createWrapper(),
+    });
+    result.current.mutate({ provider: 'custom', api_key: 'secret' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(vi.mocked(apiClient.put)).toHaveBeenCalledWith(
+      '/settings/ai/text-generation',
+      { provider: 'custom', api_key: 'secret' },
+    );
+  });
+
+  it('shows a success toast after saving', async () => {
+    const { apiClient } = await import('@/lib/api-client');
+    vi.mocked(apiClient.put).mockResolvedValueOnce(textGenSettings);
+
+    const { result } = renderHook(() => useUpdateTextGenSettings(), {
+      wrapper: createWrapper(),
+    });
+    result.current.mutate({ enabled: true });
+
+    await waitFor(() =>
+      expect(addToast).toHaveBeenCalledWith({
+        type: 'success',
+        message: 'Text-generation settings saved',
       }),
     );
   });
