@@ -14,6 +14,7 @@ from loom.models.derivative import Derivative
 from loom.models.duplicate import DuplicateCluster, DuplicateClusterMember
 from loom.models.event_cluster import EventCluster, EventClusterItem
 from loom.models.export_bundle import ExportBundle
+from loom.models.narrative_draft import NarrativeDraft
 from loom.models.ocr import OcrRegion
 from loom.models.organization import (
     Organization,
@@ -47,6 +48,7 @@ __all__ = [
     "EventCluster",
     "EventClusterItem",
     "ExportBundle",
+    "NarrativeDraft",
     "OcrRegion",
     "Organization",
     "OrganizationMembership",

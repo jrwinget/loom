@@ -22,6 +22,7 @@ from loom.api.v1.health import router as health_router
 from loom.api.v1.imports import router as imports_router
 from loom.api.v1.integrity import router as integrity_router
 from loom.api.v1.mfa import router as mfa_router
+from loom.api.v1.narratives import router as narratives_router
 from loom.api.v1.ocr import router as ocr_router
 from loom.api.v1.organizations import router as organizations_router
 from loom.api.v1.plugins import router as plugins_router
@@ -45,6 +46,7 @@ api_router.include_router(mfa_router)
 api_router.include_router(cases_router)
 api_router.include_router(assets_router)
 api_router.include_router(annotations_router)
+api_router.include_router(narratives_router)
 api_router.include_router(timeline_router)
 api_router.include_router(clusters_router)
 api_router.include_router(conflicts_router)
