@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     secret_key: str = _INSECURE_DEFAULT
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+
+    # encrypts secrets (e.g. a stored cloud/self-hosted ai provider api
+    # key) at rest in app_settings. deliberately independent of
+    # secret_key — that key only signs jwts, and reusing it here would
+    # couple api-key decryptability to session-token rotation. when unset,
+    # a per-install key is generated once and stored under
+    # resolved_data_dir() instead (see services/secret_box.py).
+    ai_secret_key: str | None = None
     # vite dev server (both spellings — `tauri dev` loads the bundle
     # from 127.0.0.1:3000 while `pnpm dev` web uses localhost:3000) plus
     # the two production tauri webview origins: `tauri://localhost` on

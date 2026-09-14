@@ -11,6 +11,16 @@ class AiSettingsResponse(BaseModel):
     transcription_model: str
     whisper_model: str
     api_key_set: bool
+    # false when ``provider`` names a catalog entry that no longer
+    # exists (e.g. a frontier provider that has since been removed) —
+    # the ui shows a warning instead of silently disabling cloud
+    # transcription with no explanation.
+    provider_available: bool = True
+    # false when a stored api key can't be decrypted with the currently
+    # -available key (rotated/lost key, corrupt data, moved to a
+    # different machine) — the ui prompts re-entry rather than letting
+    # cloud transcription fail opaquely at inference time.
+    key_decryptable: bool = True
 
 
 class AiSettingsUpdate(BaseModel):

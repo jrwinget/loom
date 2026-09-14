@@ -1,6 +1,5 @@
-import base64
+import json
 import logging
-import mimetypes
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -10,22 +9,23 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.transcript import TranscriptSegment
-from loom.services.ai_providers import GEMINI, transport_for
+from loom.services.ai_config import assert_resolved_host_safe, validate_endpoint
+from loom.services.ai_providers import get_provider
 from loom.services.engines import (
     REMEDY_WHISPER,
     EngineUnavailableError,
 )
 from loom.services.model_metadata import build_provenance
 
-# gemini's inline-data path caps the request body (~20MB); base64 adds
-# ~33%, so guard the raw file a little under that. larger files need the
-# files-api upload path (a follow-up).
-_GEMINI_INLINE_MAX_BYTES = 15 * 1024 * 1024
-
 logger = logging.getLogger(__name__)
 
-# generous ceiling: a long recording transcribed by a cloud api.
-_CLOUD_TIMEOUT_S = 300.0
+# a long recording transcribed by a cloud/self-hosted api; generous but
+# bounded so a hung peer can't hold a worker forever.
+_CLOUD_TIMEOUT = httpx.Timeout(connect=5.0, read=300.0, write=60.0, pool=5.0)
+# a self-hosted/custom endpoint is user-configured, not trusted: cap the
+# response body we'll buffer rather than reading an unbounded stream
+# from a hostile or misbehaving peer into memory.
+_MAX_RESPONSE_BYTES = 25 * 1024 * 1024
 
 _WHISPER_PACKAGE = "faster-whisper"
 _WHISPER_MODEL_NAME = "faster-whisper"
@@ -98,6 +98,24 @@ def _cloud_provenance(
     }
 
 
+async def _read_capped(resp: httpx.Response) -> bytes:
+    """buffer a streamed response up to :data:`_MAX_RESPONSE_BYTES`.
+
+    a self-hosted/custom endpoint is user-configured, not trusted —
+    buffering an unbounded body from a hostile or misbehaving peer via
+    ``resp.json()`` would let it exhaust memory.
+    """
+    chunks = bytearray()
+    async for chunk in resp.aiter_bytes():
+        chunks += chunk
+        if len(chunks) > _MAX_RESPONSE_BYTES:
+            raise ValueError(
+                "ai endpoint response exceeded the "
+                f"{_MAX_RESPONSE_BYTES}-byte cap"
+            )
+    return bytes(chunks)
+
+
 async def transcribe_via_cloud(
     file_path: str,
     *,
@@ -106,21 +124,24 @@ async def transcribe_via_cloud(
     api_key: str,
     model: str,
 ) -> list[dict[str, Any]]:
-    """transcribe a file via the cloud, dispatching on the provider.
+    """transcribe a file via a self-hosted/custom OpenAI-compatible
+    endpoint.
 
     sends the original file (audio or video) directly — the api
     extracts audio server-side — so no local ffmpeg is required.
-    returns segments in the same shape as :func:`transcribe_audio`,
-    with provenance marking the cloud provider and endpoint.
+    returns segments in the same shape as :func:`transcribe_audio`, with
+    provenance marking the endpoint used.
+
+    re-validates the endpoint immediately before dispatch rather than
+    trusting it was checked when saved (a config row can be written by a
+    path other than the settings api) and resolves the hostname to catch
+    a dns-rebinding attempt that a static url check alone can't see.
     """
-    if transport_for(provider) == GEMINI:
-        return await _transcribe_gemini(
-            file_path,
-            provider=provider,
-            base_url=base_url,
-            api_key=api_key,
-            model=model,
-        )
+    known = get_provider(provider) if provider else None
+    # an empty provider is a pre-catalog config, treated as "custom".
+    allow_local = known.base_url_editable if known else True
+    validate_endpoint(base_url, allow_local=allow_local)
+    assert_resolved_host_safe(base_url, allow_local=allow_local)
     return await _transcribe_openai_audio(
         file_path,
         provider=provider,
@@ -138,7 +159,7 @@ async def _transcribe_openai_audio(
     api_key: str,
     model: str,
 ) -> list[dict[str, Any]]:
-    """OpenAI-compatible /audio/transcriptions (OpenAI, self-hosted)."""
+    """OpenAI-compatible /audio/transcriptions (self-hosted or custom)."""
     endpoint = base_url.rstrip("/") + "/audio/transcriptions"
     provenance = _cloud_provenance(provider, model, base_url)
 
@@ -146,12 +167,17 @@ async def _transcribe_openai_audio(
         files = {"file": (Path(file_path).name, fh)}
         data = {"model": model, "response_format": "verbose_json"}
         headers = {"Authorization": f"Bearer {api_key}"}
-        async with httpx.AsyncClient(timeout=_CLOUD_TIMEOUT_S) as client:
-            resp = await client.post(
-                endpoint, files=files, data=data, headers=headers
-            )
-    resp.raise_for_status()
-    body = resp.json()
+        async with (
+            httpx.AsyncClient(
+                timeout=_CLOUD_TIMEOUT, follow_redirects=False
+            ) as client,
+            client.stream(
+                "POST", endpoint, files=files, data=data, headers=headers
+            ) as resp,
+        ):
+            resp.raise_for_status()
+            raw = await _read_capped(resp)
+    body = json.loads(raw)
 
     language = body.get("language")
     segments = body.get("segments") or []
@@ -179,77 +205,6 @@ async def _transcribe_openai_audio(
             }
         )
     return results
-
-
-def _gemini_transcript_text(body: dict[str, Any]) -> str:
-    """pull the transcript text out of a generateContent response."""
-    candidates = body.get("candidates") or []
-    if not candidates:
-        return ""
-    parts = (candidates[0].get("content") or {}).get("parts") or []
-    return "".join(str(p.get("text", "")) for p in parts).strip()
-
-
-async def _transcribe_gemini(
-    file_path: str,
-    *,
-    provider: str,
-    base_url: str,
-    api_key: str,
-    model: str,
-) -> list[dict[str, Any]]:
-    """Gemini generateContent with inline audio.
-
-    gemini returns prose, not timed segments, so the transcript lands as
-    a single segment. inline data caps request size; larger files need
-    the files-api upload path (not yet wired).
-    """
-    raw = Path(file_path).read_bytes()
-    if len(raw) > _GEMINI_INLINE_MAX_BYTES:
-        raise ValueError(
-            "file too large for the Gemini inline transcription path "
-            f"({len(raw)} bytes > {_GEMINI_INLINE_MAX_BYTES})"
-        )
-    mime = mimetypes.guess_type(file_path)[0] or "audio/mpeg"
-    endpoint = f"{base_url.rstrip('/')}/models/{model}:generateContent"
-    request = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "inline_data": {
-                            "mime_type": mime,
-                            "data": base64.b64encode(raw).decode("ascii"),
-                        }
-                    },
-                    {
-                        "text": (
-                            "Transcribe this recording verbatim. Return "
-                            "only the transcript text, with no commentary."
-                        )
-                    },
-                ]
-            }
-        ]
-    }
-    headers = {"x-goog-api-key": api_key}
-    async with httpx.AsyncClient(timeout=_CLOUD_TIMEOUT_S) as client:
-        resp = await client.post(endpoint, json=request, headers=headers)
-    resp.raise_for_status()
-
-    text = _gemini_transcript_text(resp.json())
-    if not text:
-        return []
-    return [
-        {
-            "start": 0.0,
-            "end": 0.0,
-            "text": text,
-            "language": None,
-            "confidence": None,
-            **_cloud_provenance(provider, model, base_url),
-        }
-    ]
 
 
 def diarize_audio(audio_path: str) -> list[dict[str, Any]]:

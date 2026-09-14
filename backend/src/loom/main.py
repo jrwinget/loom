@@ -175,6 +175,26 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.db_engine = engine
     app.state.db_session_factory = session_factory
 
+    # clear any cloud-transcription config still pointing at a frontier
+    # provider that has since been removed from the catalog, so a dead
+    # api key doesn't linger in the database after an upgrade. best
+    # -effort: AiConfig.cloud_transcription_enabled independently fails
+    # closed on a retired provider even if this never runs (e.g.
+    # pending migrations on a fresh server deploy), so a failure here
+    # must not block startup.
+    from loom.services.ai_config import reconcile_retired_provider
+
+    try:
+        async with session_factory() as startup_session:
+            if await reconcile_retired_provider(startup_session):
+                await startup_session.commit()
+    except Exception:  # startup must not fail on this
+        logging.getLogger(__name__).warning(
+            "ai provider retirement check failed at startup; will retry "
+            "on next restart",
+            exc_info=True,
+        )
+
     # trace database queries when otel is active
     if settings.otel_enabled:
         setup_db_telemetry(engine.sync_engine)
