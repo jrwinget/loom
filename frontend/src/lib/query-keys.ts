@@ -121,4 +121,8 @@ export const queryKeys = {
     byCase: (caseId: string, status?: string) =>
       ['correlations', caseId, status] as const,
   },
+  narratives: {
+    byCase: (caseId: string, assetId?: string) =>
+      ['narratives', caseId, assetId] as const,
+  },
 } as const;
