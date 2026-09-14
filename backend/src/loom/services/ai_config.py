@@ -1,4 +1,9 @@
-"""runtime AI engine configuration (key ``"ai"`` in app_settings).
+"""runtime AI engine configuration.
+
+covers two independent capabilities, each with its own ``app_settings``
+key so consent for one never silently authorizes the other:
+transcription (key ``"ai"``, :class:`AiConfig`) and text generation (key
+``"ai_text_generation"``, :class:`TextGenConfig`).
 
 local on-device engines are the default. a user may opt in to a cloud
 provider by supplying an OpenAI-compatible base url, api key, and model;
@@ -15,6 +20,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 from urllib.parse import urlparse
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,8 +39,16 @@ from loom.services.secret_box import (
     decrypt_secret,
     encrypt_secret,
 )
+from loom.services.text_generation_providers import (
+    get_text_gen_provider,
+    validate_text_gen_selection,
+)
+from loom.services.text_generation_providers import (
+    requires_api_key as text_gen_requires_api_key,
+)
 
 _AI_KEY = "ai"
+_TEXT_GEN_KEY = "ai_text_generation"
 _ALLOWED_ENGINES = ("local", "cloud")
 _DEFAULT_BASE_URL = "https://api.openai.com/v1"
 _DEFAULT_MODEL = "whisper-1"
@@ -248,6 +262,24 @@ def assert_resolved_host_safe(url: str, *, allow_local: bool) -> None:
         )
 
 
+async def read_capped_response(resp: httpx.Response, max_bytes: int) -> bytes:
+    """buffer a streamed response up to ``max_bytes``.
+
+    shared by both capabilities' egress helpers: a self-hosted/custom
+    endpoint is user-configured, not trusted, so buffering an unbounded
+    body from a hostile or misbehaving peer via ``resp.json()`` would
+    let it exhaust memory.
+    """
+    chunks = bytearray()
+    async for chunk in resp.aiter_bytes():
+        chunks += chunk
+        if len(chunks) > max_bytes:
+            raise ValueError(
+                f"ai endpoint response exceeded the {max_bytes}-byte cap"
+            )
+    return bytes(chunks)
+
+
 async def load_ai_config(session: AsyncSession) -> AiConfig:
     row = await session.scalar(
         select(AppSetting).where(AppSetting.key == _AI_KEY)
@@ -381,3 +413,111 @@ async def reconcile_retired_provider(session: AsyncSession) -> bool:
     )
     await session.flush()
     return True
+
+
+@dataclass(frozen=True)
+class TextGenConfig:
+    """text-generation config, persisted under its own app_settings key
+    (``ai_text_generation``) so opting a self-hosted endpoint in for
+    transcription never silently authorizes text-generation egress to
+    the same host."""
+
+    enabled: bool = False
+    provider: str = ""
+    api_base_url: str = ""
+    api_key: str = ""
+    model: str = ""
+    key_decryptable: bool = True
+
+    @property
+    def provider_available(self) -> bool:
+        return (
+            not self.provider
+            or get_text_gen_provider(self.provider) is not None
+        )
+
+    @property
+    def usable(self) -> bool:
+        if not self.enabled or not self.api_base_url or not self.model:
+            return False
+        if not self.provider_available or not self.key_decryptable:
+            return False
+        if text_gen_requires_api_key(self.provider):
+            return bool(self.api_key)
+        return True
+
+
+async def load_text_gen_config(session: AsyncSession) -> TextGenConfig:
+    row = await session.scalar(
+        select(AppSetting).where(AppSetting.key == _TEXT_GEN_KEY)
+    )
+    if row is None or not isinstance(row.value, dict):
+        return TextGenConfig()
+    data = row.value
+    stored_key = data.get("api_key_enc", "")
+    try:
+        api_key = decrypt_secret(stored_key)
+        key_decryptable = True
+    except SecretUnavailableError:
+        api_key = ""
+        key_decryptable = False
+    return TextGenConfig(
+        enabled=bool(data.get("enabled", False)),
+        provider=str(data.get("provider", "")),
+        api_base_url=str(data.get("api_base_url", "")),
+        api_key=api_key,
+        model=str(data.get("model", "")),
+        key_decryptable=key_decryptable,
+    )
+
+
+async def save_text_gen_config(
+    session: AsyncSession, patch: dict[str, Any]
+) -> TextGenConfig:
+    """merge ``patch`` over the stored text-generation config and
+    persist it. mirrors :func:`save_ai_config`'s merge-patch idiom: a
+    ``None`` field is left unchanged, an explicit ``""`` clears it.
+    """
+    current = await load_text_gen_config(session)
+    editable = ("enabled", "provider", "api_base_url", "api_key", "model")
+    changes = {
+        field: patch[field]
+        for field in editable
+        if patch.get(field) is not None
+    }
+    updated = replace(current, **changes)
+
+    if updated.enabled:
+        validate_text_gen_selection(updated.provider, updated.model)
+        provider = get_text_gen_provider(updated.provider)
+        assert (
+            provider is not None
+        )  # validate_text_gen_selection guarantees this
+        base_url = (
+            updated.api_base_url
+            if provider.base_url_editable
+            else provider.base_url
+        )
+        validate_endpoint(base_url, allow_local=provider.base_url_editable)
+        updated = replace(
+            updated,
+            api_base_url=base_url,
+            key_decryptable=True,
+        )
+
+    value = {
+        "enabled": updated.enabled,
+        "provider": updated.provider,
+        "api_base_url": updated.api_base_url,
+        "api_key_enc": encrypt_secret(updated.api_key),
+        "model": updated.model,
+    }
+    row = await session.scalar(
+        select(AppSetting).where(AppSetting.key == _TEXT_GEN_KEY)
+    )
+    if row is None:
+        session.add(AppSetting(key=_TEXT_GEN_KEY, value=value))
+    else:
+        row.value = value
+    await session.flush()
+    return updated

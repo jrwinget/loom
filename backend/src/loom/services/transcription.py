@@ -9,7 +9,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from loom.models.transcript import TranscriptSegment
-from loom.services.ai_config import assert_resolved_host_safe, validate_endpoint
+from loom.services.ai_config import (
+    assert_resolved_host_safe,
+    read_capped_response,
+    validate_endpoint,
+)
 from loom.services.ai_providers import get_provider
 from loom.services.engines import (
     REMEDY_WHISPER,
@@ -98,24 +102,6 @@ def _cloud_provenance(
     }
 
 
-async def _read_capped(resp: httpx.Response) -> bytes:
-    """buffer a streamed response up to :data:`_MAX_RESPONSE_BYTES`.
-
-    a self-hosted/custom endpoint is user-configured, not trusted —
-    buffering an unbounded body from a hostile or misbehaving peer via
-    ``resp.json()`` would let it exhaust memory.
-    """
-    chunks = bytearray()
-    async for chunk in resp.aiter_bytes():
-        chunks += chunk
-        if len(chunks) > _MAX_RESPONSE_BYTES:
-            raise ValueError(
-                "ai endpoint response exceeded the "
-                f"{_MAX_RESPONSE_BYTES}-byte cap"
-            )
-    return bytes(chunks)
-
-
 async def transcribe_via_cloud(
     file_path: str,
     *,
@@ -176,7 +162,7 @@ async def _transcribe_openai_audio(
             ) as resp,
         ):
             resp.raise_for_status()
-            raw = await _read_capped(resp)
+            raw = await read_capped_response(resp, _MAX_RESPONSE_BYTES)
     body = json.loads(raw)
 
     language = body.get("language")
