@@ -126,7 +126,12 @@ def install_route_name_compat() -> None:
     """
     from prometheus_fastapi_instrumentator import routing
 
-    def get_route_name(request: HTTPConnection) -> str | None:
+    # instrumentator 8.1 passes should_include_root_path by keyword; the
+    # app is never mounted under a root_path here, so it is accepted and
+    # ignored
+    def get_route_name(
+        request: HTTPConnection, should_include_root_path: bool = False
+    ) -> str | None:
         return _resolve_route_name(request.app.routes, request.scope)
 
     routing.get_route_name = get_route_name

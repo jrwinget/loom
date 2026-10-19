@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi import FastAPI
 
 from loom.config import Settings
@@ -48,6 +49,18 @@ class TestSetupTelemetryDisabled:
 
 class TestSetupTelemetryEnabled:
     """telemetry activates when enabled with sdk present."""
+
+    @pytest.fixture(autouse=True)
+    def _no_network_exporter(self):
+        # setup_telemetry installs a global tracer provider; a real otlp
+        # exporter would block later requests retrying a dead collector
+        from opentelemetry.sdk.trace.export import SpanExporter
+
+        with patch(
+            "loom.observability.OTLPSpanExporter",
+            return_value=SpanExporter(),
+        ):
+            yield
 
     def test_returns_true_when_enabled(self) -> None:
         """setup_telemetry returns True with sdk present."""
