@@ -30,7 +30,7 @@ jobs:
         with:
           version: "latest"
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -102,7 +102,7 @@ jobs:
         with:
           version: "latest"
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -190,7 +190,7 @@ jobs:
         with:
           version: "latest"
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -257,7 +257,7 @@ jobs:
         with:
           version: "latest"
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -314,7 +314,7 @@ jobs:
         with:
           version: "latest"
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -344,7 +344,7 @@ jobs:
         with:
           version: "latest"
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -402,7 +402,7 @@ jobs:
         with:
           version: "latest"
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
