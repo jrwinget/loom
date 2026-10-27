@@ -75,7 +75,11 @@ ai = [
     "pyannote.audio>=4.0.7",
 ]
 provenance = [
-    "c2pa-python>=0.38.0",
+    # 0.38.1 and 0.38.2 were published without windows wheels (0.38.2 has
+    # only two macos files), so the windows desktop build cannot install
+    # them. checked 2026-10-27. a later release that restores the windows
+    # wheels needs no edit here; dependabot will propose it.
+    "c2pa-python>=0.38.0,!=0.38.1,!=0.38.2",
 ]
 observability = [
     "opentelemetry-exporter-otlp-proto-grpc>=1.21.0",
