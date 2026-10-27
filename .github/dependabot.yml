@@ -19,6 +19,13 @@ updates:
     labels:
       - dependencies
       - backend
+    # these releases ship no windows wheels, which breaks the desktop build
+    # (see the provenance extra in backend/pyproject.toml).
+    ignore:
+      - dependency-name: c2pa-python
+        versions:
+          - "0.38.1"
+          - "0.38.2"
     groups:
       backend-minor-and-patch:
         update-types:
