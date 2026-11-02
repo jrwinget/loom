@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import socket
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
@@ -410,9 +411,23 @@ class TestDispatchMultiple:
         mock_response.is_success = True
         mock_response.text = "ok"
 
-        with patch(
-            "loom.services.webhook.httpx.AsyncClient"
-        ) as mock_client_cls:
+        # the hostnames above are fake, so resolve them to a public ip
+        # instead of hitting live dns
+        with (
+            patch(
+                "loom.services.webhook.socket.getaddrinfo",
+                return_value=[
+                    (
+                        socket.AF_INET,
+                        socket.SOCK_STREAM,
+                        6,
+                        "",
+                        ("93.184.216.34", 443),
+                    )
+                ],
+            ),
+            patch("loom.services.webhook.httpx.AsyncClient") as mock_client_cls,
+        ):
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_client_cls.return_value.__aenter__ = AsyncMock(
