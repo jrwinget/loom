@@ -382,6 +382,6 @@ async def list_members(
     members = []
     for row in rows:
         membership = row[0]
-        membership.user_email = row[1]
+        membership.user_email = row[1]  # type: ignore[attr-defined]
         members.append(membership)
     return members
