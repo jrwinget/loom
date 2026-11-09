@@ -916,13 +916,14 @@ async fn pick_directory(app: AppHandle) -> Result<Option<String>, String> {
 #[tauri::command]
 fn disk_usage(path: String) -> Result<DiskUsage, String> {
     let target = PathBuf::from(&path);
-    let disks = Disks::new_with_refreshed_list();
+    // sysinfo 0.40 made the refresh fallible
+    let disks = Disks::new_with_refreshed_list().map_err(|e| e.to_string())?;
 
     // pick the disk whose mount point is the longest prefix of the
     // target path. longer prefixes win so nested mounts beat the
     // root mount.
     let mut best: Option<(&sysinfo::Disk, usize)> = None;
-    for disk in disks.list() {
+    for disk in disks.iter() {
         let mount = disk.mount_point();
         if target.starts_with(mount) {
             let len = mount.as_os_str().len();
