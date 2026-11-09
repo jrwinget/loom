@@ -4,10 +4,25 @@
 packages:
   - "."
 
+# each override is keyed on the vulnerable range, so it stops applying once a
+# parent moves past it, and each target is bounded so it cannot jump a major
+# the parents never agreed to. one entry per major line of brace-expansion:
+# a single wide key would drag the 2.x consumers onto 5.x.
 overrides:
   "brace-expansion@<1.1.13": 1.1.13
-  "brace-expansion@>=2.0.0 <2.0.3": 2.0.3
-  "js-yaml@<4.2.0": 4.2.0
+  # GHSA-q2hr-2g5m-vwhr, GHSA-3jxr-9vmj-r5cp. 2.x line, used by minimatch 5
+  # (pinned exactly by @redocly/openapi-core).
+  "brace-expansion@>=2.0.0 <2.1.7": ">=2.1.7 <3"
+  # GHSA-q2hr-2g5m-vwhr. 5.x line, used by minimatch 10 and 11.
+  "brace-expansion@>=4.0.0 <5.0.12": ">=5.0.12 <6"
+  # GHSA-2883-xcg3-v3hh, GHSA-5p4m-2wfm-xmqj, GHSA-52cp-r559-cp3m.
+  # @redocly/openapi-core pins js-yaml to an exact version, so only an
+  # override can move it.
+  "js-yaml@<4.3.2": ">=4.3.2 <5"
+  # GHSA-g3hv-75wg-m249. fixed only in 11.x, but eslint, @eslint/config-array
+  # and typescript-estree all ask for ^10, so this crosses a major on purpose.
+  # lint, typecheck, tests and build must stay green with it.
+  "minimatch@>=7.0.0 <11.0.1": ">=11.0.1 <12"
 
 auditConfig:
   ignoreGhsas:
