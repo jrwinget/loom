@@ -90,7 +90,7 @@ async def list_shared_with_case(
     links: list[SharedEvidenceLink] = []
     for row in rows:
         link = row[0]
-        link.original_filename = row[1]
+        link.original_filename = row[1]  # type: ignore[attr-defined]
         links.append(link)
     return links
 
@@ -114,7 +114,7 @@ async def list_shared_from_case(
     links: list[SharedEvidenceLink] = []
     for row in rows:
         link = row[0]
-        link.original_filename = row[1]
+        link.original_filename = row[1]  # type: ignore[attr-defined]
         links.append(link)
     return links
 

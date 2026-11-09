@@ -70,7 +70,7 @@ async def list_annotations(
     annotations = []
     for row in rows:
         annotation = row[0]
-        annotation.created_by_email = row[1]
+        annotation.created_by_email = row[1]  # type: ignore[attr-defined]
         annotations.append(annotation)
 
     return annotations, total
@@ -91,8 +91,8 @@ async def get_annotation(
     if row is None:
         return None
     annotation = row[0]
-    annotation.created_by_email = row[1]
-    return annotation  # type: ignore[no-any-return]
+    annotation.created_by_email = row[1]  # type: ignore[attr-defined]
+    return annotation
 
 
 async def update_annotation(
@@ -118,8 +118,8 @@ async def update_annotation(
     await session.commit()
     await session.refresh(annotation)
 
-    annotation.created_by_email = email
-    return annotation  # type: ignore[no-any-return]
+    annotation.created_by_email = email  # type: ignore[attr-defined]
+    return annotation
 
 
 async def delete_annotation(

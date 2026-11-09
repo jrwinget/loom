@@ -49,11 +49,11 @@ def _build_type_queries(
         )
         subqueries.append(
             sq.with_only_columns(
-                sq.c.type,
-                sq.c.id,
-                sq.c.text,
-                sq.c.asset_id,
-                sq.c.relevance_score,
+                sq.selected_columns.type,
+                sq.selected_columns.id,
+                sq.selected_columns.text,
+                sq.selected_columns.asset_id,
+                sq.selected_columns.relevance_score,
             )
         )
         facet_queries["transcripts"] = select(func.count()).select_from(
