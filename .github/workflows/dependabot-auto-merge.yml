@@ -8,7 +8,10 @@ permissions:
 
 jobs:
   auto-merge:
-    if: github.actor == 'dependabot[bot]'
+    # gate on the pr author, not github.actor: on a manual re-run, or when a human
+    # pushes a fix to a dependabot branch, the actor changes and this job was
+    # silently skipped. the author cannot change after the fact.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Get Dependabot metadata
